@@ -32,9 +32,11 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
 
   const total = db.prepare(`SELECT COUNT(DISTINCT p.uid) as c FROM pets p ${joins} ${whereClause}`).get(...params).c;
   const rows = db.prepare(`
-    SELECT DISTINCT p.*, e.name as element_name, e.color as element_color, e.icon as element_icon
+    SELECT DISTINCT p.*, e.name as element_name, e.color as element_color, e.icon as element_icon,
+           se.name as sub_element_name, se.color as sub_element_color, se.icon as sub_element_icon
     FROM pets p
     LEFT JOIN elements e ON p.element_id = e.id
+    LEFT JOIN elements se ON p.sub_element_id = se.id
     ${joins} ${whereClause}
     ORDER BY p.${sortCol} ${sortOrder}
     LIMIT ? OFFSET ?
@@ -54,8 +56,11 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
 
 function getByUid(uid) {
   const pet = db.prepare(`
-    SELECT p.*, e.name as element_name, e.color as element_color, e.icon as element_icon
-    FROM pets p LEFT JOIN elements e ON p.element_id = e.id
+    SELECT p.*, e.name as element_name, e.color as element_color, e.icon as element_icon,
+           se.name as sub_element_name, se.color as sub_element_color, se.icon as sub_element_icon
+    FROM pets p
+    LEFT JOIN elements e ON p.element_id = e.id
+    LEFT JOIN elements se ON p.sub_element_id = se.id
     WHERE p.uid = ?
   `).get(uid);
 

@@ -107,10 +107,26 @@ def parse_detail(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
     detail = {}
 
-    # 属性
+    # 属性（支持双属性）
     attr_el = soup.select_one(".rocom_sprite_grament_attributes")
     if attr_el:
-        detail["element"] = attr_el.get_text(strip=True)
+        attr_imgs = attr_el.find_all("img")
+        if attr_imgs:
+            elements_raw = []
+            for img in attr_imgs:
+                alt = img.get("alt", "")
+                match = re.search(r"属性\s+(.+?)\.png", alt)
+                if match:
+                    elements_raw.append(match.group(1).strip())
+            if elements_raw:
+                detail["element"] = elements_raw[0]
+                detail["sub_element"] = elements_raw[1] if len(elements_raw) > 1 else None
+            else:
+                detail["element"] = attr_el.get_text(strip=True)
+                detail["sub_element"] = None
+        else:
+            detail["element"] = attr_el.get_text(strip=True)
+            detail["sub_element"] = None
 
     # 特性图标
     ability_icon_el = soup.select_one(".rocom_sprite_info_characteristic_content_icon img")
@@ -480,11 +496,18 @@ def main():
 
         pet_obj["detail"] = detail_cache.get(name) or None
 
-        # 将 detail 内的 element 字符串映射为结构化引用
+        # 将 detail 内的 element/sub_element 字符串映射为结构化引用
         if pet_obj["detail"] and elem_lookup:
             elem_name = pet_obj["detail"].get("element", "")
             if elem_name and isinstance(elem_name, str):
                 pet_obj["detail"]["element"] = elem_lookup.get(elem_name, {"id": None, "key": None, "name": elem_name, "color": "", "icon": ""})
+            sub_name = pet_obj["detail"].get("sub_element")
+            if sub_name and isinstance(sub_name, str):
+                pet_obj["detail"]["sub_element"] = elem_lookup.get(sub_name, {"id": None, "key": None, "name": sub_name, "color": "", "icon": ""})
+
+        # 同步 detail 的属性到顶层 sub_element（如果顶层没有的话）
+        if pet_obj["detail"] and pet_obj["detail"].get("sub_element") and not pet_obj.get("sub_element"):
+            pet_obj["sub_element"] = pet_obj["detail"]["sub_element"]
 
         # 将 detail 内的技能关联到 skill_list（添加 skill_ref）
         if pet_obj["detail"] and skill_lookup:

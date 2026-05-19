@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS pets (
   pet_id        TEXT NOT NULL,
   name          TEXT NOT NULL,
   element_id    INTEGER,
+  sub_element_id INTEGER,
   ability_name  TEXT,
   ability_desc  TEXT,
   hp            INTEGER DEFAULT 0,
@@ -55,7 +56,8 @@ CREATE TABLE IF NOT EXISTS pets (
   total         INTEGER DEFAULT 0,
   version       TEXT,
   image_url     TEXT,
-  FOREIGN KEY (element_id) REFERENCES elements(id)
+  FOREIGN KEY (element_id) REFERENCES elements(id),
+  FOREIGN KEY (sub_element_id) REFERENCES elements(id)
 );
 
 -- 精灵-蛋组关联表（多对多）
