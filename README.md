@@ -6,12 +6,13 @@
 
 ```
 roco/
-├── scripts/                # Python 爬虫脚本
+├── crawler/                # Python 爬虫脚本
 │   ├── run.py              # 总入口（支持全量/增量模式）
 │   ├── scrapers/           # 爬虫脚本
 │   │   ├── fetch_element_chart.py      # 属性克制关系爬取
 │   │   ├── process_element_chart.py    # 属性数据结构化处理
 │   │   ├── fetch_skill_list.py         # 技能列表爬取
+│   │   ├── fetch_egg_group.py          # 蛋组数据爬取
 │   │   ├── fetch_pet_list.py           # 精灵筛选列表爬取
 │   │   └── fetch_pet_detail.py         # 精灵详情爬取
 │   ├── utils/              # 工具模块
@@ -21,6 +22,7 @@ roco/
 ├── data/                   # 爬取数据（不纳入 git）
 │   ├── elements/           # 属性克制关系
 │   ├── skills/             # 技能数据
+│   ├── eggs/               # 蛋组数据
 │   ├── pets/               # 精灵数据
 │   ├── public/             # 图片静态资源（可作为 Vite public 目录）
 │   │   ├── elements/icons/ # 属性图标 (elem_N.png)
@@ -33,7 +35,7 @@ roco/
 │   │   └── skills/icons/   # 技能图标 (skill_N.png)
 │   ├── FIELDS.md           # 字段中英文对照表
 │   └── STRUCTURE_RULES.md  # 属性数据结构化规则
-├── frontend/               # 前端工程（技术栈待定）
+├── app/                    # 前端应用（技术栈待定）
 └── README.md
 ```
 
@@ -41,13 +43,13 @@ roco/
 
 ```bash
 # 安装依赖
-pip install -r scripts/requirements.txt
+pip install -r crawler/requirements.txt
 
-# 全量爬取（所有数据 + 图片，约 40 分钟）
-python scripts/run.py --full
+# 全量爬取（所有数据 + 图片，约 5-8 分钟）
+python crawler/run.py --full
 
 # 增量更新（仅爬取版本变更的精灵详情，秒级完成）
-python scripts/run.py --update
+python crawler/run.py --update
 ```
 
 ## 执行顺序
@@ -57,10 +59,11 @@ python scripts/run.py --update
 | 1 | fetch_element_chart.py | 爬取 18 种属性克制关系 |
 | 2 | process_element_chart.py | 结构化处理（ID/颜色/图标） |
 | 3 | fetch_skill_list.py | 爬取全部技能（469+） |
-| 4 | fetch_pet_list.py | 爬取精灵筛选列表（466+） |
-| 5 | fetch_pet_detail.py | 爬取每个精灵详情页 |
+| 4 | fetch_egg_group.py | 爬取蛋组归属数据（15 组） |
+| 5 | fetch_pet_list.py | 爬取精灵筛选列表（466+） |
+| 6 | fetch_pet_detail.py | 爬取每个精灵详情页 |
 
-步骤 1-2 为后续依赖：精灵和技能的 `element` 字段引用属性结构化数据。
+步骤 1-4 为后续依赖：精灵的 `element`、`egg_groups`、`skill_ref` 字段引用前置数据。
 
 ## 数据关联
 
@@ -69,10 +72,13 @@ python scripts/run.py --update
   ↑ 引用
 技能 (skill_list.json)          ←── 精灵.detail.skills[].skill_ref
   ↑ 引用
+蛋组 (egg_group.json)           ←── 精灵.egg_groups
+  ↑ 引用
 精灵 (pet_list.json / pet_detail.json)
 ```
 
 - 精灵 `element` → 属性对象 `{id, key, name, color, icon}`
+- 精灵 `egg_groups` → 蛋组名称列表 `["动物组", "拟人组"]`
 - 精灵技能 `skill_ref` → 技能对象 `{uid, name, icon_url}`
 - 技能 `element` → 属性对象
 

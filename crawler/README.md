@@ -1,4 +1,4 @@
-# Scripts - 洛克王国世界数据爬取
+# Crawler - 洛克王国世界数据爬取
 
 Python 脚本目录，通过 MediaWiki API 从 [洛克王国世界 BWIKI](https://wiki.biligame.com/rocom/%E9%A6%96%E9%A1%B5) 爬取数据。
 
@@ -10,7 +10,7 @@ Python 脚本目录，通过 MediaWiki API 从 [洛克王国世界 BWIKI](https:
 ## 目录说明
 
 ```
-scripts/
+crawler/
 ├── run.py              # 总入口（--full 全量 / --update 增量）
 ├── scrapers/           # 爬虫脚本
 │   ├── fetch_element_chart.py      # 属性克制关系
@@ -29,16 +29,16 @@ scripts/
 
 ```bash
 # 全量爬取
-python scripts/run.py --full
+python crawler/run.py --full
 
 # 增量更新（仅 version 变更的精灵详情）
-python scripts/run.py --update
+python crawler/run.py --update
 
 # 也可单独运行某个爬虫
-python scripts/scrapers/fetch_element_chart.py
-python scripts/scrapers/fetch_skill_list.py
-python scripts/scrapers/fetch_pet_list.py
-python scripts/scrapers/fetch_pet_detail.py
+python crawler/scrapers/fetch_element_chart.py
+python crawler/scrapers/fetch_skill_list.py
+python crawler/scrapers/fetch_pet_list.py
+python crawler/scrapers/fetch_pet_detail.py
 ```
 
 ## 限流与并发说明

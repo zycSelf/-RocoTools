@@ -2,9 +2,9 @@
 洛克王国世界 BWIKI 数据爬取 - 总入口
 
 用法：
-  python scripts/run.py          # 全量爬取
-  python scripts/run.py --full   # 全量爬取（同上）
-  python scripts/run.py --update # 增量更新（仅爬取新增/版本变更的精灵详情）
+  python crawler/run.py          # 全量爬取
+  python crawler/run.py --full   # 全量爬取（同上）
+  python crawler/run.py --update # 增量更新（仅爬取新增/版本变更的精灵详情）
 
 执行顺序：
   1. 属性克制关系（fetch_element_chart + process_element_chart）
