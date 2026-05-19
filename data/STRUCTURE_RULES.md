@@ -1,96 +1,222 @@
-# 属性克制关系 - 数据结构化规则
+# 数据结构化规则
 
-本文档定义了属性克制关系数据（`data/elements/`）经二次处理后的结构化规范。  
-后续属性新增或官方克制逻辑修改时，优先遵循本规则。
+本文档定义了项目中各类数据的结构化规范及关联关系。
 
 ---
 
-## 1. 实体 ID 分配
+## 一、属性（elements）
 
-- 每类实体从 `1` 开始递增分配数字 id
-- id 为唯一标识，不可重复
+### 规则
 
-## 2. 对象 Key 命名
+- 来源：`data/elements/element_chart_structured.json`
+- ID 分配：从 `1` 开始递增，共 18 种
+- 对象 Key：`elem_{id}` 格式（如 `elem_1`）
+- 顶层 `id_map`：`{ 数字id: "中文名" }`
 
-- 格式：`类型前缀_id`，如 `elem_1`、`pet_1`
-- 英文前缀仅作结构索引，不承载业务含义
-- 中文名称始终通过 `name` 字段承载
-
-## 3. 顶层 id_map
-
-- 格式：`{ 数字id: "中文名" }`
-- 职责：通过 id 快速查找名称
-- 示例：`{ "1": "普通", "2": "草", ... }`
-
-## 4. 实体对象结构
-
-每个实体对象必须包含以下三个标识字段：
+### 对象结构
 
 ```json
 {
-  "id": 1,          // 数字，唯一标识
-  "key": "elem_1",  // 字符串，对象索引 key
-  "name": "普通"    // 中文，显示名称
+  "id": 3,
+  "key": "elem_3",
+  "name": "火",
+  "color": "#DB5525",
+  "icon": "/public/elements/icons/elem_3.png",
+  "immunity": "灼烧",
+  "strong_against": [{"id": 2, "key": "elem_2", "name": "草"}, ...],
+  "resisted_by": [...],
+  "weak_to": [...],
+  "resistant_to": [...]
 }
 ```
 
-## 5. 关系引用格式
+### 被引用方式
 
-引用其他实体时，使用 `{id, key, name}` 对象数组：
+其他数据引用属性时，使用精简引用对象：
 
 ```json
-"strong_against": [
-  {"id": 4, "key": "elem_4", "name": "水"},
-  {"id": 5, "key": "elem_5", "name": "光"}
-]
+{
+  "id": 3,
+  "key": "elem_3",
+  "name": "火",
+  "color": "#DB5525",
+  "icon": "/public/elements/icons/elem_3.png"
+}
 ```
 
-- 程序可通过 `id` 或 `key` 做映射
-- 人眼可通过 `name` 直接阅读
+---
 
-## 6. 空值处理
+## 二、技能（skills）
 
-- 无值字段设为 `null`，不使用空字符串 `""`
-- 空数组用 `[]` 表示
+### 规则
 
-## 7. 数据保存流程
+- 来源：`data/skills/skill_list.json`
+- UID 格式：`skill_{序号}`（如 `skill_1`、`skill_469`）
+- 序号按爬取顺序分配
 
-1. **原始数据**：从 wiki 爬取后直接保存（如 `element_chart.json`）
-2. **结构化数据**：二次处理后独立保存（如 `element_chart_structured.json`）
-3. 两份数据共存，互不覆盖
+### 对象结构
 
-## 8. 目录组织
+```json
+{
+  "uid": "skill_2",
+  "name": "抓挠",
+  "element": {"id": 1, "key": "elem_1", "name": "普通", "color": "#3F89B4", "icon": "..."},
+  "category": "物攻",
+  "cost": 0,
+  "power": 35,
+  "description": "造成物伤，自己回复1能量。",
+  "version": "0.1",
+  "icon_url": "/public/skills/icons/skill_2.png"
+}
+```
+
+### 关联
+
+- `element` → 引用属性结构化对象
+
+### 被引用方式
+
+精灵技能列表中通过 `skill_ref` 引用技能：
+
+```json
+{
+  "uid": "skill_2",
+  "name": "抓挠",
+  "icon_url": "/public/skills/icons/skill_2.png"
+}
+```
+
+---
+
+## 三、精灵（pets）
+
+### 规则
+
+- 列表来源：`data/pets/pet_list.json`（扁平）
+- 详情来源：`data/pets/pet_detail.json`（结构化）
+- UID 格式：
+  - 单形态：`pet_{pet_id}`（如 `pet_002`）
+  - 多形态：`pet_{pet_id}_{序号}`（如 `pet_011_1`）
+- 多形态归属：`variants_map` 记录 `{ pet_id: [uid, uid, ...] }`
+
+### 对象结构
+
+```json
+{
+  "uid": "pet_002",
+  "pet_id": "002",
+  "name": "喵喵",
+  "element": {"id": 2, "key": "elem_2", "name": "草", "color": "#4EBC73", "icon": "..."},
+  "ability_name": "氧循环",
+  "ability_desc": "使用草系技能后，回复10%生命。",
+  "hp": 65, "speed": 33, "atk": 66, "matk": 66, "def": 49, "mdef": 91,
+  "total": 370,
+  "version": "0.6",
+  "image_url": "/public/pets/thumbnails/pet_002.png",
+  "detail": {
+    "element": {"id": 2, "key": "elem_2", "name": "草", ...},
+    "image_default": "/public/pets/default/pet_002_default.png",
+    "image_shiny": null,
+    "image_fruit": "/public/pets/fruit/pet_002_fruit.png",
+    "image_egg": "/public/pets/egg/pet_002_egg.png",
+    "height": "0.53~0.75",
+    "weight": "3.62~4.6",
+    "location": "风息山口 / ...",
+    "evolution_chain": ["喵喵", "喵呜", "魔力猫"],
+    "restrain_strong": ["光", "地", "水"],
+    "restrain_weak": ["虫", "火", "冰", "毒", "翼"],
+    "skills": [...],
+    "bloodline_skills": [...],
+    "learnable_stones": [...]
+  }
+}
+```
+
+### 关联
+
+- `element` → 引用属性结构化对象
+- `detail.skills[].skill_ref` → 引用技能对象
+
+---
+
+## 四、关联关系总览
+
+```
+┌─────────────────────────────────────────────────┐
+│                   属性 (elements)                 │
+│  elem_1 ~ elem_18                               │
+│  字段: id, key, name, color, icon, immunity      │
+│  关系: strong_against, weak_to, ...              │
+└────────────┬──────────────────────┬──────────────┘
+             │ 被引用               │ 被引用
+             ▼                      ▼
+┌────────────────────┐   ┌─────────────────────────┐
+│    技能 (skills)    │   │      精灵 (pets)         │
+│  skill_1 ~ skill_N │   │  pet_001 ~ pet_N         │
+│                    │   │                          │
+│  element → 属性引用 │   │  element → 属性引用       │
+│                    │◄──│  detail.skills[].skill_ref│
+└────────────────────┘   └─────────────────────────┘
+     ▲ 被引用                       │
+     └──────────────────────────────┘
+```
+
+### 引用方向
+
+| 源 | 目标 | 字段 | 说明 |
+|----|------|------|------|
+| 精灵 | 属性 | `element` | 精灵所属属性 |
+| 精灵.技能 | 技能 | `skill_ref` | 技能详情索引 |
+| 技能 | 属性 | `element` | 技能所属属性 |
+| 属性 | 属性 | `strong_against` 等 | 克制/抵抗关系 |
+
+### 索引方式
+
+| 数据 | 通过什么索引 | 说明 |
+|------|-------------|------|
+| 属性 | `elem_{id}` 或 `id` | 字典 key / id_map |
+| 技能 | `skill_{序号}` 即 uid | 数组遍历或按 name 查找 |
+| 精灵 | `pet_{id}` 或 `pet_{id}_{n}` | 字典 key / variants_map |
+
+---
+
+## 五、通用规则
+
+| 规则 | 说明 |
+|------|------|
+| 空值 | 使用 `null`，不用空字符串 |
+| 空数组 | `[]` |
+| 图片路径 | `/public/...` 格式，兼容 Vite |
+| 数据保存 | 原始数据和结构化数据分开保存，互不覆盖 |
+| 执行顺序 | 属性 → 技能 → 精灵列表 → 精灵详情（前者为后者依赖） |
+| 增量判断 | 通过 `version` 字段检测变更 |
+
+---
+
+## 六、目录结构
 
 ```
 data/
-├── pets/        # 精灵图鉴
-├── elements/    # 属性克制关系
-├── skills/      # 技能（预留）
-├── maps/        # 地图（预留）
-└── ...
-```
-
-按数据类型分子目录，同类的原始数据和结构化数据放在同一子目录内。
-
----
-
-## 示例：属性结构化 JSON
-
-```json
-{
-  "id_map": {
-    "1": "普通",
-    "2": "草"
-  },
-  "elements": {
-    "elem_1": {
-      "id": 1,
-      "key": "elem_1",
-      "name": "普通",
-      "immunity": null,
-      "strong_against": [],
-      "weak_to": [{"id": 12, "key": "elem_12", "name": "武"}]
-    }
-  }
-}
+├── elements/                          # 属性
+│   ├── element_chart.json             # 原始数据
+│   ├── element_chart_structured.json  # 结构化数据
+│   └── element_chart.csv
+├── skills/                            # 技能
+│   ├── skill_list.json
+│   └── skill_list.csv
+├── pets/                              # 精灵
+│   ├── pet_list.json                  # 筛选列表
+│   ├── pet_list.csv
+│   └── pet_detail.json               # 详情（含关联）
+├── public/                            # 图片静态资源
+│   ├── elements/icons/                # elem_N.png
+│   ├── skills/icons/                  # skill_N.png
+│   └── pets/                          # 精灵图片
+│       ├── thumbnails/                # {uid}.png
+│       ├── default/                   # {uid}_default.png
+│       ├── shiny/                     # {uid}_shiny.png
+│       ├── fruit/                     # {uid}_fruit.png
+│       └── egg/                       # {uid}_egg.png
+├── FIELDS.md                          # 字段对照表
+└── STRUCTURE_RULES.md                 # 本文档
 ```

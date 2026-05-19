@@ -6,11 +6,12 @@
 
 | Key | 中文名 | 类型 | 示例 |
 |-----|--------|------|------|
+| uid | 唯一标识 | string | "pet_002" / "pet_011_1" |
 | pet_id | 图鉴编号 | string | "001" |
 | name | 精灵名称 | string | "迪莫" |
-| element | 属性 | string | "光" |
+| element | 属性 | object | `{id, key, name, color, icon}` |
 | ability_name | 特性名称 | string | "最好的伙伴" |
-| ability_desc | 特性描述 | string | "造成克制伤害后，获得攻防速+20%..." |
+| ability_desc | 特性描述 | string | "造成克制伤害后..." |
 | hp | 生命（种族值） | int | 120 |
 | speed | 速度（种族值） | int | 92 |
 | atk | 物攻（种族值） | int | 80 |
@@ -19,7 +20,21 @@
 | mdef | 魔防（种族值） | int | 105 |
 | total | 总种族值 | int | 582 |
 | version | 更新版本 | string | "0.6" |
-| image_url | 精灵立绘图片 | string | "https://..." |
+| image_url | 缩略图 | string | "/public/pets/thumbnails/pet_002.png" |
+
+### element 对象结构
+
+```json
+{
+  "id": 2,
+  "key": "elem_2",
+  "name": "草",
+  "color": "#4EBC73",
+  "icon": "/public/elements/icons/elem_2.png"
+}
+```
+
+---
 
 ## 精灵详情（data/pets/pet_detail.json）
 
@@ -39,17 +54,6 @@
 | 单形态 | pet_{pet_id} | pet_002 |
 | 多形态 | pet_{pet_id}_{序号} | pet_011_1, pet_011_2 |
 
-### variants_map 示例
-
-```json
-{
-  "011": ["pet_011_1", "pet_011_2", "pet_011_3", ...],
-  "001": ["pet_001_1", "pet_001_2"]
-}
-```
-
-仅在 variants_map 中出现的 pet_id 才有多形态，不出现的都是单形态。
-
 ### 单个精灵对象
 
 ```json
@@ -57,24 +61,26 @@
   "uid": "pet_002",
   "pet_id": "002",
   "name": "喵喵",
-  "element": "草",
+  "element": {"id": 2, "key": "elem_2", "name": "草", "color": "#4EBC73", "icon": "..."},
   "ability_name": "氧循环",
   "ability_desc": "使用草系技能后，回复10%生命。",
   "hp": 65, "speed": 33, "atk": 66, "matk": 66, "def": 49, "mdef": 91,
   "total": 370,
   "version": "0.6",
-  "image_url": "...",
+  "image_url": "/public/pets/thumbnails/pet_002.png",
   "detail": { ... }
 }
 ```
 
-### detail 字段（详情页数据）
+### detail 字段
 
 | Key | 中文名 | 类型 |
 |-----|--------|------|
-| element | 属性 | string |
-| image_url | 高清立绘 | string |
-| image_shiny_url | 异色立绘 | string |
+| element | 属性 | object `{id,key,name,color,icon}` |
+| image_default | 本体立绘 | string/null | `/public/pets/default/{uid}_default.png` |
+| image_shiny | 异色立绘 | string/null | `/public/pets/shiny/{uid}_shiny.png` |
+| image_fruit | 果实图片 | string/null | `/public/pets/fruit/{uid}_fruit.png` |
+| image_egg | 精灵蛋图片 | string/null | `/public/pets/egg/{uid}_egg.png` |
 | height | 身高 | string |
 | weight | 体重 | string |
 | location | 精灵分布 | string |
@@ -98,6 +104,35 @@
 | cost | 能量消耗 | int | 1 |
 | power | 威力 | int | 65 |
 | description | 技能描述 | string | "对敌方精灵造成物理伤害。" |
+| skill_ref | 技能关联 | object/null | `{uid, name, icon_url}` |
+
+#### skill_ref 结构
+
+```json
+{
+  "uid": "skill_2",
+  "name": "抓挠",
+  "icon_url": "/public/skills/icons/skill_2.png"
+}
+```
+
+---
+
+## 技能列表（data/skills/skill_list.json）
+
+| Key | 中文名 | 类型 | 示例 |
+|-----|--------|------|------|
+| uid | 唯一标识 | string | "skill_1" |
+| name | 技能名称 | string | "冰锋横扫" |
+| element | 技能属性 | object | `{id, key, name, color, icon}` |
+| category | 技能分类 | string | "物攻"/"魔攻"/"防御"/"状态" |
+| cost | 能量消耗 | int | 4 |
+| power | 威力 | int | 0 |
+| description | 技能效果 | string | "造成魔伤，本技能威力等于..." |
+| version | 更新版本 | string | "0.1" |
+| icon_url | 技能图标 | string | "/public/skills/icons/skill_1.png" |
+
+---
 
 ## 属性克制关系（data/elements/element_chart_structured.json）
 
@@ -116,6 +151,8 @@
 | id | 属性编号 | int | 2 |
 | key | 索引 key | string | "elem_2" |
 | name | 属性名称 | string | "草" |
+| color | 属性颜色 | string | "#4EBC73" |
+| icon | 属性图标 | string | "/public/elements/icons/elem_2.png" |
 | immunity | 免疫效果 | string/null | "寄生" |
 | strong_against | 克制 | list[{id,key,name}] | 攻击该属性伤害×2 |
 | resisted_by | 被抵抗 | list[{id,key,name}] | 攻击该属性伤害×0.5 |
