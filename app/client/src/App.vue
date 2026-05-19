@@ -17,10 +17,12 @@
               技能 <span class="text-xs opacity-60 ml-0.5">▼</span>
             </button>
             <div v-show="skillMenuOpen"
-              class="absolute top-full left-0 mt-1 py-1 rounded-lg shadow-lg min-w-[140px] border"
-              :class="isDark ? 'bg-surface-dark border-surface-dark-border' : 'bg-white border-surface-light-border'">
-              <router-link to="/skills" class="dropdown-item" @click="skillMenuOpen = false">技能列表</router-link>
-              <router-link to="/coverage" class="dropdown-item" @click="skillMenuOpen = false">打击面分析</router-link>
+              class="absolute top-full left-0 pt-1">
+              <div class="py-1 rounded-lg shadow-lg min-w-[140px] border"
+                :class="isDark ? 'bg-surface-dark border-surface-dark-border' : 'bg-white border-surface-light-border'">
+                <router-link to="/skills" class="dropdown-item" @click="skillMenuOpen = false">技能列表</router-link>
+                <router-link to="/coverage" class="dropdown-item" @click="skillMenuOpen = false">打击面分析</router-link>
+              </div>
             </div>
           </div>
           <router-link to="/eggs" class="nav-link">蛋组</router-link>

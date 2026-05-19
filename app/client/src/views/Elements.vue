@@ -27,7 +27,8 @@
         <!-- 表头：防御方 -->
         <thead>
           <tr>
-            <th class="sticky left-0 z-10 bg-gray-50 dark:bg-surface-dark-card p-1 md:p-2 border border-surface-light-border dark:border-surface-dark-border">
+            <th class="sticky left-0 z-10 p-1 md:p-2 border border-surface-light-border dark:border-surface-dark-border"
+              :style="{ backgroundColor: isDark ? '#1E2433' : '#F9FAFB' }">
               <div class="w-8 h-8 md:w-14 md:h-14 flex items-center justify-center">
                 <span class="text-[10px] md:text-xs text-muted leading-tight text-center">攻↓ 防→</span>
               </div>
@@ -44,8 +45,8 @@
         </thead>
         <tbody>
           <tr v-for="attacker in elements" :key="'r-' + attacker.id">
-            <td class="sticky left-0 z-10 bg-gray-50 dark:bg-surface-dark-card p-1 md:p-2 border border-surface-light-border dark:border-surface-dark-border"
-              :style="{ background: attacker.color + '12' }">
+            <td class="sticky left-0 z-10 p-1 md:p-2 border border-surface-light-border dark:border-surface-dark-border"
+              :style="{ backgroundColor: isDark ? '#1E2433' : '#F9FAFB', backgroundImage: `linear-gradient(${attacker.color}12, ${attacker.color}12)` }">
               <div class="w-8 md:w-14 flex flex-col items-center gap-0.5 md:gap-1">
                 <img :src="attacker.icon" class="w-5 h-5 md:w-7 md:h-7" :title="attacker.name" />
                 <span class="text-[10px] md:text-xs font-medium hidden md:block" :style="{ color: attacker.color }">{{ attacker.name }}</span>
@@ -202,7 +203,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { elementsApi } from '@/api'
+import { useTheme } from '@/composables/useTheme'
 
+const { isDark } = useTheme()
 const elements = ref([])
 const selected = ref(null)
 const viewMode = ref('table')
