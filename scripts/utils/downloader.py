@@ -94,46 +94,70 @@ def batch_download(
     save_dir: str,
     url_key: str = "url",
     name_key: str = "filename",
-    delay: float = 0.2,
+    delay: float = 0.1,
     skip_existing: bool = True,
     label: str = "",
+    max_workers: int = 10,
 ) -> int:
     """
-    批量下载图片
+    批量并发下载图片
 
     Args:
         items: [{"url": "...", "filename": "elem_1.png"}, ...]
         save_dir: 保存目录
         url_key: URL 字段名
         name_key: 文件名字段名
-        delay: 下载间隔
+        delay: 下载间隔（每线程内）
         skip_existing: 跳过已存在
         label: 进度标签
+        max_workers: 并发线程数
 
     Returns:
         成功下载数量
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+
     total = len(items)
     success = 0
     skipped = 0
 
-    for i, item in enumerate(items, start=1):
+    # 先过滤已存在的
+    to_download = []
+    for item in items:
         url = item.get(url_key, "")
         filename = item.get(name_key, "")
         if not url or not filename:
             continue
-
         filepath = os.path.join(save_dir, filename)
         if skip_existing and os.path.exists(filepath):
             skipped += 1
-            continue
+        else:
+            to_download.append(item)
 
-        prefix = f"  [{i}/{total}]" if label else f"  [{i}/{total}]"
-        print(f"{prefix} 下载: {filename}")
+    if not to_download:
+        print(f"[INFO] {label}下载完成: 成功 0, 跳过 {skipped}, 失败 0")
+        return 0
 
+    counter_lock = threading.Lock()
+    done_count = [0]
+
+    def _dl(item):
+        url = item.get(url_key, "")
+        filename = item.get(name_key, "")
         result = download_image(url, save_dir, filename, delay=delay, skip_existing=False)
-        if result:
-            success += 1
+        with counter_lock:
+            done_count[0] += 1
+            if done_count[0] % 20 == 0 or done_count[0] == len(to_download):
+                print(f"  [{done_count[0]}/{len(to_download)}] {label}下载中...")
+        return result
 
-    print(f"[INFO] {label}下载完成: 成功 {success}, 跳过 {skipped}, 失败 {total - success - skipped}")
-    return success
+    dl_success = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_dl, item) for item in to_download]
+        for future in as_completed(futures):
+            if future.result():
+                dl_success += 1
+
+    print(f"[INFO] {label}下载完成: 成功 {dl_success}, 跳过 {skipped}, 失败 {len(to_download) - dl_success}")
+    return dl_success

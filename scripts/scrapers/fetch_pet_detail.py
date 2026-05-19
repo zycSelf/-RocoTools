@@ -61,9 +61,10 @@ HEADERS = {
     "User-Agent": "RocoDataBot/1.0 (personal data collection)"
 }
 
-REQUEST_DELAY = 5.0
+REQUEST_DELAY = 0.5
 MAX_RETRIES = 5
-RETRY_WAIT = 120
+RETRY_WAIT = 60
+CONCURRENCY = 5  # 并发线程数
 
 session = requests.Session()
 session.headers.update(HEADERS)
@@ -334,6 +335,17 @@ def main():
     else:
         print("[WARN] 未找到技能数据")
 
+    # 加载蛋组数据映射（pet_id -> [蛋组名称]）
+    EGG_GROUP_PATH = os.path.join(PROJECT_ROOT, "data", "eggs", "egg_group.json")
+    egg_group_lookup = {}
+    if os.path.exists(EGG_GROUP_PATH):
+        with open(EGG_GROUP_PATH, "r", encoding="utf-8") as f:
+            egg_data = json.load(f)
+        egg_group_lookup = egg_data.get("pet_egg_groups", {})
+        print(f"[INFO] 蛋组映射已加载（{len(egg_group_lookup)} 个 pet_id）")
+    else:
+        print("[WARN] 未找到蛋组数据")
+
     for pid, members in groups.items():
         if len(members) == 1:
             uid = f"pet_{pid}"
@@ -364,24 +376,85 @@ def main():
 
     print()
 
-    # 逐个获取详情
+    # 并发获取详情
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+
     detail_cache = {}
+    detail_lock = threading.Lock()
     pets_result = {}
 
-    for idx, (uid, pet) in enumerate(uid_assignments, start=1):
+    # 收集需要爬取的唯一名称
+    names_to_fetch = []
+    for uid, pet in uid_assignments:
+        if filter_uids and uid not in filter_uids and uid in old_pets:
+            continue
+        name = pet["name"]
+        if name not in detail_cache:
+            detail_cache[name] = None  # 占位
+            names_to_fetch.append(name)
+
+    print(f"[INFO] 需要请求详情页: {len(names_to_fetch)} 个（并发={CONCURRENCY}）")
+
+    def _fetch_one(name):
+        """线程内爬取单个详情页"""
+        try:
+            html = fetch_page_html(name)
+            detail = parse_detail(html)
+            time.sleep(REQUEST_DELAY)
+            return name, detail
+        except Exception as e:
+            time.sleep(REQUEST_DELAY)
+            return name, {"_error": str(e)}
+
+    # 并发爬取
+    fetched = 0
+    with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
+        futures = {executor.submit(_fetch_one, name): name for name in names_to_fetch}
+        for future in as_completed(futures):
+            name, result = future.result()
+            fetched += 1
+            if "_error" in result:
+                print(f"  [{fetched}/{len(names_to_fetch)}] [WARN] {name}: {result['_error']}")
+                with detail_lock:
+                    detail_cache[name] = {}
+            else:
+                print(f"  [{fetched}/{len(names_to_fetch)}] OK: {name}")
+                with detail_lock:
+                    detail_cache[name] = result
+
+    # 组装结果
+    for uid, pet in uid_assignments:
         name = pet["name"]
 
-        # 增量模式：不在更新列表中则复用旧数据
         if filter_uids and uid not in filter_uids and uid in old_pets:
-            pets_result[uid] = old_pets[uid]
+            # 复用旧详情数据，但刷新映射关系
+            pet_obj = old_pets[uid]
+            pet_obj["element"] = pet["element"]
+            pet_obj["egg_groups"] = egg_group_lookup.get(pet["pet_id"], [])
+            # 刷新 detail 内的映射
+            if pet_obj.get("detail"):
+                if elem_lookup:
+                    elem_name = pet_obj["detail"].get("element", "")
+                    if elem_name and isinstance(elem_name, str):
+                        pet_obj["detail"]["element"] = elem_lookup.get(elem_name, {"id": None, "key": None, "name": elem_name, "color": "", "icon": ""})
+                if skill_lookup:
+                    for skill_key in ("skills", "bloodline_skills", "learnable_stones"):
+                        for skill in pet_obj["detail"].get(skill_key, []):
+                            sname = skill.get("name", "")
+                            if sname in skill_lookup:
+                                skill["skill_ref"] = skill_lookup[sname]
+                            else:
+                                skill["skill_ref"] = None
+            pets_result[uid] = pet_obj
             continue
 
-        # 构建独立对象
         pet_obj = {
             "uid": uid,
             "pet_id": pet["pet_id"],
             "name": name,
             "element": pet["element"],
+            "egg_groups": egg_group_lookup.get(pet["pet_id"], []),
             "ability_name": pet["ability_name"],
             "ability_desc": pet["ability_desc"],
             "hp": pet["hp"],
@@ -396,17 +469,7 @@ def main():
             "detail": None,
         }
 
-        # 获取详情（缓存同名）
-        if name not in detail_cache:
-            print(f"  [{idx}/{total}] 获取: {name}")
-            try:
-                detail_cache[name] = parse_detail(fetch_page_html(name))
-            except Exception as e:
-                print(f"    [WARN] {e}")
-                detail_cache[name] = {}
-            time.sleep(REQUEST_DELAY)
-
-        pet_obj["detail"] = detail_cache[name] or None
+        pet_obj["detail"] = detail_cache.get(name) or None
 
         # 将 detail 内的 element 字符串映射为结构化引用
         if pet_obj["detail"] and elem_lookup:
@@ -479,7 +542,7 @@ def main():
     total = len(pets_result)
 
     # 顶层字段
-    top_fields = ["uid", "pet_id", "name", "element", "ability_name", "ability_desc",
+    top_fields = ["uid", "pet_id", "name", "element", "egg_groups", "ability_name", "ability_desc",
                    "hp", "speed", "atk", "matk", "def", "mdef", "total", "version", "image_url", "detail"]
     # detail 内字段
     detail_fields = ["element", "image_default", "image_shiny", "image_fruit", "image_egg",

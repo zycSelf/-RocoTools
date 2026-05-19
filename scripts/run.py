@@ -43,6 +43,11 @@ STEPS = [
         "always_run": True,
     },
     {
+        "name": "蛋组数据",
+        "script": "fetch_egg_group.py",
+        "always_run": True,
+    },
+    {
         "name": "精灵列表",
         "script": "fetch_pet_list.py",
         "always_run": True,
@@ -195,8 +200,8 @@ def main():
                 print("[ERROR] 属性数据为后续依赖，终止执行")
                 break
 
-        # 步骤间冷却，防止限流
-        time.sleep(5)
+        # 步骤间冷却
+        time.sleep(2)
 
     # 总结
     elapsed = time.time() - start_time
@@ -205,7 +210,7 @@ def main():
     print(f"[SUMMARY] 模式: {mode.upper()} | 耗时: {elapsed:.1f}s")
     print("=" * 60)
     for name, status in results:
-        icon = "✓" if status in ("ok", "skipped", "updated") else "✗"
+        icon = "[OK]" if status in ("ok", "skipped", "updated") else "[FAIL]"
         print(f"  {icon} {name}: {status}")
     print()
 
@@ -215,6 +220,121 @@ def main():
         sys.exit(1)
     else:
         print("[DONE] 全部完成！")
+
+    # 数据完整性汇总分析
+    print()
+    print_integrity_summary()
+
+
+def print_integrity_summary():
+    """读取所有数据文件，打印汇总完整性报告"""
+    from datetime import datetime
+
+    print("=" * 60)
+    print("[INTEGRITY] 数据完整性汇总分析")
+    print("=" * 60)
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"  分析时间: {now}")
+    print()
+
+    summary_sections = []
+
+    # 1. 属性数据
+    elem_path = os.path.join(DATA_DIR, "elements", "element_chart_structured.json")
+    if os.path.exists(elem_path):
+        with open(elem_path, "r", encoding="utf-8") as f:
+            elem_data = json.load(f)
+        elem_count = len(elem_data.get("elements", {}))
+        print(f"  [elements] 属性数据: {elem_count} 种")
+        summary_sections.append(f"| 属性 (elements) | {elem_count} | - | 0.0% |")
+    else:
+        print(f"  [elements] 属性数据: 未找到")
+        summary_sections.append(f"| 属性 (elements) | 0 | - | - |")
+
+    # 2. 技能数据
+    skill_path = os.path.join(DATA_DIR, "skills", "skill_list.json")
+    if os.path.exists(skill_path):
+        with open(skill_path, "r", encoding="utf-8") as f:
+            skill_list = json.load(f)
+        skill_total = len(skill_list)
+        skill_missing_fields = {}
+        for field in ["uid", "name", "element", "category", "cost", "power", "description", "icon_url"]:
+            miss = sum(1 for s in skill_list if not s.get(field))
+            if miss > 0:
+                skill_missing_fields[field] = miss
+        skill_issues = f" (缺失: {skill_missing_fields})" if skill_missing_fields else ""
+        print(f"  [skills] 技能数据: {skill_total} 条{skill_issues}")
+        miss_rate = sum(skill_missing_fields.values()) / (skill_total * 8) * 100 if skill_missing_fields else 0
+        summary_sections.append(f"| 技能 (skills) | {skill_total} | {sum(skill_missing_fields.values()) if skill_missing_fields else 0} 字段缺失 | {miss_rate:.1f}% |")
+    else:
+        print(f"  [skills] 技能数据: 未找到")
+        summary_sections.append(f"| 技能 (skills) | 0 | - | - |")
+
+    # 3. 精灵列表
+    pet_list_path = os.path.join(DATA_DIR, "pets", "pet_list.json")
+    if os.path.exists(pet_list_path):
+        with open(pet_list_path, "r", encoding="utf-8") as f:
+            pet_list = json.load(f)
+        pet_list_total = len(pet_list)
+        print(f"  [pets/list] 精灵列表: {pet_list_total} 条")
+    else:
+        pet_list_total = 0
+        print(f"  [pets/list] 精灵列表: 未找到")
+
+    # 4. 精灵详情
+    pet_detail_path = os.path.join(DATA_DIR, "pets", "pet_detail.json")
+    if os.path.exists(pet_detail_path):
+        with open(pet_detail_path, "r", encoding="utf-8") as f:
+            pet_detail = json.load(f)
+        pets = pet_detail.get("pets", {})
+        detail_total = len(pets)
+        no_detail = sum(1 for p in pets.values() if not p.get("detail"))
+        no_skills = sum(1 for p in pets.values() if p.get("detail") and not p["detail"].get("skills"))
+        print(f"  [pets/detail] 精灵详情: {detail_total} 条 (无detail: {no_detail}, 无skills: {no_skills})")
+
+        # 关键字段缺失率
+        key_fields = {
+            "detail": no_detail,
+            "skills": no_skills,
+            "image_default": sum(1 for p in pets.values() if not (p.get("detail") and p["detail"].get("image_default"))),
+            "evolution_chain": sum(1 for p in pets.values() if not (p.get("detail") and p["detail"].get("evolution_chain"))),
+        }
+        print(f"  [pets/detail] 关键缺失: {key_fields}")
+    else:
+        detail_total = 0
+        print(f"  [pets/detail] 精灵详情: 未找到")
+
+    # 5. 图片资源统计
+    print()
+    img_stats = {}
+    img_dirs = {
+        "缩略图": os.path.join(DATA_DIR, "public", "pets", "thumbnails"),
+        "本体立绘": os.path.join(DATA_DIR, "public", "pets", "default"),
+        "异色立绘": os.path.join(DATA_DIR, "public", "pets", "shiny"),
+        "果实图片": os.path.join(DATA_DIR, "public", "pets", "fruit"),
+        "精灵蛋": os.path.join(DATA_DIR, "public", "pets", "egg"),
+        "技能图标": os.path.join(DATA_DIR, "public", "skills", "icons"),
+        "属性图标": os.path.join(DATA_DIR, "public", "elements", "icons"),
+    }
+    for label, dir_path in img_dirs.items():
+        if os.path.exists(dir_path):
+            count = len([f for f in os.listdir(dir_path) if f.endswith(".png")])
+        else:
+            count = 0
+        img_stats[label] = count
+        print(f"  [images] {label}: {count} 张")
+
+    # 打印汇总表
+    print()
+    print("-" * 60)
+    print("  汇总:")
+    print(f"    属性: {elem_count if os.path.exists(elem_path) else 0} 种")
+    print(f"    技能: {skill_total if os.path.exists(skill_path) else 0} 条")
+    print(f"    精灵(列表): {pet_list_total} 条")
+    print(f"    精灵(详情): {detail_total} 条")
+    print(f"    图片资源: {sum(img_stats.values())} 张")
+    print("-" * 60)
+    print()
 
 
 if __name__ == "__main__":

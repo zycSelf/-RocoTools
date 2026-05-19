@@ -16,8 +16,9 @@ scripts/
 │   ├── fetch_element_chart.py      # 属性克制关系
 │   ├── process_element_chart.py    # 属性结构化处理
 │   ├── fetch_skill_list.py         # 技能列表
-│   ├── fetch_pet_list.py           # 精灵筛选列表
-│   └── fetch_pet_detail.py         # 精灵详情（含增量支持）
+│   ├── fetch_egg_group.py          # 蛋组数据
+│   ├── fetch_pet_list.py           # 精灵筛选列表（注入 egg_groups）
+│   └── fetch_pet_detail.py         # 精灵详情（含增量支持 + egg_groups）
 ├── utils/              # 工具模块
 │   ├── downloader.py   # 图片批量下载（支持重试/跳过已有）
 │   └── report.py       # 完整性校验报告生成
@@ -40,12 +41,36 @@ python scripts/scrapers/fetch_pet_list.py
 python scripts/scrapers/fetch_pet_detail.py
 ```
 
-## 限流说明
+## 限流与并发说明
 
-BWIKI 对 API 请求有频率限制，脚本内置：
-- 请求间隔：5 秒（detail 爬虫）
-- 自动重试：遇到 567/429 错误等待 120 秒后重试，最多 5 次
-- 图片下载间隔：0.2 秒
-- 步骤间冷却：5 秒
+爬虫使用多线程并发加速，同时保持对 BWIKI 的友好请求：
 
-全量爬取约需 40 分钟，日常使用 `--update` 模式即可。
+| 参数 | 值 | 说明 |
+|------|------|------|
+| 详情页并发数 | 5 线程 | `fetch_pet_detail.py` 中 `CONCURRENCY` |
+| 详情页请求间隔 | 0.5s/线程 | `REQUEST_DELAY` |
+| 图片下载并发数 | 10 线程 | `downloader.py` 中 `max_workers` |
+| 图片下载间隔 | 0.1s/线程 | `delay` |
+| 限流重试等待 | 60s × 次数 | 遇到 567/429 自动等待重试，最多 5 次 |
+| 步骤间冷却 | 2s | `run.py` 中步骤间隔 |
+
+全量爬取约需 **5-8 分钟**，日常使用 `--update` 模式即可。
+
+## 执行后自动行为
+
+`run.py` 执行完成后会自动触发以下行为：
+
+1. **各脚本独立校验**：每个爬虫脚本（skill/pet_list/pet_detail）运行结束后，自动生成对应的 `*_report.md` 校验报告
+2. **汇总完整性分析**：`run.py` 所有步骤完成后，在终端末尾打印全局数据完整性汇总，包括：
+   - 各数据集记录数（属性/技能/精灵）
+   - 关键字段缺失统计
+   - 图片资源文件计数
+   - 整体数据量汇总
+
+### 校验报告位置
+
+| 数据 | 报告文件 |
+|------|----------|
+| 技能列表 | `data/skills/skill_list_report.md` |
+| 精灵列表 | `data/pets/pet_list_report.md` |
+| 精灵详情 | `data/pets/pet_detail_report.md` |

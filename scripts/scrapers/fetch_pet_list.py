@@ -50,6 +50,7 @@ CSV_FIELDS = [
 
 def fetch_page_html(page_title: str) -> str:
     """通过 MediaWiki API 获取页面解析后的 HTML"""
+    import time
     params = {
         "action": "parse",
         "page": page_title,
@@ -58,8 +59,15 @@ def fetch_page_html(page_title: str) -> str:
         "utf8": 1,
     }
     print(f"[INFO] 正在获取页面: {page_title}")
-    resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
+    for attempt in range(1, 4):
+        resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
+        if resp.status_code in (567, 429):
+            wait = 30 * attempt
+            print(f"  [RATE] 被限流({resp.status_code})，等待 {wait}s 后重试 ({attempt}/3)")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        break
     data = resp.json()
     if "error" in data:
         raise RuntimeError(f"API error: {data['error']}")
@@ -261,6 +269,22 @@ def main():
     else:
         print("[WARN] 未找到属性结构化数据，element 保持字符串格式")
 
+    # 加载蛋组数据，将 egg_groups 写入每个精灵
+    EGG_GROUP_PATH = os.path.join(PROJECT_ROOT, "data", "eggs", "egg_group.json")
+    if os.path.exists(EGG_GROUP_PATH):
+        with open(EGG_GROUP_PATH, "r", encoding="utf-8") as f:
+            egg_data = json.load(f)
+        pet_egg_groups = egg_data.get("pet_egg_groups", {})
+        for pet in pets:
+            pid = pet["pet_id"]
+            pet["egg_groups"] = pet_egg_groups.get(pid, [])
+        has_egg = sum(1 for p in pets if p["egg_groups"])
+        print(f"[INFO] egg_groups 已写入（{has_egg}/{len(pets)} 有蛋组数据）")
+    else:
+        for pet in pets:
+            pet["egg_groups"] = []
+        print("[WARN] 未找到蛋组数据，egg_groups 为空")
+
     save_csv(pets, CSV_OUTPUT)
     save_json(pets, JSON_OUTPUT)
 
@@ -288,7 +312,7 @@ def main():
     total = len(pets)
     check_fields = ["uid", "pet_id", "name", "element", "ability_name", "ability_desc",
                      "hp", "speed", "atk", "matk", "def", "mdef", "total",
-                     "version", "image_url"]
+                     "version", "image_url", "egg_groups"]
     field_checks = []
     for f in check_fields:
         has = sum(1 for p in pets if p.get(f))

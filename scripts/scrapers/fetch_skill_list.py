@@ -48,6 +48,7 @@ CSV_FIELDS = [
 # ============================================================
 
 def fetch_page_html(page_title: str) -> str:
+    import time
     params = {
         "action": "parse",
         "page": page_title,
@@ -56,8 +57,15 @@ def fetch_page_html(page_title: str) -> str:
         "utf8": 1,
     }
     print(f"[INFO] 正在获取页面: {page_title}")
-    resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
+    for attempt in range(1, 4):
+        resp = requests.get(API_URL, params=params, headers=HEADERS, timeout=30)
+        if resp.status_code in (567, 429):
+            wait = 30 * attempt
+            print(f"  [RATE] 被限流({resp.status_code})，等待 {wait}s 后重试 ({attempt}/3)")
+            time.sleep(wait)
+            continue
+        resp.raise_for_status()
+        break
     data = resp.json()
     if "error" in data:
         raise RuntimeError(f"API error: {data['error']}")

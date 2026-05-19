@@ -10,6 +10,7 @@
 | pet_id | 图鉴编号 | string | "001" |
 | name | 精灵名称 | string | "迪莫" |
 | element | 属性 | object | `{id, key, name, color, icon}` |
+| egg_groups | 蛋组 | list[string] | `["动物组", "拟人组"]` |
 | ability_name | 特性名称 | string | "最好的伙伴" |
 | ability_desc | 特性描述 | string | "造成克制伤害后..." |
 | hp | 生命（种族值） | int | 120 |
@@ -62,6 +63,7 @@
   "pet_id": "002",
   "name": "喵喵",
   "element": {"id": 2, "key": "elem_2", "name": "草", "color": "#4EBC73", "icon": "..."},
+  "egg_groups": ["动物组", "拟人组"],
   "ability_name": "氧循环",
   "ability_desc": "使用草系技能后，回复10%生命。",
   "hp": 65, "speed": 33, "atk": 66, "matk": 66, "def": 49, "mdef": 91,
@@ -158,3 +160,56 @@
 | resisted_by | 被抵抗 | list[{id,key,name}] | 攻击该属性伤害×0.5 |
 | weak_to | 弱点 | list[{id,key,name}] | 受到该属性伤害×2 |
 | resistant_to | 抗性 | list[{id,key,name}] | 受到该属性伤害×0.5 |
+
+---
+
+## 蛋组数据（data/eggs/egg_group.json）
+
+### 顶层结构
+
+| Key | 说明 |
+|-----|------|
+| group_names | 蛋组名称列表（按 ID 排序） |
+| groups | 蛋组对象字典，key 为蛋组名称 |
+| pet_egg_groups | pet_id → 所属蛋组列表映射 |
+
+### 单个蛋组对象
+
+| Key | 中文名 | 类型 | 示例 |
+|-----|--------|------|------|
+| id | 蛋组编号 | int | 1 |
+| name | 蛋组名称 | string | "动物组" |
+| count | 精灵数 | int | 78 |
+| pets | 精灵列表 | list[{pet_id, name}] | `[{"pet_id":"002","name":"喵喵"}]` |
+
+### 蛋组名称（共 15 种）
+
+| ID | 名称 |
+|----|------|
+| 0 | 无法孵蛋 |
+| 1 | 动物组 |
+| 2 | 拟人组 |
+| 3 | 巨灵组 |
+| 4 | 魔力组 |
+| 5 | 天空组 |
+| 6 | 两栖组 |
+| 7 | 植物组 |
+| 8 | 大地组 |
+| 9 | 妖精组 |
+| 10 | 昆虫组 |
+| 11 | 软体组 |
+| 12 | 机械组 |
+| 13 | 海洋组 |
+| 14 | 龙组 |
+
+### pet_egg_groups 结构
+
+```json
+{
+  "002": ["动物组", "拟人组"],
+  "005": ["巨灵组", "魔力组"],
+  "001": ["无法孵蛋"]
+}
+```
+
+注：一只精灵可属于 1-3 个蛋组；同 pet_id 的不同形态共享蛋组归属。
