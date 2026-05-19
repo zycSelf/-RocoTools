@@ -62,10 +62,10 @@ HEADERS = {
     "User-Agent": "RocoDataBot/1.0 (personal data collection)"
 }
 
-REQUEST_DELAY = 1.0
+REQUEST_DELAY = 2.0
 MAX_RETRIES = 5
-RETRY_WAIT = 60
-CONCURRENCY = 3  # 并发线程数
+RETRY_WAIT = 90
+CONCURRENCY = 2  # 并发线程数
 
 session = requests.Session()
 session.headers.update(HEADERS)
@@ -103,6 +103,44 @@ def fetch_page_html(page_title: str) -> str:
 # 详情页解析
 # ============================================================
 
+# 已知属性名列表（按长度降序，优先匹配长的）
+_KNOWN_ELEMENTS = [
+    "普通", "草", "火", "水", "冰", "电", "光", "暗", "恶",
+    "翼", "地", "毒", "龙", "虫", "岩", "机械", "妖", "武",
+]
+_KNOWN_ELEMENTS_SORTED = sorted(_KNOWN_ELEMENTS, key=len, reverse=True)
+
+
+def _split_elements(text: str) -> tuple:
+    """
+    从拼接的属性文本中拆分主副属性。
+    例如 "光地" → ("光", "地"), "机械火" → ("机械", "火"), "草" → ("草", None)
+    """
+    text = text.strip()
+    if not text:
+        return (text, None)
+
+    # 尝试从头匹配第一个属性
+    for elem in _KNOWN_ELEMENTS_SORTED:
+        if text.startswith(elem):
+            rest = text[len(elem):]
+            if not rest:
+                return (elem, None)
+            # 剩余部分尝试匹配第二个属性
+            for elem2 in _KNOWN_ELEMENTS_SORTED:
+                if rest == elem2:
+                    return (elem, elem2)
+            # 剩余部分无法匹配，但可能就是副属性名
+            if rest in _KNOWN_ELEMENTS:
+                return (elem, rest)
+            # 无法拆分，整体作为主属性
+            return (text, None)
+
+    return (text, None)
+
+
+
+
 def parse_detail(html: str) -> dict:
     soup = BeautifulSoup(html, "lxml")
     detail = {}
@@ -122,11 +160,12 @@ def parse_detail(html: str) -> dict:
                 detail["element"] = elements_raw[0]
                 detail["sub_element"] = elements_raw[1] if len(elements_raw) > 1 else None
             else:
-                detail["element"] = attr_el.get_text(strip=True)
-                detail["sub_element"] = None
+                # fallback: 从文本拆分双属性
+                raw_text = attr_el.get_text(strip=True)
+                detail["element"], detail["sub_element"] = _split_elements(raw_text)
         else:
-            detail["element"] = attr_el.get_text(strip=True)
-            detail["sub_element"] = None
+            raw_text = attr_el.get_text(strip=True)
+            detail["element"], detail["sub_element"] = _split_elements(raw_text)
 
     # 特性图标
     ability_icon_el = soup.select_one(".rocom_sprite_info_characteristic_content_icon img")

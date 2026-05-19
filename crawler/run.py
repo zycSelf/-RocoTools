@@ -201,7 +201,7 @@ def main():
                 break
 
         # 步骤间冷却
-        time.sleep(5)
+        time.sleep(10)
 
     # 总结
     elapsed = time.time() - start_time
