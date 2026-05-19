@@ -20,7 +20,9 @@
   }
 
   body {
-    @apply font-sans text-sm leading-relaxed transition-colors duration-200;
+    @apply font-sans text-sm md:text-base leading-relaxed transition-colors duration-200;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
   }
 
   // 亮色主题（默认）
@@ -36,7 +38,7 @@
 
 @layer components {
   .card {
-    @apply rounded-xl p-4 shadow-sm transition-all duration-200;
+    @apply rounded-xl p-3 md:p-5 shadow-sm transition-all duration-200;
     @apply bg-surface-light-card border border-surface-light-border;
     @apply hover:shadow-md hover:-translate-y-0.5;
 
@@ -47,7 +49,7 @@
   }
 
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+    @apply px-4 py-2 md:px-5 md:py-2.5 rounded-lg font-medium transition-all duration-150;
     @apply active:scale-95;
   }
 
@@ -63,7 +65,7 @@
   }
 
   .input {
-    @apply rounded-lg px-4 py-2 text-sm outline-none transition-all duration-150;
+    @apply rounded-lg px-3 py-2 md:px-4 md:py-2.5 outline-none transition-all duration-150 text-sm md:text-base;
     @apply bg-white border border-surface-light-border;
     @apply focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
 
@@ -83,7 +85,7 @@
   }
 
   .badge {
-    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
+    @apply inline-flex items-center px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-md text-xs font-medium;
   }
 
   .text-muted {
@@ -91,5 +93,14 @@
     .dark & {
       @apply text-gray-400;
     }
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }

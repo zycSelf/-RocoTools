@@ -180,23 +180,6 @@ def parse_detail(html: str) -> dict:
         if evo_names:
             detail["evolution_chain"] = evo_names
 
-    # 克制关系
-    restrain_box = soup.select_one(".rocom_sprite_temp_restrain_box")
-    if restrain_box:
-        labels = ["restrain_strong", "restrain_weak", "restrain_resist", "restrain_resisted"]
-        children = restrain_box.find_all("div", recursive=False)
-        for i, child in enumerate(children):
-            if i >= len(labels):
-                break
-            imgs = child.find_all("img")
-            attr_list = []
-            for img in imgs:
-                match = re.search(r"属性\s+(.+?)\.png", img.get("alt", ""))
-                if match:
-                    attr_list.append(match.group(1).strip())
-            if attr_list:
-                detail[labels[i]] = attr_list
-
     # 精灵技能
     sprite_tab = soup.select_one('.tabbertab[title="精灵技能"]')
     if sprite_tab:
@@ -610,7 +593,6 @@ def main():
     # detail 内字段
     detail_fields = ["element", "image_default", "image_shiny", "image_fruit", "image_egg",
                       "height", "weight", "location", "evolution_chain",
-                      "restrain_strong", "restrain_weak", "restrain_resist", "restrain_resisted",
                       "skills", "bloodline_skills", "learnable_stones"]
 
     field_checks = []

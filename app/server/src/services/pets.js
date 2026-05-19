@@ -6,6 +6,13 @@ const eggStmt = db.prepare(`
   WHERE peg.pet_uid = ?
 `);
 
+function getShinyList() {
+  const rows = db.prepare(`
+    SELECT pet_uid, image_shiny FROM pet_details WHERE image_shiny IS NOT NULL
+  `).all();
+  return rows.map(r => ({ uid: r.pet_uid, image_shiny: r.image_shiny }));
+}
+
 function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc' } = {}) {
   const offset = (Math.max(1, +page) - 1) * +limit;
 
@@ -20,7 +27,7 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
   // 只取每个 pet_id 的第一个形态（uid 最小的）
   where.push(`p.uid = (SELECT MIN(p2.uid) FROM pets p2 WHERE p2.pet_id = p.pet_id)`);
 
-  if (element_id) { where.push('p.element_id = ?'); params.push(+element_id); }
+  if (element_id) { where.push('(p.element_id = ? OR p.sub_element_id = ?)'); params.push(+element_id, +element_id); }
   if (search) { where.push('p.name LIKE ?'); params.push(`%${search}%`); }
   if (egg_group) {
     joins += ' JOIN pet_egg_groups peg ON p.uid = peg.pet_uid';
@@ -104,4 +111,88 @@ function getByUid(uid) {
   return pet;
 }
 
-module.exports = { list, getByUid };
+/**
+ * 查询能同时拥有指定属性攻击技能的精灵
+ * 按具体形态(pet_uid)匹配，返回能凑齐的形态
+ * 返回两组：normal（自学+技能石即可凑齐）、bloodline（需要血脉才能凑齐）
+ * @param {string[]} elementNames - 属性名称列表
+ * @returns {{ normal: Array, bloodline: Array }}
+ */
+function findByCoverage(elementNames) {
+  if (!elementNames || !elementNames.length) return { normal: [], bloodline: [] };
+
+  // 按 pet_uid 精确匹配每个形态
+  const allUids = new Set();
+  const uidElemSources = {}; // pet_uid -> { elemName -> Set<'normal'|'bloodline'> }
+
+  for (const elemName of elementNames) {
+    const rows = db.prepare(`
+      SELECT ps.pet_uid, ps.skill_type
+      FROM pet_skills ps
+      WHERE ps.element = ? AND ps.power > 0
+    `).all(elemName);
+
+    for (const row of rows) {
+      allUids.add(row.pet_uid);
+      if (!uidElemSources[row.pet_uid]) uidElemSources[row.pet_uid] = {};
+      if (!uidElemSources[row.pet_uid][elemName]) uidElemSources[row.pet_uid][elemName] = new Set();
+      const src = row.skill_type === 'bloodline_skills' ? 'bloodline' : 'normal';
+      uidElemSources[row.pet_uid][elemName].add(src);
+    }
+  }
+
+  // 筛选能凑齐的形态，按 pet_id 去重（同 pet_id 只保留最优形态）
+  const normalByPetId = {}; // pet_id -> uid
+  const bloodlineByPetId = {}; // pet_id -> { uid, bloodline_elements }
+
+  for (const uid of allUids) {
+    const sources = uidElemSources[uid];
+    if (!sources) continue;
+
+    const missing = elementNames.filter(name => !sources[name]);
+    if (missing.length > 0) continue;
+
+    const bloodlineElems = elementNames.filter(name => {
+      const s = sources[name];
+      return s && !s.has('normal');
+    });
+
+    // 提取 pet_id
+    const petId = uid.replace(/^pet_(\d+).*$/, '$1');
+
+    if (bloodlineElems.length === 0) {
+      // 自学即可：优先记录（如果同 pet_id 已有则跳过）
+      if (!normalByPetId[petId]) normalByPetId[petId] = uid;
+    } else if (bloodlineElems.length === 1) {
+      // 需要1种血脉：如果同 pet_id 已有自学方案则跳过
+      if (!normalByPetId[petId] && !bloodlineByPetId[petId]) {
+        bloodlineByPetId[petId] = { uid, bloodline_elements: bloodlineElems };
+      }
+    }
+  }
+
+  // 查询精灵信息
+  function getPetInfo(uid) {
+    return db.prepare(`
+      SELECT p.uid, p.pet_id, p.name, p.image_url,
+        e.name as element_name, e.color as element_color, e.icon as element_icon
+      FROM pets p
+      LEFT JOIN elements e ON p.element_id = e.id
+      WHERE p.uid = ?
+    `).get(uid);
+  }
+
+  const normalPets = Object.values(normalByPetId).map(uid => getPetInfo(uid)).filter(Boolean);
+  normalPets.sort((a, b) => a.pet_id.localeCompare(b.pet_id));
+
+  const bloodlinePets = Object.values(bloodlineByPetId).map(({ uid, bloodline_elements }) => {
+    const pet = getPetInfo(uid);
+    if (!pet) return null;
+    return { ...pet, bloodline_elements };
+  }).filter(Boolean);
+  bloodlinePets.sort((a, b) => a.pet_id.localeCompare(b.pet_id));
+
+  return { normal: normalPets, bloodline: bloodlinePets };
+}
+
+module.exports = { list, getByUid, getShinyList, findByCoverage };

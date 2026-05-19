@@ -166,6 +166,10 @@ function importPetDetails() {
   `);
 
   const tx = db.transaction(() => {
+    // 先清空可能有旧数据的表
+    db.prepare('DELETE FROM pet_skills').run();
+    db.prepare('DELETE FROM variants_map').run();
+
     // 多形态映射
     for (const [petId, uids] of Object.entries(variantsMap)) {
       uids.forEach((uid, i) => insertVariant.run(petId, uid, i));

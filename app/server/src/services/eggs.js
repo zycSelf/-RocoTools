@@ -15,12 +15,13 @@ function getById(id) {
   if (!group) return null;
 
   const pets = db.prepare(`
-    SELECT p.uid, p.pet_id, p.name, p.image_url,
-           e.name as element_name, e.color as element_color
+    SELECT p.pet_id, MIN(p.uid) as uid, p.name, p.image_url,
+           e.name as element_name, e.color as element_color, e.icon as element_icon
     FROM pet_egg_groups peg
     JOIN pets p ON peg.pet_uid = p.uid
     LEFT JOIN elements e ON p.element_id = e.id
     WHERE peg.egg_group_id = ?
+    GROUP BY p.pet_id
     ORDER BY p.pet_id
   `).all(id);
 
