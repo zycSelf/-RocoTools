@@ -39,18 +39,18 @@ app.get('/api', (req, res) => {
   });
 });
 
-// 前端静态文件（build 产物）
+// 前端静态文件（build 产物）挂载到 /rocotools/
 const DIST_DIR = path.join(__dirname, '..', 'public');
 const fs = require('fs');
 if (fs.existsSync(DIST_DIR)) {
-  app.use(express.static(DIST_DIR));
-  // SPA fallback: 非 API/public 的请求都返回 index.html
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api') && !req.path.startsWith('/public')) {
-      res.sendFile(path.join(DIST_DIR, 'index.html'));
-    } else {
-      res.status(404).json({ error: 'Not Found' });
-    }
+  app.use('/rocotools', express.static(DIST_DIR));
+  // SPA fallback: /rocotools 下非 API/public 的请求都返回 index.html
+  app.get('/rocotools/*', (req, res) => {
+    res.sendFile(path.join(DIST_DIR, 'index.html'));
+  });
+  // 根路径重定向到 /rocotools/
+  app.get('/', (req, res) => {
+    res.redirect('/rocotools/');
   });
 } else {
   app.use((req, res) => {
