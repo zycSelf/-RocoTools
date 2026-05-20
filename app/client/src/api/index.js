@@ -1,15 +1,25 @@
 const BASE = '/api'
+const MAX_RETRIES = 2
+const RETRY_DELAY = 500
 
-async function request(path, params) {
+async function request(path, params, retries = MAX_RETRIES) {
   const url = new URL(path, window.location.origin)
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v)
     })
   }
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`API Error: ${res.status}`)
-  return res.json()
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`API Error: ${res.status}`)
+    return res.json()
+  } catch (err) {
+    if (retries > 0 && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+      await new Promise(r => setTimeout(r, RETRY_DELAY))
+      return request(path, params, retries - 1)
+    }
+    throw err
+  }
 }
 
 export const elementsApi = {
