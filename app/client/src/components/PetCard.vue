@@ -5,10 +5,10 @@
       {{ pet.variant_count }}
     </span>
     <div class="relative w-20 h-20 md:w-28 md:h-28 mb-2 md:mb-4">
-      <img :src="`/public/pets/default/${pet.uid}_default.png`" :alt="pet.name"
+      <img :src="pet.thumb_url || `/public/pets/default/${pet.uid}_default.png`" :alt="pet.name"
         class="w-full h-full object-contain transition-all duration-300 group-hover:scale-110"
         :class="{ 'group-hover:opacity-0': shinyUrl }"
-        loading="lazy" @error="(e) => e.target.src = pet.image_url" />
+        loading="lazy" @error="(e) => e.target.src = `/public/pets/default/${pet.uid}_default.png`" />
       <img v-if="shinyUrl" :src="shinyUrl" :alt="`${pet.name}(异色)`"
         class="absolute inset-0 w-full h-full object-contain transition-all duration-300 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-110"
         loading="lazy" />

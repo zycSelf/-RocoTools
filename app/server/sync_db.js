@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * 数据同步脚本 - 将 data/ 下的 JSON 导入到 SQLite
+ * 数据同步脚本 - 生成缩略图 + 导入 JSON 到 SQLite
  *
  * 用法：
  *   cd app/server && node sync_db.js
+ *
+ * 流程：
+ *   1. 生成缩略图（WebP）+ 更新 pet_list.json
+ *   2. 初始化数据库（建表）
+ *   3. 导入数据（JSON → SQLite）
  *
  * 前置条件：
  *   npm install
@@ -13,18 +18,37 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const SERVER_DIR = __dirname;
+const THUMB_SCRIPT = path.join(SERVER_DIR, 'gen_thumbnails.js');
 const INIT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'init.js');
 const IMPORT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'import.js');
 
 console.log('============================================================');
-console.log('[SYNC] 同步 JSON 数据到 SQLite');
+console.log('[SYNC] 数据同步（缩略图 + SQLite）');
 console.log('============================================================');
 console.log();
 
-const steps = [
+// 检查 sharp 是否可用
+let hasSharp = false;
+try {
+  require.resolve('sharp');
+  hasSharp = true;
+} catch (e) {
+  // sharp 不可用
+}
+
+const steps = [];
+
+if (hasSharp) {
+  steps.push({ label: '生成缩略图 + 更新 JSON', script: THUMB_SCRIPT });
+} else {
+  console.log('[WARN] sharp 未安装，跳过缩略图生成（npm install sharp）');
+  console.log();
+}
+
+steps.push(
   { label: '初始化数据库（建表）', script: INIT_SCRIPT },
   { label: '导入数据', script: IMPORT_SCRIPT },
-];
+);
 
 for (const { label, script } of steps) {
   console.log(`[SYNC] ${label}...`);
@@ -34,8 +58,8 @@ for (const { label, script } of steps) {
     console.error(`[SYNC] ${label} 失败`);
     process.exit(1);
   }
+  console.log();
 }
 
-console.log();
-console.log('[SYNC] 数据库同步完成！');
+console.log('[SYNC] 全部完成！');
 console.log(`[SYNC] 数据库位置: ${path.join(SERVER_DIR, 'data', 'roco.db')}`);

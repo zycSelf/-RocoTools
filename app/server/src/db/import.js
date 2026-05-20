@@ -106,8 +106,8 @@ function importPets() {
   if (!data) return;
 
   const insertPet = db.prepare(`
-    INSERT OR REPLACE INTO pets (uid, pet_id, name, element_id, sub_element_id, ability_name, ability_desc, hp, speed, atk, matk, def, mdef, total, version, image_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO pets (uid, pet_id, name, element_id, sub_element_id, ability_name, ability_desc, hp, speed, atk, matk, def, mdef, total, version, image_url, thumb_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertPetEgg = db.prepare(`INSERT OR REPLACE INTO pet_egg_groups (pet_uid, egg_group_id) VALUES (?, ?)`);
@@ -126,7 +126,8 @@ function importPets() {
         pet.ability_name || null, pet.ability_desc || null,
         pet.hp || 0, pet.speed || 0, pet.atk || 0, pet.matk || 0,
         pet.def || 0, pet.mdef || 0, pet.total || 0,
-        pet.version || null, pet.image_url || null
+        pet.version || null, pet.image_url || null,
+        pet.thumb_url || null
       );
       // 蛋组关联
       for (const groupName of (pet.egg_groups || [])) {

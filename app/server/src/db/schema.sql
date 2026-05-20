@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS pets (
   total         INTEGER DEFAULT 0,
   version       TEXT,
   image_url     TEXT,
+  thumb_url     TEXT,
   FOREIGN KEY (element_id) REFERENCES elements(id),
   FOREIGN KEY (sub_element_id) REFERENCES elements(id)
 );
