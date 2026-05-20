@@ -1,41 +1,40 @@
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-
 /**
- * 图片懒加载指令
- * 只有进入视窗附近（rootMargin）才开始加载
+ * 图片懒加载指令 + 并发控制
+ * - IntersectionObserver: 只加载视窗附近的图片
+ * - 并发队列: 同时最多加载 N 张，避免连接打满
  */
-export function useLazyImage() {
-  const observer = ref(null)
 
-  onMounted(() => {
-    observer.value = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const img = entry.target
-            if (img.dataset.src) {
-              img.src = img.dataset.src
-              img.removeAttribute('data-src')
-            }
-            observer.value.unobserve(img)
-          }
-        }
-      },
-      { rootMargin: '200px 0px' } // 提前 200px 开始加载
-    )
-  })
+const MAX_CONCURRENT = 6  // 同时最多加载 6 张图片
+let activeCount = 0
+const queue = []
 
-  onBeforeUnmount(() => {
-    if (observer.value) observer.value.disconnect()
-  })
-
-  function observe(el) {
-    if (observer.value && el) {
-      observer.value.observe(el)
+function processQueue() {
+  while (activeCount < MAX_CONCURRENT && queue.length > 0) {
+    const { el, src } = queue.shift()
+    if (!el.isConnected) continue // 元素已不在 DOM 中（翻页了）
+    activeCount++
+    const img = new Image()
+    img.onload = () => {
+      el.src = src
+      activeCount--
+      processQueue()
     }
+    img.onerror = () => {
+      activeCount--
+      processQueue()
+    }
+    img.src = src
   }
+}
 
-  return { observe }
+function enqueue(el, src) {
+  queue.push({ el, src })
+  processQueue()
+}
+
+// 翻页时清空队列（旧请求不再需要）
+function clearQueue() {
+  queue.length = 0
 }
 
 /**
@@ -44,43 +43,43 @@ export function useLazyImage() {
  */
 export const vLazySrc = {
   mounted(el, binding) {
+    if (!binding.value) return
     // 占位透明像素
     el.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-    el.dataset.src = binding.value
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            el.src = el.dataset.src
-            el.removeAttribute('data-src')
+            enqueue(el, binding.value)
             observer.unobserve(el)
           }
         }
       },
-      { rootMargin: '200px 0px' }
+      { rootMargin: '300px 0px' }
     )
     observer.observe(el)
     el._lazyObserver = observer
   },
   updated(el, binding) {
+    if (!binding.value) return
     if (binding.value !== binding.oldValue) {
-      // URL 变了（翻页了），重新设置
-      if (el._lazyObserver) el._lazyObserver.unobserve(el)
+      // URL 变了（翻页），清空旧队列 + 重新观察
+      clearQueue()
+      if (el._lazyObserver) el._lazyObserver.disconnect()
+
       el.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-      el.dataset.src = binding.value
 
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              el.src = el.dataset.src
-              el.removeAttribute('data-src')
+              enqueue(el, binding.value)
               observer.unobserve(el)
             }
           }
         },
-        { rootMargin: '200px 0px' }
+        { rootMargin: '300px 0px' }
       )
       observer.observe(el)
       el._lazyObserver = observer
@@ -93,3 +92,4 @@ export const vLazySrc = {
     }
   },
 }
+
