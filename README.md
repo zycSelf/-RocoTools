@@ -74,7 +74,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/zycSelf/-RocoTools.git
+git clone https://github.com/eachyczhang/-RocoTools.git
 cd -RocoTools
 
 # 2. 爬取数据（首次需要）
@@ -164,7 +164,7 @@ BWIKI → crawler(采集+清洗) → data/(JSON+图片) → sync_db.js → SQLit
 
 ## 版权声明
 
-© 2026 **Roco Tools** — Developed by [@eachzhang](https://github.com/zycSelf)
+© 2026 **Roco Tools** — Developed by [@eachzhang](https://github.com/eachyczhang)
 
 - 数据引用自 [B站洛克王国Wiki](https://wiki.biligame.com/rocom/)，版权归哔哩哔哩游戏wiki所有
 - 洛克王国游戏及相关IP版权归腾讯公司所有

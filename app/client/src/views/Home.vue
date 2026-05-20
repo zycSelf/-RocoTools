@@ -68,7 +68,7 @@
         <div>
           <h3 class="font-medium mb-1">©️ 版权声明</h3>
           <div class="text-muted space-y-1.5">
-            <p>© 2026 <span class="font-roco text-primary-500">Roco Tools</span> Developed by <a href="https://github.com/zycSelf" target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:text-primary-600 underline underline-offset-2">@eachzhang</a></p>
+            <p>© 2026 <span class="font-roco text-primary-500">Roco Tools</span> Developed by <a href="https://github.com/eachyczhang" target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:text-primary-600 underline underline-offset-2">@eachzhang</a></p>
             <p>本项目部分数据与内容引用自 <a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:text-primary-600 underline underline-offset-2">B站洛克王国Wiki</a>，其版权归哔哩哔哩游戏wiki所有。</p>
             <p>洛克王国游戏及相关IP版权归腾讯公司所有。</p>
             <p>本项目仅用于学习交流，非官方应用，无任何商业用途。</p>
