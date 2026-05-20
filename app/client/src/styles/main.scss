@@ -12,6 +12,15 @@
 // Google Noto Sans SC（正文清晰字体）
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
 
+// ============================================================
+// 断点体系说明（Tailwind 默认断点）
+// sm: 640px  — 大屏手机 / 小平板
+// md: 768px  — 平板竖屏
+// lg: 1024px — 平板横屏 / 小桌面
+// xl: 1280px — 桌面
+// 2xl:1536px — 大桌面
+// ============================================================
+
 @layer base {
   * {
     -webkit-font-smoothing: antialiased;
@@ -20,7 +29,11 @@
   }
 
   body {
-    @apply font-sans text-sm md:text-base leading-relaxed transition-colors duration-200;
+    @apply font-sans leading-relaxed transition-colors duration-200;
+    // 三端字号：手机14px → 平板15px → 桌面16px
+    font-size: 14px;
+    @media (min-width: 640px) { font-size: 15px; }
+    @media (min-width: 1024px) { font-size: 16px; }
     -webkit-tap-highlight-color: transparent;
     overflow-x: hidden;
   }
@@ -34,12 +47,34 @@
   body.dark {
     @apply bg-surface-dark text-gray-100;
   }
+
+  // 滚动条优化（桌面端）
+  @media (min-width: 1024px) {
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      @apply bg-transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      @apply bg-gray-300 rounded-full;
+      &:hover { @apply bg-gray-400; }
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      @apply bg-gray-700;
+      &:hover { @apply bg-gray-600; }
+    }
+  }
 }
 
 @layer components {
+  // ========== 卡片 ==========
   .card {
-    @apply rounded-xl p-3 md:p-5 shadow-sm transition-all duration-200;
+    @apply rounded-xl shadow-sm transition-all duration-200;
     @apply bg-surface-light-card border border-surface-light-border;
+    // 三端间距：手机p-3 → 平板p-4 → 桌面p-5
+    @apply p-3 sm:p-4 lg:p-5;
     @apply hover:shadow-md hover:-translate-y-0.5;
 
     .dark & {
@@ -48,9 +83,16 @@
     }
   }
 
+  .card-flat {
+    @apply card hover:shadow-sm hover:translate-y-0;
+  }
+
+  // ========== 按钮 ==========
   .btn {
-    @apply px-4 py-2 md:px-5 md:py-2.5 rounded-lg font-medium transition-all duration-150;
+    @apply rounded-lg font-medium transition-all duration-150;
     @apply active:scale-95;
+    // 三端尺寸
+    @apply px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-sm lg:px-5 lg:py-2.5 lg:text-base;
   }
 
   .btn-primary {
@@ -64,8 +106,15 @@
     }
   }
 
+  .btn-sm {
+    @apply px-2 py-1 text-xs sm:px-2.5 sm:py-1 sm:text-xs lg:px-3 lg:py-1.5 lg:text-sm;
+    @apply rounded-md font-medium transition-all duration-150 active:scale-95;
+  }
+
+  // ========== 输入 ==========
   .input {
-    @apply rounded-lg px-3 py-2 md:px-4 md:py-2.5 outline-none transition-all duration-150 text-sm md:text-base;
+    @apply rounded-lg outline-none transition-all duration-150;
+    @apply px-3 py-2 text-sm sm:px-3.5 sm:py-2 sm:text-sm lg:px-4 lg:py-2.5 lg:text-base;
     @apply bg-white border border-surface-light-border;
     @apply focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
 
@@ -84,15 +133,36 @@
     padding-right: 2.5rem;
   }
 
+  // ========== 徽章 ==========
   .badge {
-    @apply inline-flex items-center px-1.5 py-0.5 md:px-2 md:py-0.5 rounded-md text-xs font-medium;
+    @apply inline-flex items-center rounded-md text-xs font-medium;
+    @apply px-1.5 py-0.5 sm:px-2 sm:py-0.5;
   }
 
+  // ========== 文字辅助 ==========
   .text-muted {
     @apply text-gray-500;
     .dark & {
       @apply text-gray-400;
     }
+  }
+
+  // ========== 页面标题 ==========
+  .page-title {
+    @apply font-roco text-primary-500;
+    @apply text-xl sm:text-2xl lg:text-3xl;
+    @apply mb-4 sm:mb-5 lg:mb-6;
+  }
+
+  // ========== 区块间距 ==========
+  .section-gap {
+    @apply mb-6 sm:mb-8 lg:mb-10;
+  }
+
+  // ========== 筛选栏 ==========
+  .filter-bar {
+    @apply space-y-3 sm:space-y-3 lg:space-y-4;
+    @apply mb-5 sm:mb-6 lg:mb-8;
   }
 }
 
@@ -102,5 +172,18 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  // 横滚容器（移动端突破父容器）
+  .scroll-x-mobile {
+    @apply overflow-x-auto -mx-3 sm:-mx-4 lg:mx-0;
+    @apply rounded-none lg:rounded-xl;
   }
 }

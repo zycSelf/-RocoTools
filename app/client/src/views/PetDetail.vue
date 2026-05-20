@@ -1,14 +1,14 @@
 <template>
   <div v-if="pet">
     <!-- 返回 -->
-    <router-link to="/pets" class="text-sm md:text-base text-muted hover:text-primary-500 mb-3 md:mb-4 inline-block">← 返回列表</router-link>
+    <router-link to="/pets" class="text-sm sm:text-base text-muted hover:text-primary-500 mb-3 sm:mb-4 inline-block">← 返回列表</router-link>
 
     <!-- 形态切换 -->
-    <div class="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 flex-wrap" v-if="pet.variants && pet.variants.length > 1">
-      <span class="text-xs md:text-sm text-muted mr-1">形态：</span>
+    <div class="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4 flex-wrap" v-if="pet.variants && pet.variants.length > 1">
+      <span class="text-xs sm:text-sm text-muted mr-1">形态：</span>
       <button v-for="v in pet.variants" :key="v.pet_uid"
         @click="switchVariant(v.pet_uid)"
-        class="px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm transition-colors"
+        class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm transition-colors"
         :class="v.pet_uid === pet.uid
           ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400'
           : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'">
@@ -17,17 +17,17 @@
     </div>
 
     <!-- 精灵介绍 -->
-    <div class="card mb-4 md:mb-6">
-      <div class="flex flex-col md:flex-row gap-4 md:gap-6 items-center">
+    <div class="card mb-4 sm:mb-5 lg:mb-6">
+      <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 lg:gap-6 items-center">
         <!-- 立绘区域（Tab切换） -->
         <div class="flex flex-col items-center flex-shrink-0">
-          <img :src="currentImage" class="w-36 h-36 md:w-48 md:h-48 object-contain mb-2 md:mb-3" loading="lazy" />
+          <img :src="currentImage" class="w-36 h-36 sm:w-44 sm:h-44 lg:w-48 lg:h-48 object-contain mb-2 sm:mb-3" loading="lazy" />
           <!-- 切换按钮 -->
-          <div class="flex items-center gap-3 md:gap-4">
+          <div class="flex items-center gap-3 sm:gap-4">
             <button @click="imageTab = 'default'"
-              class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
+              class="flex flex-col items-center gap-0.5 sm:gap-1 transition-opacity"
               :class="imageTab === 'default' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
-              <img :src="pet.detail?.image_default || pet.image_url" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
+              <img :src="pet.detail?.image_default || pet.image_url" class="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">精灵</span>
             </button>
             <button v-if="pet.detail?.image_shiny" @click="imageTab = 'shiny'"

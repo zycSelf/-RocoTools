@@ -1,28 +1,28 @@
 <template>
   <div>
-    <h1 class="font-roco text-xl md:text-2xl text-primary-500 mb-4 md:mb-6">属性克制关系</h1>
+    <h1 class="page-title">属性克制关系</h1>
 
     <!-- Tab 切换 -->
-    <div class="flex items-center gap-1.5 md:gap-2 mb-4 md:mb-6 overflow-x-auto">
+    <div class="flex items-center gap-1.5 sm:gap-2 mb-4 sm:mb-5 lg:mb-6 overflow-x-auto">
       <button @click="viewMode = 'table'"
-        class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
+        class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
         :class="viewMode === 'table' ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400' : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
         克制表
       </button>
       <button @click="viewMode = 'dual'"
-        class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
+        class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
         :class="viewMode === 'dual' ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400' : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
         双属性表
       </button>
       <button @click="viewMode = 'detail'"
-        class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
+        class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
         :class="viewMode === 'detail' ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400' : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
         详细查询
       </button>
     </div>
 
     <!-- ========== 克制表格模式 ========== -->
-    <div v-if="viewMode === 'table'" class="card !p-0 overflow-x-auto -mx-3 md:mx-0 rounded-none md:rounded-xl">
+    <div v-if="viewMode === 'table'" class="card !p-0 overflow-x-auto scroll-x-mobile">
       <table class="text-xs md:text-sm border-collapse w-max min-w-full">
         <!-- 表头：防御方 -->
         <thead>

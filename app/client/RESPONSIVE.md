@@ -1,72 +1,108 @@
-# 移动端适配规范
+# 响应式适配规范
 
-## 断点策略
+## 断点体系
 
-统一使用 Tailwind CSS 的 `md:` 断点（768px）作为移动端/桌面端分界线。
+使用 Tailwind CSS 默认断点，**Mobile-first** 写法：
 
-- **< 768px**：移动端布局
-- **≥ 768px**：桌面端布局
+| 断点 | 宽度 | 设备 | 前缀 |
+|------|------|------|------|
+| 默认 | < 640px | 手机竖屏 | 无前缀 |
+| `sm:` | ≥ 640px | 大屏手机 / 小平板 | `sm:` |
+| `md:` | ≥ 768px | 平板竖屏 | `md:` |
+| `lg:` | ≥ 1024px | 平板横屏 / 小桌面 | `lg:` |
+| `xl:` | ≥ 1280px | 桌面 | `xl:` |
+| `2xl:` | ≥ 1536px | 大桌面 | `2xl:` |
 
-辅助断点：`sm:` (640px) 用于小型平板过渡，`lg:` / `xl:` 用于大屏网格列数。
+### 核心使用原则
+
+- **手机 → 平板过渡**：用 `sm:` 断点（640px）
+- **平板 → 桌面过渡**：用 `lg:` 断点（1024px）
+- `md:` 主要用于导航栏切换（汉堡 vs 水平）和网格列数
+- 所有样式先写手机版，再逐级覆盖
+
+---
+
+## 全局字号
+
+通过 `main.scss` body 动态设置：
+
+| 设备 | 基础字号 |
+|------|----------|
+| 手机 (<640px) | 14px |
+| 平板 (640-1023px) | 15px |
+| 桌面 (≥1024px) | 16px |
 
 ---
 
 ## 导航栏
 
-| 属性 | 移动端 | 桌面端 |
-|------|--------|--------|
-| 高度 | `h-14` | `h-16` |
-| 内边距 | `px-4` | `px-8` |
-| 导航方式 | 汉堡菜单（展开式） | 水平链接 + 下拉 |
-| Logo字号 | `text-xl` | `text-2xl` |
+| 属性 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| 高度 | `h-14` | `sm:h-15` | `lg:h-16` |
+| 内边距 | `px-4` | `sm:px-6` | `lg:px-8` |
+| 导航方式 | 汉堡菜单 | 水平导航(md:) | 同左 |
+| Logo 字号 | `text-xl` | `sm:text-xl` | `lg:text-2xl` |
 
-移动端导航菜单使用 `v-show` 控制显隐，点击跳转后自动关闭。
+导航按钮在 `md:` (768px) 切换为水平模式。
 
 ---
 
 ## 内容区
 
-| 属性 | 移动端 | 桌面端 |
-|------|--------|--------|
-| 内边距 | `px-3 py-4` | `px-8 py-8` |
-| 最大宽度 | `max-w-screen-2xl` | 同左 |
+| 属性 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| 内边距 | `px-3 py-4` | `sm:px-5 sm:py-6` | `lg:px-8 lg:py-8` |
+| 最大宽度 | `max-w-screen-2xl` | 同 | 同 |
 
 ---
 
-## 字号规范
+## 页面标题 (.page-title)
 
-| 场景 | 移动端 | 桌面端 |
-|------|--------|--------|
-| body基础 | `text-sm` (14px) | `text-base` (16px) |
-| 页面标题 | `text-xl` | `text-2xl` |
-| 卡片标题 | `text-base` | `text-lg` |
-| 精灵名（详情） | `text-2xl` | `text-3xl` |
-| 正文/表格内容 | `text-xs` ~ `text-sm` | `text-sm` ~ `text-base` |
-| 辅助文字 | `text-[10px]` ~ `text-xs` | `text-xs` ~ `text-sm` |
+```
+text-xl sm:text-2xl lg:text-3xl
+mb-4 sm:mb-5 lg:mb-6
+```
 
 ---
 
-## 间距规范
+## 卡片 (.card)
 
-| 场景 | 移动端 | 桌面端 |
-|------|--------|--------|
-| card内边距 | `p-3` | `p-5` |
-| 卡片间距 (gap) | `gap-2` ~ `gap-3` | `gap-4` |
-| 段落间距 (mb) | `mb-3` ~ `mb-4` | `mb-5` ~ `mb-6` |
-| 元素间隙 | `gap-1` ~ `gap-1.5` | `gap-2` ~ `gap-3` |
+| 属性 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| 内边距 | `p-3` | `sm:p-4` | `lg:p-5` |
+| 圆角 | `rounded-xl` | 同 | 同 |
+
+---
+
+## 按钮
+
+| 类型 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| .btn | `px-3 py-1.5 text-sm` | `sm:px-4 sm:py-2` | `lg:px-5 lg:py-2.5 lg:text-base` |
+| .btn-sm | `px-2 py-1 text-xs` | `sm:px-2.5 sm:py-1` | `lg:px-3 lg:py-1.5 lg:text-sm` |
+| .btn-icon | `w-9 h-9` | `sm:w-10 sm:h-10` | 同 |
+
+---
+
+## 输入控件
+
+| 属性 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| padding | `px-3 py-2` | `sm:px-3.5 sm:py-2` | `lg:px-4 lg:py-2.5` |
+| 字号 | `text-sm` | `sm:text-sm` | `lg:text-base` |
+| 搜索框宽度 | `w-full` | `sm:w-52` | `lg:w-64` |
 
 ---
 
 ## 图标尺寸
 
-| 场景 | 移动端 | 桌面端 |
-|------|--------|--------|
-| 属性筛选图标 | `w-6 h-6` | `w-8 h-8` |
-| 属性筛选按钮 | `w-9 h-9` | `w-11 h-11` |
-| 技能/属性标签图标 | `w-4 h-4` ~ `w-5 h-5` | `w-5 h-5` ~ `w-7 h-7` |
-| PetCard立绘 | `w-20 h-20` | `w-28 h-28` |
-| PetDetail立绘 | `w-36 h-36` | `w-48 h-48` |
-| 切换缩略图 | `w-8 h-8` | `w-10 h-10` |
+| 场景 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| 属性筛选图标 | `w-6 h-6` | `sm:w-7 sm:h-7` | `lg:w-8 lg:h-8` |
+| 属性筛选按钮 | `w-9 h-9` | `sm:w-10 sm:h-10` | `lg:w-11 lg:h-11` |
+| PetCard 立绘 | `w-20 h-20` | `sm:w-24 sm:h-24` | `lg:w-28 lg:h-28` |
+| PetDetail 立绘 | `w-36 h-36` | `sm:w-44 sm:h-44` | `lg:w-48 lg:h-48` |
+| 技能/属性标签 | `w-5 h-5` | `sm:w-6 sm:h-6` | 同 |
 
 ---
 
@@ -74,62 +110,75 @@
 
 ### 精灵列表（PetCard）
 ```
-grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5
+grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6
 ```
 
-### 精灵横向卡片（learners/eggs等）
+### 精灵横向卡片（蛋组/学习者等）
 ```
 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5
 ```
 
-### 属性选择网格（详细查询）
-```
-grid-cols-4 sm:grid-cols-6 md:grid-cols-6 lg:grid-cols-9
-```
-
 ### 打击面格子
 ```
-grid-cols-2 md:grid-cols-4
+grid-cols-2 sm:grid-cols-4
 ```
+
+### 数据概览
+```
+grid-cols-2 sm:grid-cols-4
+```
+
+### 属性选择网格
+```
+grid-cols-4 sm:grid-cols-6 lg:grid-cols-9
+```
+
+---
+
+## 间距规范
+
+| 场景 | 手机 | 平板 | 桌面 |
+|------|------|------|------|
+| 卡片间 gap | `gap-3` | `sm:gap-4` | `lg:gap-5` |
+| 区块间距 (.section-gap) | `mb-6` | `sm:mb-8` | `lg:mb-10` |
+| 筛选栏底部 (.filter-bar) | `mb-5` | `sm:mb-6` | `lg:mb-8` |
 
 ---
 
 ## 表格处理
 
-- **桌面端**：使用 `<table>` 布局，完整展示所有列
-- **移动端**：
-  - 技能列表改为卡片式 (`hidden md:block` 表格 + `md:hidden` 卡片)
-  - 克制表使用 `overflow-x-auto` + `-mx-3 md:mx-0` 实现全宽横滚
-  - 单元格尺寸缩小 (`w-8 h-8` vs `w-14 h-12`)
-  - 文字用 `hidden md:block` 隐藏非关键信息
+- **桌面端 (lg:)**：使用 `<table>` 完整展示
+- **平板/手机 (<lg)**：改为卡片式布局
+  - 技能列表：`hidden lg:block` 表格 + `lg:hidden` 卡片
+  - 克制表：使用 `.scroll-x-mobile` 横滚
 
 ---
 
-## 表单控件
+## 布局切换断点
 
-| 控件 | 移动端 | 桌面端 |
-|------|--------|--------|
-| input | `w-full`, `px-3 py-2` | `w-52`, `px-4 py-2.5` |
-| select | `text-sm`, flex-1 | `text-sm`, auto宽 |
-| 按钮 | `px-2 py-0.5` ~ `px-2.5 py-1` | `px-3 py-1` ~ `px-4 py-2` |
+| 组件 | 垂直→水平 |
+|------|-----------|
+| PetDetail 信息区 | `sm:` (640px) |
+| SkillDetail 技能卡片 | `sm:` (640px) |
+| 导航栏 | `md:` (768px) |
+| 技能列表（表格/卡片） | `lg:` (1024px) |
 
 ---
 
 ## 特殊处理
 
-### 雷达图
-通过 `window.innerWidth` 监听 + `computed` 动态设置 size：
-- 移动端：160px
-- 桌面端：200px
+### 雷达图 (StatsRadar)
+通过 `window.innerWidth` 监听动态设置 size：
+- 手机：160px
+- 平板：180px
+- 桌面：200px
 
-### 文本截断
-- 移动端技能描述使用 `line-clamp-2` 限制两行
-- 桌面端不限制 (`md:line-clamp-none`)
-
-### 横滚表格
-克制表/双属性表在移动端使用负边距突破容器：
-```html
-<div class="overflow-x-auto -mx-3 md:mx-0 rounded-none md:rounded-xl">
+### 横滚容器
+```scss
+.scroll-x-mobile {
+  @apply overflow-x-auto -mx-3 sm:-mx-4 lg:mx-0;
+  @apply rounded-none lg:rounded-xl;
+}
 ```
 
 ### 触摸优化
@@ -140,10 +189,15 @@ body {
 }
 ```
 
+### 滚动条（仅桌面端）
+通过 `@media (min-width: 1024px)` 自定义 webkit 滚动条样式。
+
 ---
 
 ## 命名约定
 
-- 所有响应式类使用 **mobile-first** 写法：先写移动端样式，再用 `md:` 覆盖桌面端
-- 示例：`text-sm md:text-base`、`w-6 md:w-8`、`p-3 md:p-5`
-- 隐藏/显示：`hidden md:block`（桌面可见）、`md:hidden`（仅移动可见）
+- 所有响应式类使用 **mobile-first** 写法
+- 渐进增强：`text-sm sm:text-base lg:text-lg`
+- 隐藏/显示：`hidden lg:block`（桌面可见）、`lg:hidden`（仅手机/平板可见）
+- 优先使用全局组件类（`.card`、`.btn`、`.input`、`.page-title`）
+- 只在组件类无法满足时才写内联断点样式

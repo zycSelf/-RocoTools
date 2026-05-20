@@ -1,13 +1,13 @@
 <template>
   <div>
-    <h1 class="font-roco text-xl md:text-2xl text-primary-500 mb-4 md:mb-5">打击面分析</h1>
+    <h1 class="page-title">打击面分析</h1>
 
     <!-- 技能格子 -->
-    <div class="card mb-4 md:mb-6">
-      <p class="text-xs md:text-sm text-muted mb-3 md:mb-4">选择攻击技能的属性（最多4个），分析可打击面 <span class="text-xs opacity-70">· 含血脉技能</span></p>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
+    <div class="card mb-4 sm:mb-5 lg:mb-6">
+      <p class="text-xs sm:text-sm text-muted mb-3 sm:mb-4">选择攻击技能的属性（最多4个），分析可打击面 <span class="text-xs opacity-70">· 含血脉技能</span></p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-5 lg:mb-6">
         <div v-for="(slot, idx) in slots" :key="idx"
-          class="relative rounded-xl border-2 p-3 md:p-4 flex flex-col items-center justify-center gap-1.5 md:gap-2 min-h-[90px] md:min-h-[120px] transition-all"
+          class="relative rounded-xl border-2 p-3 sm:p-4 flex flex-col items-center justify-center gap-1.5 sm:gap-2 min-h-[90px] sm:min-h-[110px] lg:min-h-[120px] transition-all"
           :class="slot
             ? 'shadow-md'
             : 'border-dashed border-gray-300 dark:border-gray-600'"

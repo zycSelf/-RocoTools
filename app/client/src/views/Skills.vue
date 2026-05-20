@@ -1,45 +1,47 @@
 <template>
   <div>
-    <h1 class="font-roco text-xl md:text-2xl text-primary-500 mb-4 md:mb-5">技能大全</h1>
+    <h1 class="page-title">技能大全</h1>
 
-    <div class="space-y-2 md:space-y-0 md:flex md:flex-wrap md:gap-3 mb-4">
-      <input v-model="search" placeholder="搜索技能名称..." @input="debouncedFetch" class="input w-full md:w-52" />
-      <div class="flex flex-wrap gap-2">
-        <select v-model="category" @change="filterChanged" class="select text-sm flex-1 md:flex-none">
-          <option value="">分类：全部</option>
-          <option v-for="c in ['物攻','魔攻','防御','状态']" :key="c" :value="c">分类：{{ c }}</option>
-        </select>
-        <select v-model="counter" @change="filterChanged" class="select text-sm flex-1 md:flex-none">
-          <option value="">应对：不限</option>
-          <option value="none">应对：无</option>
-          <option v-for="c in ['状态','防御','攻击']" :key="c" :value="c">应对：{{ c }}</option>
-        </select>
-        <select v-model="keyword" @change="filterChanged" class="select text-sm flex-1 md:flex-none">
-          <option value="">效果：不限</option>
-          <option v-for="k in keywordOptions" :key="k.value" :value="k.value">{{ k.label }}</option>
-        </select>
+    <div class="filter-bar">
+      <div class="space-y-2 sm:space-y-0 sm:flex sm:flex-wrap sm:gap-3">
+        <input v-model="search" placeholder="搜索技能名称..." @input="debouncedFetch" class="input w-full sm:w-52 lg:w-64" />
+        <div class="flex flex-wrap gap-2">
+          <select v-model="category" @change="filterChanged" class="select text-sm flex-1 sm:flex-none">
+            <option value="">分类：全部</option>
+            <option v-for="c in ['物攻','魔攻','防御','状态']" :key="c" :value="c">分类：{{ c }}</option>
+          </select>
+          <select v-model="counter" @change="filterChanged" class="select text-sm flex-1 sm:flex-none">
+            <option value="">应对：不限</option>
+            <option value="none">应对：无</option>
+            <option v-for="c in ['状态','防御','攻击']" :key="c" :value="c">应对：{{ c }}</option>
+          </select>
+          <select v-model="keyword" @change="filterChanged" class="select text-sm flex-1 sm:flex-none">
+            <option value="">效果：不限</option>
+            <option v-for="k in keywordOptions" :key="k.value" :value="k.value">{{ k.label }}</option>
+          </select>
+        </div>
+        <span class="text-muted text-xs sm:text-sm self-center sm:ml-auto">共 {{ total }} 条</span>
       </div>
-      <span class="text-muted text-xs self-center md:ml-auto">共 {{ total }} 条</span>
     </div>
 
     <!-- 属性筛选 -->
-    <div class="flex flex-wrap gap-1.5 md:gap-2 mb-4 md:mb-6">
+    <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-5 lg:mb-6">
       <button @click="elementId = ''; filterChanged()"
-        class="w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center text-xs md:text-sm font-medium transition-colors"
+        class="w-9 h-9 sm:w-10 sm:h-10 lg:w-11 lg:h-11 rounded-lg flex items-center justify-center text-xs sm:text-sm font-medium transition-colors"
         :class="!elementId ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'">
         全
       </button>
       <button v-for="elem in elements" :key="elem.id"
         @click="elementId = elem.id; filterChanged()"
-        class="w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center transition-colors"
+        class="w-9 h-9 sm:w-10 sm:h-10 lg:w-11 lg:h-11 rounded-lg flex items-center justify-center transition-colors"
         :class="elementId === elem.id ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'"
         :title="elem.name">
-        <img :src="elem.icon" class="w-6 h-6 md:w-8 md:h-8" :alt="elem.name" />
+        <img :src="elem.icon" class="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" :alt="elem.name" />
       </button>
     </div>
 
     <!-- 桌面端：表格 -->
-    <div class="hidden md:block card overflow-hidden !p-0">
+    <div class="hidden lg:block card overflow-hidden !p-0">
       <table class="w-full text-base">
         <thead>
           <tr class="text-left text-muted text-sm bg-gray-50 dark:bg-white/3">
@@ -80,8 +82,8 @@
       </table>
     </div>
 
-    <!-- 移动端：卡片列表 -->
-    <div class="md:hidden space-y-2">
+    <!-- 移动端/平板：卡片列表 -->
+    <div class="lg:hidden space-y-2 sm:space-y-3">
       <router-link v-for="skill in skills" :key="skill.uid" :to="`/skills/${skill.uid}`"
         class="block card !p-3">
         <div class="flex items-center gap-3">
@@ -104,7 +106,7 @@
       </router-link>
     </div>
 
-    <div class="flex justify-center items-center gap-3 md:gap-4 mt-5 md:mt-6" v-if="total > limit">
+    <div class="flex justify-center items-center gap-3 sm:gap-4 mt-5 sm:mt-6 lg:mt-8" v-if="total > limit">
       <button @click="page > 1 && (page--, fetchData())" :disabled="page <= 1" class="btn-ghost text-sm">← 上一页</button>
       <span class="text-sm text-muted">{{ page }} / {{ Math.ceil(total / limit) }}</span>
       <button @click="page < Math.ceil(total / limit) && (page++, fetchData())"
