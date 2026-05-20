@@ -48,6 +48,11 @@ STEPS = [
         "always_run": True,
     },
     {
+        "name": "性格数据",
+        "script": "fetch_nature.py",
+        "always_run": True,
+    },
+    {
         "name": "精灵列表",
         "script": "fetch_pet_list.py",
         "always_run": True,
