@@ -216,6 +216,33 @@ function importPetDetails() {
 }
 
 // ============================================================
+// 6. 导入性格
+// ============================================================
+function importNatures() {
+  const data = loadJSON('natures/nature_list.json');
+  if (!data) return;
+
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO natures (id, name, stat_up, stat_down, sub_natures)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const tx = db.transaction(() => {
+    for (const nature of data.natures) {
+      insert.run(
+        nature.id,
+        nature.name,
+        nature.stat_up,
+        nature.stat_down,
+        JSON.stringify(nature.sub_natures)
+      );
+    }
+  });
+  tx();
+  console.log(`[OK] 性格: ${data.natures.length} 条`);
+}
+
+// ============================================================
 // 执行
 // ============================================================
 console.log('========================================');
@@ -228,6 +255,7 @@ console.log();
 importElements();
 importSkills();
 importEggGroups();
+importNatures();
 importPets();
 importPetDetails();
 

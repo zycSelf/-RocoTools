@@ -117,6 +117,15 @@ CREATE TABLE IF NOT EXISTS variants_map (
   FOREIGN KEY (pet_uid) REFERENCES pets(uid)
 );
 
+-- 性格表
+CREATE TABLE IF NOT EXISTS natures (
+  id          INTEGER PRIMARY KEY,
+  name        TEXT NOT NULL UNIQUE,
+  stat_up     TEXT NOT NULL,
+  stat_down   TEXT NOT NULL,
+  sub_natures TEXT  -- JSON array
+);
+
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_pets_pet_id ON pets(pet_id);
 CREATE INDEX IF NOT EXISTS idx_pets_element ON pets(element_id);
