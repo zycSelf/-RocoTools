@@ -19,6 +19,7 @@ const { execSync } = require('child_process');
 
 const SERVER_DIR = __dirname;
 const THUMB_SCRIPT = path.join(SERVER_DIR, 'gen_thumbnails.js');
+const WEBP_SCRIPT = path.join(SERVER_DIR, 'gen_webp.js');
 const INIT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'init.js');
 const IMPORT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'import.js');
 
@@ -40,8 +41,9 @@ const steps = [];
 
 if (hasSharp) {
   steps.push({ label: '生成缩略图 + 更新 JSON', script: THUMB_SCRIPT });
+  steps.push({ label: '生成 WebP 副本（全部图片）', script: WEBP_SCRIPT });
 } else {
-  console.log('[WARN] sharp 未安装，跳过缩略图生成（npm install sharp）');
+  console.log('[WARN] sharp 未安装，跳过缩略图和 WebP 生成（npm install sharp）');
   console.log();
 }
 
