@@ -26,6 +26,7 @@
             </div>
           </div>
           <router-link to="/eggs" class="nav-link">蛋组</router-link>
+          <router-link to="/natures" class="nav-link">性格</router-link>
           <router-link to="/elements" class="nav-link">属性</router-link>
         </div>
 
@@ -60,6 +61,7 @@
         <router-link to="/skills" class="mobile-nav-link" @click="mobileMenuOpen = false">技能列表</router-link>
         <router-link to="/coverage" class="mobile-nav-link" @click="mobileMenuOpen = false">打击面分析</router-link>
         <router-link to="/eggs" class="mobile-nav-link" @click="mobileMenuOpen = false">蛋组</router-link>
+        <router-link to="/natures" class="mobile-nav-link" @click="mobileMenuOpen = false">性格</router-link>
         <router-link to="/elements" class="mobile-nav-link" @click="mobileMenuOpen = false">属性</router-link>
       </div>
     </nav>

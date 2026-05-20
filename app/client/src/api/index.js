@@ -44,3 +44,7 @@ export const petsApi = {
   shiny: () => request(`${BASE}/pets/shiny`),
   coverage: (elements) => request(`${BASE}/pets/coverage`, { elements: elements.join(',') }),
 }
+
+export const naturesApi = {
+  list: () => request(`${BASE}/natures`),
+}

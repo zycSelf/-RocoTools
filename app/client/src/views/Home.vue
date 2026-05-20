@@ -16,7 +16,7 @@
     </div>
 
     <!-- 数据概览 -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 section-gap">
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 lg:gap-5 section-gap">
       <div class="card text-center" v-for="stat in stats" :key="stat.label">
         <div class="font-roco text-2xl sm:text-3xl lg:text-4xl text-primary-500">{{ stat.value }}</div>
         <div class="text-muted text-xs sm:text-sm mt-1">{{ stat.label }}</div>
@@ -81,7 +81,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { petsApi, skillsApi, elementsApi, eggsApi } from '@/api'
+import { petsApi, skillsApi, elementsApi, eggsApi, naturesApi } from '@/api'
 
 const stats = ref([])
 const navCards = [
@@ -89,21 +89,24 @@ const navCards = [
   { path: '/skills', title: '技能大全', desc: '按属性、分类筛选所有技能' },
   { path: '/coverage', title: '打击面分析', desc: '选择属性组合，查找最优打击面精灵' },
   { path: '/eggs', title: '蛋组查询', desc: '查看 15 种蛋组及其精灵成员' },
+  { path: '/natures', title: '性格一览', desc: '30 种性格属性增减与子性格查询' },
   { path: '/elements', title: '属性克制', desc: '18 种属性克制/抵抗关系一览' },
 ]
 
 onMounted(async () => {
-  const [pets, skills, elements, eggs] = await Promise.all([
+  const [pets, skills, elements, eggs, naturesData] = await Promise.all([
     petsApi.list({ limit: 1 }),
     skillsApi.list({ limit: 1 }),
     elementsApi.list(),
     eggsApi.list(),
+    naturesApi.list(),
   ])
   stats.value = [
     { label: '精灵', value: pets.total },
     { label: '技能', value: skills.total },
     { label: '属性', value: elements.total },
     { label: '蛋组', value: eggs.total },
+    { label: '性格', value: naturesData.total },
   ]
 })
 </script>

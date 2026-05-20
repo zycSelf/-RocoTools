@@ -8,6 +8,7 @@ const routes = [
   { path: '/skills/:uid', name: 'SkillDetail', component: () => import('@/views/SkillDetail.vue') },
   { path: '/coverage', name: 'Coverage', component: () => import('@/views/Coverage.vue') },
   { path: '/eggs', name: 'Eggs', component: () => import('@/views/Eggs.vue') },
+  { path: '/natures', name: 'Natures', component: () => import('@/views/Natures.vue') },
   { path: '/elements', name: 'Elements', component: () => import('@/views/Elements.vue') },
 ]
 

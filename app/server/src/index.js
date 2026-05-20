@@ -7,6 +7,7 @@ const elementsRouter = require('./routes/elements');
 const skillsRouter = require('./routes/skills');
 const eggsRouter = require('./routes/eggs');
 const petsRouter = require('./routes/pets');
+const naturesRouter = require('./routes/natures');
 const { apiCache } = require('./middleware/apiCache');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use('/api/elements', apiCache(600), elementsRouter);
 app.use('/api/skills', apiCache(300), skillsRouter);
 app.use('/api/eggs', apiCache(600), eggsRouter);
+app.use('/api/natures', apiCache(600), naturesRouter);
 app.use('/api/pets', apiCache(300), petsRouter);
 
 // 健康检查
