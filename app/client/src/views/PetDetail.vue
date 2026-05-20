@@ -21,31 +21,31 @@
       <div class="flex flex-col md:flex-row gap-4 md:gap-6 items-center">
         <!-- 立绘区域（Tab切换） -->
         <div class="flex flex-col items-center flex-shrink-0">
-          <img :src="currentImage" class="w-36 h-36 md:w-48 md:h-48 object-contain mb-2 md:mb-3" />
+          <img :src="currentImage" class="w-36 h-36 md:w-48 md:h-48 object-contain mb-2 md:mb-3" loading="lazy" />
           <!-- 切换按钮 -->
           <div class="flex items-center gap-3 md:gap-4">
             <button @click="imageTab = 'default'"
               class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
               :class="imageTab === 'default' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
-              <img :src="pet.detail?.image_default || pet.image_url" class="w-8 h-8 md:w-10 md:h-10 object-contain" />
+              <img :src="pet.detail?.image_default || pet.image_url" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">精灵</span>
             </button>
             <button v-if="pet.detail?.image_shiny" @click="imageTab = 'shiny'"
               class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
               :class="imageTab === 'shiny' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
-              <img :src="pet.detail.image_shiny" class="w-8 h-8 md:w-10 md:h-10 object-contain" />
+              <img :src="pet.detail.image_shiny" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">异色</span>
             </button>
             <button v-if="pet.detail?.image_fruit" @click="imageTab = 'fruit'"
               class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
               :class="imageTab === 'fruit' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
-              <img :src="pet.detail.image_fruit" class="w-8 h-8 md:w-10 md:h-10 object-contain" />
+              <img :src="pet.detail.image_fruit" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">果实</span>
             </button>
             <button v-if="pet.detail?.image_egg" @click="imageTab = 'egg'"
               class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
               :class="imageTab === 'egg' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
-              <img :src="pet.detail.image_egg" class="w-8 h-8 md:w-10 md:h-10 object-contain" />
+              <img :src="pet.detail.image_egg" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">精灵蛋</span>
             </button>
           </div>
@@ -79,7 +79,7 @@
           <!-- 特性 -->
           <div class="flex items-center gap-2 mb-2 md:mb-3 justify-center md:justify-start">
             <img v-if="pet.detail?.ability_icon" :src="pet.detail.ability_icon"
-              class="w-7 h-7 md:w-9 md:h-9 rounded object-contain flex-shrink-0" />
+              class="w-7 h-7 md:w-9 md:h-9 rounded object-contain flex-shrink-0" loading="lazy" />
             <div class="text-left">
               <div class="font-medium text-xs md:text-sm">{{ pet.ability_name }}</div>
               <div class="text-xs text-muted">{{ pet.ability_desc }}</div>
