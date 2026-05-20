@@ -32,7 +32,7 @@ OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "eggs")
 JSON_OUTPUT = os.path.join(OUTPUT_DIR, "egg_group.json")
 
 HEADERS = {
-    "User-Agent": "RocoDataBot/1.0 (personal data collection)"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 }
 
 # 蛋组 ID 映射（与页面中 data-type 对应）

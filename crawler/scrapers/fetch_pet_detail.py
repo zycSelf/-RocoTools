@@ -59,16 +59,19 @@ IMG_DIRS = {
 ABILITY_ICON_DIR = os.path.join(PUBLIC_DIR, "abilities")
 
 HEADERS = {
-    "User-Agent": "RocoDataBot/1.0 (personal data collection)"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 }
 
-REQUEST_DELAY = 2.0
+REQUEST_DELAY = (2.0, 5.0)  # 随机间隔范围
 MAX_RETRIES = 5
-RETRY_WAIT = 90
+RETRY_WAIT = 60
 CONCURRENCY = 2  # 并发线程数
 
-session = requests.Session()
-session.headers.update(HEADERS)
+# 使用统一请求工具
+sys.path.insert(0, os.path.join(SCRIPT_DIR, "..", "utils"))
+from request import create_session, random_delay, fetch_json
+
+session = create_session()
 
 
 # ============================================================
@@ -83,17 +86,7 @@ def fetch_page_html(page_title: str) -> str:
         "format": "json",
         "utf8": 1,
     }
-    for attempt in range(1, MAX_RETRIES + 1):
-        resp = session.get(API_URL, params=params, timeout=30)
-        if resp.status_code == 567 or resp.status_code == 429:
-            if attempt < MAX_RETRIES:
-                wait = RETRY_WAIT * attempt
-                print(f"    [RATE] 被限流，等待 {wait}s 后重试 ({attempt}/{MAX_RETRIES})")
-                time.sleep(wait)
-                continue
-        resp.raise_for_status()
-        break
-    data = resp.json()
+    data = fetch_json(session, API_URL, params=params, max_retries=MAX_RETRIES, retry_base_wait=RETRY_WAIT)
     if "error" in data:
         raise RuntimeError(f"API error: {data['error']}")
     return data["parse"]["text"]["*"]
@@ -208,16 +201,36 @@ def parse_detail(html: str) -> dict:
             if loc:
                 detail["location"] = loc
 
-    # 进化链
+    # 进化链（含进化等级）
+    # 页面结构：[精灵1] [等级A] [精灵2] [等级B] [精灵3]
+    # 等级含义：精灵1 在等级A 进化为精灵2，精灵2 在等级B 进化为精灵3
     evo_box = soup.select_one(".rocom_spirit_evolution_box")
     if evo_box:
-        evo_names = []
-        for link in evo_box.find_all("a"):
-            title = link.get("title", "").strip()
-            if title and title not in evo_names:
-                evo_names.append(title)
-        if evo_names:
-            detail["evolution_chain"] = evo_names
+        stages = []   # 按顺序收集精灵名称
+        levels = []   # 按顺序收集进化等级
+        children = evo_box.find_all(recursive=False)
+        for child in children:
+            cls_list = child.get("class", [])
+            # 进化阶段节点
+            if any(c.startswith("rocom_spirit_evolution_") and c[-1].isdigit() for c in cls_list):
+                link = child.find("a")
+                if link:
+                    name = link.get("title", "").strip()
+                    if name:
+                        stages.append(name)
+            # 进化等级节点
+            elif "rocom_spirit_evolution_level" in cls_list:
+                level_text = child.get_text(strip=True)
+                level = int(level_text) if level_text.isdigit() else level_text
+                levels.append(level)
+
+        # 组装：第1阶 evolve_level=null，后续阶 evolve_level=对应等级
+        if stages:
+            evo_chain = []
+            for i, name in enumerate(stages):
+                evolve_level = levels[i - 1] if i > 0 and i - 1 < len(levels) else None
+                evo_chain.append({"name": name, "evolve_level": evolve_level})
+            detail["evolution_chain"] = evo_chain
 
     # 精灵技能
     sprite_tab = soup.select_one('.tabbertab[title="精灵技能"]')
@@ -419,7 +432,8 @@ def main():
         need_fetch = sum(1 for uid, _ in uid_assignments if uid in filter_uids)
         print(f"[INFO] 增量更新: 需获取 {need_fetch}, 复用 {total - need_fetch}")
     else:
-        print(f"[INFO] 预计耗时: ~{total * REQUEST_DELAY / 60:.1f} 分钟")
+        avg_delay = (REQUEST_DELAY[0] + REQUEST_DELAY[1]) / 2 if isinstance(REQUEST_DELAY, tuple) else REQUEST_DELAY
+        print(f"[INFO] 预计耗时: ~{total * avg_delay / 60:.1f} 分钟")
 
     print()
 
@@ -448,10 +462,10 @@ def main():
         try:
             html = fetch_page_html(name)
             detail = parse_detail(html)
-            time.sleep(REQUEST_DELAY)
+            random_delay(REQUEST_DELAY)
             return name, detail
         except Exception as e:
-            time.sleep(REQUEST_DELAY)
+            random_delay(REQUEST_DELAY)
             return name, {"_error": str(e)}
 
     # 并发爬取

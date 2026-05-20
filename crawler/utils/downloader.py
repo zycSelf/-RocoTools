@@ -6,17 +6,25 @@
 """
 
 import os
+import random
 import time
 from urllib.parse import urlparse
 
 import requests
 
-HEADERS = {
-    "User-Agent": "RocoDataBot/1.0 (personal data collection)"
-}
+# 浏览器 UA 池
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+]
 
 _session = requests.Session()
-_session.headers.update(HEADERS)
+_session.headers.update({
+    "User-Agent": random.choice(_USER_AGENTS),
+    "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+})
 
 
 def download_image(
@@ -52,10 +60,14 @@ def download_image(
         if url.startswith("//"):
             url = "https:" + url
 
+        # 每次下载随机切换 UA
+        _session.headers["User-Agent"] = random.choice(_USER_AGENTS)
+
         for attempt in range(3):
             resp = _session.get(url, timeout=15)
-            if resp.status_code in (567, 429) and attempt < 2:
-                time.sleep(10 * (attempt + 1))
+            if resp.status_code in (567, 429, 503) and attempt < 2:
+                wait = 15 * (attempt + 1) + random.uniform(3, 8)
+                time.sleep(wait)
                 continue
             resp.raise_for_status()
             break
@@ -64,7 +76,9 @@ def download_image(
             f.write(resp.content)
 
         if delay > 0:
-            time.sleep(delay)
+            # 随机化间隔（±50%）
+            actual_delay = delay * random.uniform(0.7, 1.5)
+            time.sleep(actual_delay)
 
         return filepath
     except Exception as e:

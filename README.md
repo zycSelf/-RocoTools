@@ -84,10 +84,10 @@ cd ../server && npm run dev    # http://localhost:3000
 
 ## 数据流
 
+数据源自 [洛克王国世界 BWIKI](https://wiki.biligame.com/rocom)，由自动化爬虫采集、清洗、结构化后同步至 SQLite，前端通过 API 读取展示。
+
 ```
-BWIKI → crawler(爬取) → data/(JSON+图片) → server(SQLite) → client(展示)
-                                              ↑ 自动同步
-                                         run.py 结束后触发
+BWIKI → crawler(采集+清洗) → data/(JSON+图片) → SQLite(结构化入库) → API → 前端展示
 ```
 
 ---
