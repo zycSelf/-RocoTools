@@ -19,9 +19,19 @@
 
   <link rel="icon" href="/rocotools/favicon.ico" />
 
+  <!-- 字体预加载 -->
+  <link rel="preload" href="//game.gtimg.cn/images/rocom/web202409/font-origin/MIANFEIZITI.ttf" as="font" type="font/ttf" crossorigin />
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" as="style" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" />
+
   <!-- 关键CSS内联：避免首次加载白屏 -->
   <style>
-    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    @font-face {
+      font-family: 'MIANFEIZITI';
+      src: url('//game.gtimg.cn/images/rocom/web202409/font-origin/MIANFEIZITI.ttf');
+      font-display: swap;
+    }
+    body { margin: 0; font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     body { background-color: #F3F4F6; color: #1f2937; }
     body.dark { background-color: #0F1219; color: #e5e7eb; }
     #app { min-height: 100vh; }
