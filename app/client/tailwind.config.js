@@ -32,8 +32,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Noto Sans SC"', '"Microsoft YaHei"', '"PingFang SC"', 'sans-serif'],
-        roco: ['MIANFEIZITI', '"Noto Sans SC"', 'sans-serif'],
+        sans: ['"PingFang SC"', '"Microsoft YaHei"', '"Hiragino Sans GB"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        roco: ['MIANFEIZITI', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
       },
     },
   },
