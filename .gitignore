@@ -8,6 +8,7 @@ data/skills/*.csv
 data/elements/*.json
 data/elements/*.csv
 data/eggs/*.json
+data/natures/*.json
 
 # 图片资源（通过爬虫下载生成）
 data/public/
