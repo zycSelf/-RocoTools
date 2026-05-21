@@ -15,6 +15,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
       '/public': 'http://localhost:3000',
+      '/uploads': 'http://localhost:3000',
     },
   },
   build: {
