@@ -41,6 +41,8 @@
           <router-link to="/admin/natures" class="nav-link">性格</router-link>
           <router-link to="/admin/eggs" class="nav-link">蛋组</router-link>
           <router-link to="/admin/seasons" class="nav-link">赛季</router-link>
+          <router-link to="/admin/events" class="nav-link">活动</router-link>
+          <router-link to="/admin/conflicts" class="nav-link">审查</router-link>
         </div>
 
         <!-- 右侧按钮组 -->
@@ -90,6 +92,8 @@
           <router-link to="/admin/natures" class="mobile-nav-link" @click="mobileMenuOpen = false">性格</router-link>
           <router-link to="/admin/eggs" class="mobile-nav-link" @click="mobileMenuOpen = false">蛋组</router-link>
           <router-link to="/admin/seasons" class="mobile-nav-link" @click="mobileMenuOpen = false">赛季</router-link>
+          <router-link to="/admin/events" class="mobile-nav-link" @click="mobileMenuOpen = false">活动</router-link>
+          <router-link to="/admin/conflicts" class="mobile-nav-link" @click="mobileMenuOpen = false">审查</router-link>
           <router-link to="/" class="mobile-nav-link" @click="mobileMenuOpen = false">回到用户端</router-link>
         </template>
       </div>
