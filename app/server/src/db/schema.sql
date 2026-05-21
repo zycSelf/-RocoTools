@@ -202,10 +202,10 @@ CREATE TABLE IF NOT EXISTS nav_tabs (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   tab_key     TEXT    NOT NULL UNIQUE,   -- 唯一标识，如 'home', 'season'
   label       TEXT    NOT NULL,            -- 显示名称
-  route       TEXT    NOT NULL,            -- 路由路径（父级可为空，但此处保持 NOT NULL，父级填 '#' 或首子项路由）
+  route       TEXT,                      -- 路由路径（父级标签可为空）
   icon        TEXT,                       -- 图标（可选）
   parent_key  TEXT    DEFAULT NULL,       -- 父级 tab_key（NULL 为顶级）
-  is_visible  INTEGER DEFAULT 1,         -- 是否显示（1显示/0隐藏）
+  is_visible   INTEGER DEFAULT 1,         -- 是否显示（1显示/0隐藏）
   sort_order  INTEGER DEFAULT 0,         -- 排序权重（越大越靠前）
   created_at  TEXT    DEFAULT (datetime('now', 'localtime')),
   updated_at  TEXT    DEFAULT (datetime('now', 'localtime'))

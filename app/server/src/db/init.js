@@ -31,11 +31,23 @@ db.close();
 
 /**
  * 初始化用户端导航标签默认数据
+ * 只在表完全为空时插入，永远不覆盖已有配置
+ * 保护逻辑：检查是否已有非默认 tab_key，如有则跳过
  */
 function initNavTabs(db) {
   try {
+    // 先检查表是否存在（防止 schema.sql 未执行）
+    const tableExists = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='nav_tabs'"
+    ).get();
+    if (!tableExists) {
+      console.log('[INIT] nav_tabs 表不存在，跳过初始化');
+      return;
+    }
+
     const count = db.prepare('SELECT COUNT(*) as c FROM nav_tabs').get().c;
     if (count === 0) {
+      console.log('[INIT] nav_tabs 表为空，插入默认数据...');
       const defaultTabs = [
         { tab_key: 'home', label: '首页', route: '/', icon: '', parent_key: '', is_visible: 1, sort_order: 100 },
         { tab_key: 'season', label: '赛季', route: '/season', icon: '', parent_key: '', is_visible: 1, sort_order: 90 },
@@ -50,13 +62,23 @@ function initNavTabs(db) {
       ];
       const stmt = db.prepare('INSERT INTO nav_tabs (tab_key, label, route, icon, parent_key, is_visible, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
       for (const tab of defaultTabs) {
-        stmt.run(tab.tab_key, tab.label, tab.route, tab.icon, tab.parent_key, tab.is_visible, tab.sort_order);
+        stmt.run(tab.tab_key, tab.label, tab.route, tab.icon, tab.parent_key || null, tab.is_visible, tab.sort_order);
       }
-      console.log('[INIT] nav_tabs 默认数据已初始化');
+      console.log(`[INIT] nav_tabs 默认数据已初始化（${defaultTabs.length} 条）`);
+    } else {
+      // 进一步检查：是否已有非默认的 tab_key（说明用户配置过）
+      const defaultKeys = ['home','season','events','pets','skills','skills_list','coverage','eggs','natures','elements'];
+      const customCount = db.prepare(
+        `SELECT COUNT(*) as c FROM nav_tabs WHERE tab_key NOT IN (${defaultKeys.map(() => '?').join(',')})`
+      ).all(...defaultKeys)[0].c;
+      if (customCount > 0) {
+        console.log(`[INIT] nav_tabs 已有用户自定义标签（${customCount} 条非默认），跳过初始化`);
+      } else {
+        console.log(`[INIT] nav_tabs 已有 ${count} 条数据（均为默认数据），跳过初始化`);
+      }
     }
   } catch (err) {
-    // nav_tabs 表可能还不存在（首次创建），忽略错误
-    console.log(`[INIT] nav_tabs 初始化跳过: ${err.message}`);
+    console.log(`[INIT] nav_tabs 初始化失败: ${err.message}`);
   }
 }
 

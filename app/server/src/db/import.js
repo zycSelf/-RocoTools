@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'roco.db');
+const DB_PATH = path.join(__dirname, '..', '..', '..', '..', 'data', 'roco.db');
 const DATA_DIR = path.join(__dirname, '..', '..', '..', '..', 'data');
 
 const db = new Database(DB_PATH);
