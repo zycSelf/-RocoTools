@@ -25,8 +25,15 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in sortedList" :key="item.id" class="border-t border-surface-light-border/50 dark:border-surface-dark-border/50">
-          <td class="py-3 px-4 font-medium">{{ item.label }}</td>
+        <tr v-for="item in sortedList" :key="item.id"
+          class="border-t border-surface-light-border/50 dark:border-surface-dark-border/50"
+          :class="item._level === 1 ? 'bg-surface-light/50 dark:bg-surface-dark/50' : ''"
+        >
+          <td class="py-3 px-4 font-medium">
+            <span v-if="item._level === 1" class="inline-block w-5 text-muted">└</span>
+            <span :class="item._level === 0 ? 'text-primary-500 font-semibold' : ''">{{ item.label }}</span>
+            <span v-if="item._level === 0 && !item.route" class="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary-500/10 text-primary-500">父级</span>
+          </td>
           <td class="py-3 px-4 text-xs text-muted">{{ item.route }}</td>
           <td class="py-3 px-4 text-xs text-muted">{{ item.tab_key }}</td>
           <td class="py-3 px-4 text-xs text-muted">{{ getParentLabel(item.parent_key) }}</td>
@@ -143,7 +150,24 @@ const form = ref({
 })
 
 const sortedList = computed(() => {
-  return [...list.value].sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
+  const all = [...list.value].sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
+  const parents = all.filter(t => !t.parent_key)
+  const result = []
+  for (const p of parents) {
+    p._level = 0
+    result.push(p)
+    const children = all.filter(t => t.parent_key === p.tab_key)
+    for (const c of children) {
+      c._level = 1
+      result.push(c)
+    }
+  }
+  // 没有父级的孤立子标签
+  const placed = new Set(result.map(r => r.id))
+  for (const t of all) {
+    if (!placed.has(t.id)) { t._level = 1; result.push(t) }
+  }
+  return result
 })
 
 // 顶级标签（用作父级选择）
