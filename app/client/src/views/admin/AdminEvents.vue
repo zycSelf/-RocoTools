@@ -55,7 +55,7 @@
         </div>
       </div>
 
-      <!-- 大量出没：日期 + 精灵搜索 -->
+      <!-- 大量出没：日期 + 精灵选择（PetPicker） -->
       <div v-if="form.category === 'mass_outbreak'" class="space-y-3 mb-3">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -67,21 +67,9 @@
             <input v-model="form.end_date" type="date" class="input w-full" />
           </div>
         </div>
-        <div class="relative">
+        <div>
           <label class="text-xs text-muted">出没精灵 <span class="text-red-500">*</span></label>
-          <input v-model="petSearchQuery" @input="searchPets" class="input w-full" placeholder="输入精灵名称搜索..." />
-          <div v-if="petSearchResults.length" class="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-            <div v-for="pet in petSearchResults" :key="pet.uid" @click="selectPet(pet)"
-              class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
-              <img v-if="pet.thumb_url" :src="pet.thumb_url" class="w-8 h-8 rounded" />
-              <span class="text-sm">{{ pet.name }}</span>
-            </div>
-          </div>
-          <div v-if="form.pet_uid" class="mt-2 flex items-center gap-2">
-            <img v-if="form.pet_icon" :src="form.pet_icon" class="w-8 h-8 rounded" />
-            <span class="text-sm text-primary-500">已选择：{{ form.pet_name }}</span>
-            <button @click="clearPet" class="text-xs text-red-500 hover:underline">清除</button>
-          </div>
+          <PetPicker v-model="form.pet_uid" />
         </div>
       </div>
 
@@ -204,7 +192,7 @@
             </div>
           </div>
 
-          <!-- 大量出没：日期 + 精灵 -->
+          <!-- 大量出没：日期 + 精灵选择（PetPicker） -->
           <div v-if="editForm.category === 'mass_outbreak'" class="space-y-3">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -216,21 +204,9 @@
                 <input v-model="editForm.end_date" type="date" class="input w-full" />
               </div>
             </div>
-            <div class="relative">
+            <div>
               <label class="text-xs text-muted">出没精灵 <span class="text-red-500">*</span></label>
-              <input v-model="editPetSearchQuery" @input="searchEditPets" class="input w-full" placeholder="输入精灵名称搜索..." />
-              <div v-if="editPetSearchResults.length" class="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                <div v-for="pet in editPetSearchResults" :key="pet.uid" @click="selectEditPet(pet)"
-                  class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
-                  <img v-if="pet.thumb_url" :src="pet.thumb_url" class="w-8 h-8 rounded" />
-                  <span class="text-sm">{{ pet.name }}</span>
-                </div>
-              </div>
-              <div v-if="editForm.pet_uid" class="mt-2 flex items-center gap-2">
-                <img v-if="editForm.pet_icon" :src="editForm.pet_icon" class="w-8 h-8 rounded" />
-                <span class="text-sm text-primary-500">已选择：{{ editForm.pet_name }}</span>
-                <button @click="clearEditPet" class="text-xs text-red-500 hover:underline">清除</button>
-              </div>
+              <PetPicker v-model="editForm.pet_uid" />
             </div>
           </div>
 
@@ -292,6 +268,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { seasonsApi, eventsApi, petsApi } from '@/api'
 import { useModal } from '@/composables/useModal'
+import PetPicker from '@/components/shared/PetPicker.vue'
 
 const modal = useModal()
 const currentSeason = ref(null)
@@ -299,12 +276,6 @@ const events = ref([])
 const saving = ref(false)
 const msg = ref('')
 const msgOk = ref(false)
-
-// 精灵搜索
-const petSearchQuery = ref('')
-const petSearchResults = ref([])
-const editPetSearchQuery = ref('')
-const editPetSearchResults = ref([])
 
 // 编辑弹窗状态
 const showEditModal = ref(false)
@@ -320,8 +291,6 @@ const editForm = reactive({
   end_date: '',
   row_order: 0,
   pet_uid: '',
-  pet_name: '',
-  pet_icon: '',
   image: '',
   imageName: '',
   imageFile: null,
@@ -340,8 +309,6 @@ const form = ref({
   imageFile: null,
   row_order: 0,
   pet_uid: '',
-  pet_name: '',
-  pet_icon: '',
   periodsArr: [{ start: '', end: '' }],
 })
 
@@ -366,69 +333,6 @@ function categoryBadgeClass(cat) {
     routine: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
   }
   return map[cat] || ''
-}
-
-// 精灵搜索
-let petSearchTimer = null
-function searchPets() {
-  clearTimeout(petSearchTimer)
-  if (!petSearchQuery.value.trim()) {
-    petSearchResults.value = []
-    return
-  }
-  petSearchTimer = setTimeout(async () => {
-    try {
-      const res = await petsApi.list({ search: petSearchQuery.value, limit: 10 })
-      petSearchResults.value = res.pets || []
-    } catch (e) {
-      petSearchResults.value = []
-    }
-  }, 300)
-}
-
-function selectPet(pet) {
-  form.value.pet_uid = pet.uid
-  form.value.pet_name = pet.name
-  form.value.pet_icon = pet.thumb_url || pet.image_url || ''
-  petSearchQuery.value = ''
-  petSearchResults.value = []
-}
-
-function clearPet() {
-  form.value.pet_uid = ''
-  form.value.pet_name = ''
-  form.value.pet_icon = ''
-}
-
-let editPetSearchTimer = null
-function searchEditPets() {
-  clearTimeout(editPetSearchTimer)
-  if (!editPetSearchQuery.value.trim()) {
-    editPetSearchResults.value = []
-    return
-  }
-  editPetSearchTimer = setTimeout(async () => {
-    try {
-      const res = await petsApi.list({ search: editPetSearchQuery.value, limit: 10 })
-      editPetSearchResults.value = res.pets || []
-    } catch (e) {
-      editPetSearchResults.value = []
-    }
-  }, 300)
-}
-
-function selectEditPet(pet) {
-  editForm.pet_uid = pet.uid
-  editForm.pet_name = pet.name
-  editForm.pet_icon = pet.thumb_url || pet.image_url || ''
-  editPetSearchQuery.value = ''
-  editPetSearchResults.value = []
-}
-
-function clearEditPet() {
-  editForm.pet_uid = ''
-  editForm.pet_name = ''
-  editForm.pet_icon = ''
 }
 
 function handleFileSelect(e) {
@@ -456,7 +360,7 @@ async function loadEvents() {
   }
 }
 
-function validateForm(f, isEdit = false) {
+function validateForm(f) {
   if (!f.name?.trim()) return '请填写活动名称'
   if (f.category === 'version' || f.category === 'mass_outbreak') {
     if (!f.start_date || !f.end_date) return '请填写开始日期和结束日期'
@@ -470,6 +374,20 @@ function validateForm(f, isEdit = false) {
   }
   if (f.row_order === null || f.row_order === '') return '请填写排序值'
   return null
+}
+
+// 根据 pet_uid 解析精灵名称和图标
+async function resolvePetInfo(uid) {
+  if (!uid) return { pet_name: '', pet_icon: '' }
+  try {
+    const pet = await petsApi.get(uid)
+    return {
+      pet_name: pet.name || '',
+      pet_icon: pet.thumb_url || pet.image_url || '',
+    }
+  } catch {
+    return { pet_name: '', pet_icon: '' }
+  }
 }
 
 async function createEvent() {
@@ -486,15 +404,12 @@ async function createEvent() {
   }
 
   saving.value = true
-
   const data = {
     season_id: currentSeason.value.id,
     category: form.value.category,
     name: form.value.name,
     sub_type: form.value.category === 'routine' ? form.value.sub_type : '',
     pet_uid: form.value.category === 'mass_outbreak' ? form.value.pet_uid : '',
-    pet_name: form.value.category === 'mass_outbreak' ? form.value.pet_name : '',
-    pet_icon: form.value.category === 'mass_outbreak' ? form.value.pet_icon : '',
     row_order: form.value.row_order || 0,
     start_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.start_date : '',
     end_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.end_date : '',
@@ -502,6 +417,13 @@ async function createEvent() {
       ? JSON.stringify(form.value.periodsArr.filter(p => p.start && p.end))
       : '[]',
     image: '',
+  }
+
+  // 大量出没：解析精灵名称和图标
+  if (form.value.category === 'mass_outbreak' && form.value.pet_uid) {
+    const { pet_name, pet_icon } = await resolvePetInfo(form.value.pet_uid)
+    data.pet_name = pet_name
+    data.pet_icon = pet_icon
   }
 
   try {
@@ -527,8 +449,6 @@ async function createEvent() {
     form.value.imageFile = null
     form.value.row_order = 0
     form.value.pet_uid = ''
-    form.value.pet_name = ''
-    form.value.pet_icon = ''
     form.value.periodsArr = [{ start: '', end: '' }]
     await loadEvents()
     msg.value = '活动添加成功'
@@ -559,6 +479,8 @@ function onEditCategoryChange() {
   if (editForm.category === 'routine' && !editForm.periodsArr.length) {
     editForm.periodsArr = [{ start: '', end: '' }]
   }
+  if (editForm.category !== 'mass_outbreak') editForm.pet_uid = ''
+  if (editForm.category !== 'routine') editForm.sub_type = ''
 }
 
 function handleEditFileSelect(e) {
@@ -579,13 +501,9 @@ async function openEdit(event) {
   editForm.end_date = event.end_date || ''
   editForm.row_order = event.row_order ?? 0
   editForm.pet_uid = event.pet_uid || ''
-  editForm.pet_name = event.pet_name || ''
-  editForm.pet_icon = event.pet_icon || ''
   editForm.image = event.image || ''
   editForm.imageFile = null
   editForm.imageName = ''
-  editPetSearchQuery.value = ''
-  editPetSearchResults.value = []
   try {
     const periods = typeof event.periods === 'string' ? JSON.parse(event.periods) : (event.periods || [])
     editForm.periodsArr = periods.length ? periods : [{ start: '', end: '' }]
@@ -601,7 +519,7 @@ function closeEdit() {
 }
 
 async function updateEvent() {
-  const err = validateForm(editForm, true)
+  const err = validateForm(editForm)
   if (err) {
     editMsg.value = err
     editMsgOk.value = false
@@ -615,8 +533,6 @@ async function updateEvent() {
       category: editForm.category,
       sub_type: editForm.category === 'routine' ? editForm.sub_type : '',
       pet_uid: editForm.category === 'mass_outbreak' ? editForm.pet_uid : '',
-      pet_name: editForm.category === 'mass_outbreak' ? editForm.pet_name : '',
-      pet_icon: editForm.category === 'mass_outbreak' ? editForm.pet_icon : '',
       row_order: editForm.row_order,
       start_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.start_date : '',
       end_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.end_date : '',
@@ -624,6 +540,17 @@ async function updateEvent() {
         ? JSON.stringify(editForm.periodsArr.filter(p => p.start && p.end))
         : '[]',
     }
+
+    // 大量出没：解析精灵名称和图标
+    if (editForm.category === 'mass_outbreak' && editForm.pet_uid) {
+      const { pet_name, pet_icon } = await resolvePetInfo(editForm.pet_uid)
+      data.pet_name = pet_name
+      data.pet_icon = pet_icon
+    } else {
+      data.pet_name = ''
+      data.pet_icon = ''
+    }
+
     await adminApi.update('season_events', editForm.id, data)
 
     if (editForm.imageFile && editForm.category === 'version') {
