@@ -153,13 +153,68 @@ async function uploadEventImage(eventId) {
 }
 
 async function loadEvents() {
-  if (!currentSeason.value) return
-  const res = await eventsApi.list(currentSeason.value.id, true)
-  events.value = res.events || []
+  if (!currentSeason.value) {
+    msg.value = '当前赛季信息缺失，无法加载活动'
+    msgOk.value = false
+    return
+  }
+  try {
+    const res = await eventsApi.list(currentSeason.value.id, true)
+    events.value = res.events || []
+    if (events.value.length === 0) {
+      msg.value = '当前赛季暂无活动数据'
+      msgOk.value = true
+    }
+  } catch (err) {
+    msg.value = '加载活动失败: ' + (err.message || '未知错误')
+    msgOk.value = false
+  }
 }
 
 async function createEvent() {
-  if (!form.value.name || !currentSeason.value) return
+  // 必填项检测
+  if (!form.value.name?.trim()) {
+    msg.value = '请填写活动名称'
+    msgOk.value = false
+    return
+  }
+  if (!currentSeason.value) {
+    msg.value = '当前赛季信息缺失'
+    msgOk.value = false
+    return
+  }
+  
+  // 版本活动：检测起止时间
+  if (form.value.category === 'version') {
+    if (!form.value.start_date || !form.value.end_date) {
+      msg.value = '请填写开始日期和结束日期'
+      msgOk.value = false
+      return
+    }
+    if (form.value.start_date > form.value.end_date) {
+      msg.value = '开始日期不能晚于结束日期'
+      msgOk.value = false
+      return
+    }
+  }
+  
+  // 常驻课题：检测时间段
+  if (form.value.category === 'routine') {
+    const validPeriods = form.value.periodsArr.filter(p => p.start && p.end)
+    if (validPeriods.length === 0) {
+      msg.value = '请至少添加一个有效的时间段'
+      msgOk.value = false
+      return
+    }
+  }
+  
+  // 检测排序（必须是有效数字）
+  if (form.value.row_order === null || form.value.row_order === '') {
+    msg.value = '请填写排序值'
+    msgOk.value = false
+    return
+  }
+  
   saving.value = true
 
   const data = {
