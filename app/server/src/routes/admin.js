@@ -6,7 +6,7 @@ const multer = require('multer');
 const Database = require('better-sqlite3');
 
 const { authAdmin, signAdminToken } = require('../middleware/authAdmin');
-const { DB_PATH, DATA_DIR, getWriteDb } = require('../db/connection');
+const { DB_PATH, DATA_DIR, getDb, getWriteDb } = require('../db/connection');
 
 const PUBLIC_DIR = path.join(DATA_DIR, 'public');
 const BACKUP_DIR = path.join(path.dirname(DB_PATH), 'backups');
@@ -18,14 +18,12 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'roco2026';
 // 公开 API - 用户端导航标签（不需要鉴权）
 // ============================================================
 router.get('/nav-tabs/public', (req, res) => {
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
   try {
     const tabs = db.prepare('SELECT id, tab_key, label, route, icon, parent_key, sort_order FROM nav_tabs WHERE is_visible = 1 ORDER BY sort_order DESC').all();
     res.json({ tabs });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
@@ -52,21 +50,19 @@ router.use(authAdmin);
 // 导航标签管理
 // ============================================================
 router.get('/nav-tabs', (req, res) => {
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
   try {
     const tabs = db.prepare('SELECT * FROM nav_tabs ORDER BY sort_order DESC').all();
     res.json({ tabs });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
 router.put('/nav-tabs/:id', (req, res) => {
   const { id } = req.params;
   const { tab_key, label, route, icon, parent_key, is_visible, sort_order } = req.body;
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     const result = db.prepare(
       'UPDATE nav_tabs SET tab_key = ?, label = ?, route = ?, icon = ?, parent_key = ?, is_visible = ?, sort_order = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?'
@@ -85,7 +81,7 @@ router.post('/nav-tabs', (req, res) => {
   if (!tab_key || !label || !route) {
     return res.status(400).json({ error: '缺少必填字段: tab_key, label, route' });
   }
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     const result = db.prepare(
       'INSERT INTO nav_tabs (tab_key, label, route, icon, parent_key, is_visible, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -103,7 +99,7 @@ router.post('/nav-tabs', (req, res) => {
 
 router.delete('/nav-tabs/:id', (req, res) => {
   const { id } = req.params;
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     const result = db.prepare('DELETE FROM nav_tabs WHERE id = ?').run(id);
     db.close();
@@ -198,7 +194,7 @@ router.get('/data/:table', (req, res) => {
   const { page = 1, limit = 50, search = '' } = req.query;
   const offset = (page - 1) * limit;
 
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
 
   let whereClause = '';
   const params = [];
@@ -226,8 +222,6 @@ router.get('/data/:table', (req, res) => {
     }
   }
   
-  db.close();
-
   res.json({ total, page: +page, limit: +limit, rows });
 });
 
@@ -237,9 +231,8 @@ router.get('/data/:table/:id', (req, res) => {
   const config = EDITABLE_TABLES[table];
   if (!config) return res.status(400).json({ error: '无效的表名' });
 
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
   const row = db.prepare(`SELECT * FROM ${table} WHERE ${config.primaryKey} = ?`).get(id);
-  db.close();
 
   if (!row) return res.status(404).json({ error: '记录不存在' });
   res.json(row);
@@ -265,7 +258,7 @@ router.put('/data/:table/:id', (req, res) => {
   const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(', ');
   const values = Object.values(updates);
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
 
   // 对支持 manual_edit 的表自动标记
   const manualEditTables = ['pets', 'skills', 'pet_details'];
@@ -307,7 +300,7 @@ router.post('/data/:table', (req, res) => {
 
   const placeholders = fields.map(() => '?').join(', ');
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     // 自增主键表不检查重复
     if (!autoIncrement) {
@@ -338,7 +331,7 @@ router.post('/pika-monthlies', (req, res) => {
     return res.status(400).json({ error: '缺少必填字段: period, name' });
   }
   
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     // 插入主表
     const result = db.prepare(`
@@ -372,7 +365,7 @@ router.put('/pika-monthlies/:id', (req, res) => {
   const { id } = req.params;
   const { period, name, start_date, end_date, row_order, concept_male, concept_female, pets } = req.body;
   
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   try {
     // 更新主表
     const updateFields = [];
@@ -413,7 +406,7 @@ router.put('/pika-monthlies/:id', (req, res) => {
 // DELETE /api/admin/pika-monthlies/:id — 删除皮卡月刊
 router.delete('/pika-monthlies/:id', (req, res) => {
   const { id } = req.params;
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   const result = db.prepare(`DELETE FROM pika_monthlies WHERE id = ?`).run(id);
   db.close();
   
@@ -427,7 +420,7 @@ router.delete('/data/:table/:id', (req, res) => {
   const config = EDITABLE_TABLES[table];
   if (!config) return res.status(400).json({ error: '无效的表名' });
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   const result = db.prepare(`DELETE FROM ${table} WHERE ${config.primaryKey} = ?`).run(id);
   db.close();
 
@@ -446,7 +439,7 @@ router.post('/data/:table/batch', (req, res) => {
     return res.status(400).json({ error: '缺少 updates 数组' });
   }
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   let totalChanges = 0;
 
   for (const item of updates) {
@@ -552,7 +545,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
 
   const mapping = fieldMap[type];
   if (mapping) {
-    const db = new Database(DB_PATH);
+    const db = getWriteDb();
     db.prepare(`UPDATE ${mapping.table} SET ${mapping.field} = ? WHERE ${mapping.key} = ?`).run(publicPath, uid);
     db.close();
   }
@@ -585,14 +578,13 @@ router.get('/conflicts', (req, res) => {
   // 附加当前数据库中的值用于对比
   if (conflicts.length === 0) return res.json({ conflicts: [] });
 
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
   const result = conflicts.map(c => {
     const config = EDITABLE_TABLES[c.table];
     if (!config) return { ...c, currentData: null };
     const row = db.prepare(`SELECT * FROM ${c.table} WHERE ${config.primaryKey} = ?`).get(c.id);
     return { ...c, currentData: row || null };
   });
-  db.close();
   res.json({ conflicts: result });
 });
 
@@ -611,7 +603,7 @@ router.post('/conflicts/:index/accept', (req, res) => {
   const setClauses = [...fields.map(k => `${k} = ?`), 'manual_edit = 0'].join(', ');
   const values = fields.map(k => c.newData[k]);
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   db.prepare(`UPDATE ${c.table} SET ${setClauses} WHERE ${config.primaryKey} = ?`).run(...values, c.id);
   db.close();
 
@@ -638,7 +630,7 @@ router.post('/conflicts/accept-all', (req, res) => {
   const conflicts = loadConflicts();
   if (conflicts.length === 0) return res.json({ success: true });
 
-  const db = new Database(DB_PATH);
+  const db = getWriteDb();
   for (const c of conflicts) {
     const config = EDITABLE_TABLES[c.table];
     if (!config) continue;

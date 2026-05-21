@@ -80,16 +80,14 @@ function initNavTabs(db) {
 }
 
 /**
- * 自动检测并同步表结构
- * 1. 补充缺失列：解析 schema.sql → 对比实际列 → ALTER TABLE ADD COLUMN
- * 2. 删除废弃列：对比实际列 → 找出 schema 中不存在的列 → ALTER TABLE DROP COLUMN
+ * 自动检测并补充缺失列
+ * 解析 schema.sql → 对比实际列 → ALTER TABLE ADD COLUMN
+ * 注意：只做加法，绝不自动删列（防止误删数据）
  */
 function migrateColumns(db, schemaSql) {
-  // 解析 schema.sql 中所有表的列定义
   const tableRegex = /CREATE TABLE IF NOT EXISTS (\w+)\s*\(([\s\S]*?)\);/gi;
   let match;
   let added = 0;
-  let removed = 0;
 
   while ((match = tableRegex.exec(schemaSql)) !== null) {
     const tableName = match[1];
@@ -109,7 +107,7 @@ function migrateColumns(db, schemaSql) {
     const cleanedBody = body
       .replace(/--.*$/gm, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
-    
+
     const lines = cleanedBody
       .split('\n')
       .map(l => l.trim())
@@ -119,14 +117,13 @@ function migrateColumns(db, schemaSql) {
 
     for (const line of lines) {
       const cleaned = line.replace(/,\s*$/, '').trim();
-      // 支持中文列名：列名由 字母/数字/中文/下划线 组成
-      const colMatch = cleaned.match(/^([\w\u4e00-\u9fa5]+)\s+(TEXT|INTEGER|REAL|BLOB|NUMERIC)(.*)$/i);
+      const colMatch = cleaned.match(/^(\w+)\s+(TEXT|INTEGER|REAL|BLOB|NUMERIC)(.*)$/i);
       if (colMatch) {
         expectedColumns.add(colMatch[1]);
       }
     }
 
-    // 1. 补充缺失列
+    // 补充缺失列
     for (const colName of expectedColumns) {
       if (!existingColumns.has(colName)) {
         const colDef = getColumnType(body, colName);
@@ -141,34 +138,22 @@ function migrateColumns(db, schemaSql) {
         }
       }
     }
-
-    // 2. 删除废弃列（数据库有但 schema 没有）
-    for (const colName of existingColumns) {
-      if (!expectedColumns.has(colName)) {
-        try {
-          db.exec(`ALTER TABLE ${tableName} DROP COLUMN ${colName}`);
-          console.log(`[DROP] ${tableName}.${colName}`);
-          removed++;
-        } catch (err) {
-          console.log(`[WARN] ${tableName}.${colName} 无法删除: ${err.message}`);
-        }
-      }
-    }
   }
 
-  if (added > 0 || removed > 0) {
-    console.log(`[MIGRATE] 新增 ${added} 列, 删除 ${removed} 列`);
+  if (added > 0) {
+    console.log(`[MIGRATE] 共补充 ${added} 个缺失列`);
   }
 }
 
 /**
  * 从 schema.sql 中提取指定列的完整定义（含类型和约束）
+ * 返回格式：colName TYPE [CONSTRAINTS]（用于 ALTER TABLE ADD COLUMN）
  */
 function getColumnType(body, colName) {
   const cleanedBody = body
     .replace(/--.*$/gm, '')
     .replace(/\/\*[\s\S]*?\*\//g, '');
-  
+
   const lines = cleanedBody
     .split('\n')
     .map(l => l.trim())
@@ -178,14 +163,15 @@ function getColumnType(body, colName) {
 
   for (const line of lines) {
     const cleaned = line.replace(/,\s*$/, '').trim();
-    const colMatch = cleaned.match(/^([\w\u4e00-\u9fa5]+)\s+(TEXT|INTEGER|REAL|BLOB|NUMERIC)(.*)$/i);
-    if (colMatch && cleaned.startsWith(colName)) {
+    const colMatch = cleaned.match(/^(\w+)\s+(TEXT|INTEGER|REAL|BLOB|NUMERIC)(.*)$/i);
+    if (colMatch && colMatch[1] === colName) {
+      const colType = colMatch[2].toUpperCase();
+      let constraints = (colMatch[3] || '').trim();
       // SQLite ADD COLUMN 不支持 NOT NULL 无 DEFAULT，去掉它
-      let constraints = colMatch[2].trim();
       if (constraints.includes('NOT NULL') && !constraints.includes('DEFAULT')) {
-        constraints = constraints.replace('NOT NULL', '').trim();
+        constraints = constraints.replace(/NOT\s+NULL/i, '').trim();
       }
-      return `${colName} ${colMatch[1].toUpperCase()} ${constraints}`.trim();
+      return `${colName} ${colType}${constraints ? ' ' + constraints : ''}`;
     }
   }
   return null;
