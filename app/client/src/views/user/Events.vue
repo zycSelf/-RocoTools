@@ -89,6 +89,11 @@
               </span>
               <span class="text-sm font-medium">{{ event.name }}</span>
             </div>
+            <!-- 关联精灵 -->
+            <div v-if="event.pet_name" class="flex items-center gap-2 mb-2">
+              <img v-if="event.pet_icon" :src="event.pet_icon" class="w-6 h-6 rounded" />
+              <span class="text-xs text-muted">关联精灵：{{ event.pet_name }}</span>
+            </div>
             <!-- 多段时间展示 -->
             <div v-if="event.periods && event.periods.length" class="flex flex-wrap gap-2">
               <span v-for="(p, i) in event.periods" :key="i"

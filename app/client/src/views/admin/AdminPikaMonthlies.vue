@@ -556,6 +556,8 @@ async function saveForm() {
     // 构建 pets 数据
     const petsData = validPets.map((p, i) => ({
       pet_uid: p.pet_uid,
+      pet_name: p._pet_name || '',
+      pet_icon: p._pet_icon || '',
       locke_male: p.locke_male || '',
       locke_female: p.locke_female || '',
       sort_order: i,
@@ -609,7 +611,8 @@ async function deleteItem(item) {
 async function uploadImage(file, type, uid) {
   try {
     const res = await adminApi.upload(file, type, uid || 'temp')
-    return res.path
+    // 添加时间戳防止浏览器缓存旧图片
+    return res.path ? `${res.path}?t=${Date.now()}` : null
   } catch (e) {
     await modal.alert('上传失败', e.message)
     return null

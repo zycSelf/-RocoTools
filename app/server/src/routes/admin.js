@@ -356,13 +356,23 @@ router.post('/data/:table', (req, res) => {
 
 /**
  * 自动创建/更新月刊关联的常驻课题活动（命定花种 + 皮卡摄影委托）
- * 通过 name 匹配已有活动（前缀"[月刊]"），存在则更新日期，不存在则创建
+ * 通过 name 匹配已有活动（前缀"[月刊]"），存在则更新，不存在则创建
+ * 关联精灵：取月刊第一只精灵作为活动展示精灵，所有精灵名写入活动名称
  */
 function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }) {
   // 获取当前赛季
   const currentSeason = db.prepare('SELECT id FROM seasons WHERE is_current = 1').get();
   if (!currentSeason) return;
   const seasonId = currentSeason.id;
+
+  // 查询月刊关联的精灵
+  const monthlyPets = db.prepare(
+    'SELECT pet_uid, pet_name, pet_icon FROM pika_monthly_pets WHERE monthly_id = ? ORDER BY sort_order'
+  ).all(monthlyId);
+
+  // 取第一只精灵作为活动图标展示
+  const firstPet = monthlyPets[0] || {};
+  const petNames = monthlyPets.map(p => p.pet_name).filter(Boolean).join('、');
 
   const eventConfigs = [
     { sub_type: 'fate_flower', label: '命定花种' },
@@ -379,15 +389,19 @@ function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }
     ).get(seasonId, 'routine', cfg.sub_type, eventName);
 
     if (existing) {
-      // 更新日期
-      db.prepare('UPDATE season_events SET periods = ?, start_date = ?, end_date = ? WHERE id = ?')
-        .run(periods, start_date, end_date, existing.id);
+      // 更新日期 + 精灵信息
+      db.prepare(`UPDATE season_events SET periods = ?, start_date = ?, end_date = ?,
+        pet_uid = ?, pet_name = ?, pet_icon = ? WHERE id = ?`)
+        .run(periods, start_date, end_date,
+          firstPet.pet_uid || '', petNames || '', firstPet.pet_icon || '',
+          existing.id);
     } else {
-      // 新建
+      // 新建（含精灵信息）
       db.prepare(`
-        INSERT INTO season_events (season_id, category, sub_type, name, start_date, end_date, periods, row_order)
-        VALUES (?, 'routine', ?, ?, ?, ?, ?, 0)
-      `).run(seasonId, cfg.sub_type, eventName, start_date, end_date, periods);
+        INSERT INTO season_events (season_id, category, sub_type, name, start_date, end_date, periods, pet_uid, pet_name, pet_icon, row_order)
+        VALUES (?, 'routine', ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      `).run(seasonId, cfg.sub_type, eventName, start_date, end_date, periods,
+        firstPet.pet_uid || '', petNames || '', firstPet.pet_icon || '');
     }
   }
 }
