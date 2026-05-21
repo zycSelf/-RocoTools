@@ -153,21 +153,12 @@ async function uploadEventImage(eventId) {
 }
 
 async function loadEvents() {
-  if (!currentSeason.value) {
-    msg.value = '当前赛季信息缺失，无法加载活动'
-    msgOk.value = false
-    return
-  }
+  if (!currentSeason.value) return
   try {
     const res = await eventsApi.list(currentSeason.value.id, true)
     events.value = res.events || []
-    if (events.value.length === 0) {
-      msg.value = '当前赛季暂无活动数据'
-      msgOk.value = true
-    }
   } catch (err) {
-    msg.value = '加载活动失败: ' + (err.message || '未知错误')
-    msgOk.value = false
+    console.error('加载活动失败:', err)
   }
 }
 

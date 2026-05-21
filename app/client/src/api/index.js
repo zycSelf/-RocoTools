@@ -10,7 +10,7 @@ async function request(path, params, retries = MAX_RETRIES) {
     })
   }
   try {
-    const res = await fetch(url)
+    const res = await fetch(url, { cache: 'no-store' })
     if (!res.ok) throw new Error(`API Error: ${res.status}`)
     return res.json()
   } catch (err) {
@@ -58,7 +58,10 @@ export const eventsApi = {
   list: (seasonId, all) => {
     const params = {}
     if (seasonId) params.season_id = seasonId
-    if (all) params.all = '1'
+    if (all) {
+      params.all = '1'
+      params._t = Date.now() // 管理端强制刷新，绕过缓存
+    }
     return request(`${BASE}/events`, params)
   },
 }
