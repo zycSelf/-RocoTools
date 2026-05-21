@@ -7,8 +7,9 @@ const Database = require('better-sqlite3');
 
 const { authAdmin, signAdminToken } = require('../middleware/authAdmin');
 
-const DB_PATH = path.join(__dirname, '..', '..', '..', '..', 'data', 'roco.db');
-const DATA_DIR = path.join(__dirname, '..', '..', '..', '..', 'data');
+// __dirname = app/server/src/routes，2个.. 到 app/server/
+const DB_PATH = path.join(__dirname, '..', '..', 'data', 'roco.db');
+const DATA_DIR = path.join(__dirname, '..', '..', '..', 'data');
 const PUBLIC_DIR = path.join(DATA_DIR, 'public');
 const BACKUP_DIR = path.join(__dirname, '..', '..', 'data', 'backups');
 
