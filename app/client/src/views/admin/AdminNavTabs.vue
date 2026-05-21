@@ -19,7 +19,7 @@
           <th class="py-3 px-4">路由</th>
           <th class="py-3 px-4">标识键</th>
           <th class="py-3 px-4">父级</th>
-          <th class="py-3 px-4 w-20">排序</th>
+          <th class="py-3 px-4 w-24">排序</th>
           <th class="py-3 px-4 w-20">显示</th>
           <th class="py-3 px-4 w-32">操作</th>
         </tr>
@@ -38,7 +38,10 @@
           <td class="py-3 px-4 text-xs text-muted">{{ item.tab_key }}</td>
           <td class="py-3 px-4 text-xs text-muted">{{ getParentLabel(item.parent_key) }}</td>
           <td class="py-3 px-4">
-            <input v-model.number="item.sort_order" class="input w-16 text-center text-xs" @blur="onSortBlur(item)" />
+            <div class="flex items-center gap-1">
+              <button @click="moveUp(item)" class="text-xs px-1.5 py-0.5 rounded hover:bg-surface-light dark:hover:bg-surface-dark text-muted hover:text-foreground" title="上移">▲</button>
+              <button @click="moveDown(item)" class="text-xs px-1.5 py-0.5 rounded hover:bg-surface-light dark:hover:bg-surface-dark text-muted hover:text-foreground" title="下移">▼</button>
+            </div>
           </td>
           <td class="py-3 px-4">
             <button
@@ -106,8 +109,9 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-xs text-muted block mb-1">排序权重</label>
-              <input v-model.number="form.sort_order" type="number" class="input w-full" placeholder="数字越大越靠前" />
+              <label class="text-xs text-muted block mb-1">显示顺序</label>
+              <input v-model.number="form.sort_order" type="number" class="input w-full" placeholder="数字越大越靠左" />
+              <p class="text-xs text-muted mt-1">创建后可通过列表中的 ▲▼ 按钮调整</p>
             </div>
             <div class="flex items-center gap-2 pt-5">
               <input v-model="form.is_visible" type="checkbox" id="is_visible" class="w-4 h-4" />
@@ -289,8 +293,48 @@ async function toggleVisible(item) {
 
 async function onSortBlur(item) {
   await updateTab(item)
-  // 延迟刷新列表，避免焦点丢失时列表立即重排导致视觉跳动
   setTimeout(() => { list.value = [...list.value] }, 300)
+}
+
+/** 同层级内上移（增大 sort_order） */
+async function moveUp(item) {
+  const siblings = getSiblings(item)
+  const idx = siblings.findIndex(t => t.id === item.id)
+  if (idx <= 0) return
+  // 交换 sort_order
+  const prev = siblings[idx - 1]
+  const tmp = item.sort_order
+  item.sort_order = prev.sort_order
+  prev.sort_order = tmp
+  // 如果相同则强制拉开
+  if (item.sort_order === prev.sort_order) {
+    item.sort_order = prev.sort_order + 1
+  }
+  await Promise.all([updateTab(item), updateTab(prev)])
+  list.value = [...list.value]
+}
+
+/** 同层级内下移（减小 sort_order） */
+async function moveDown(item) {
+  const siblings = getSiblings(item)
+  const idx = siblings.findIndex(t => t.id === item.id)
+  if (idx < 0 || idx >= siblings.length - 1) return
+  const next = siblings[idx + 1]
+  const tmp = item.sort_order
+  item.sort_order = next.sort_order
+  next.sort_order = tmp
+  if (item.sort_order === next.sort_order) {
+    next.sort_order = item.sort_order + 1
+  }
+  await Promise.all([updateTab(item), updateTab(next)])
+  list.value = [...list.value]
+}
+
+/** 获取同层级的标签（按 sort_order 降序） */
+function getSiblings(item) {
+  return list.value
+    .filter(t => (t.parent_key || '') === (item.parent_key || ''))
+    .sort((a, b) => (b.sort_order || 0) - (a.sort_order || 0))
 }
 
 async function deleteTab(item) {
