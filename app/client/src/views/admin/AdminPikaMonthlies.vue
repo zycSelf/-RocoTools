@@ -166,6 +166,14 @@
             </div>
           </div>
 
+          <!-- 自动同步活动 -->
+          <div class="flex items-center gap-2 py-2 px-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+            <input v-model="form.sync_events" type="checkbox" id="sync_events" class="w-4 h-4 accent-purple-500" />
+            <label for="sync_events" class="text-xs text-purple-700 dark:text-purple-300">
+              自动同步「命定花种」和「皮卡摄影委托」活动到当前赛季
+            </label>
+          </div>
+
           <!-- 概念图（整期共用） -->
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -428,6 +436,7 @@ const form = ref({
   row_order: 0,
   concept_male: '',
   concept_female: '',
+  sync_events: true,  // 自动同步命定花种+皮卡摄影委托
   pets: [{ pet_uid: '', locke_male: '', locke_female: '' }],
 })
 
@@ -462,6 +471,7 @@ function openAddModal() {
     row_order: list.value.length,
     concept_male: '',
     concept_female: '',
+    sync_events: true,
     pets: [{ pet_uid: '', locke_male: '', locke_female: '' }],
   }
   loadPetsList()
@@ -557,6 +567,7 @@ async function saveForm() {
       start_date: form.value.start_date || '',
       end_date: form.value.end_date || '',
       row_order: form.value.row_order,
+      sync_events: form.value.sync_events,
       pets: JSON.stringify(petsData),
     }
     if (form.value.concept_male) {

@@ -351,6 +351,48 @@ router.post('/data/:table', (req, res) => {
 });
 
 // ============================================================
+// 皮卡月刊 ↔ 活动同步
+// ============================================================
+
+/**
+ * 自动创建/更新月刊关联的常驻课题活动（命定花种 + 皮卡摄影委托）
+ * 通过 name 匹配已有活动（前缀"[月刊]"），存在则更新日期，不存在则创建
+ */
+function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }) {
+  // 获取当前赛季
+  const currentSeason = db.prepare('SELECT id FROM seasons WHERE is_current = 1').get();
+  if (!currentSeason) return;
+  const seasonId = currentSeason.id;
+
+  const eventConfigs = [
+    { sub_type: 'fate_flower', label: '命定花种' },
+    { sub_type: 'pika_photo', label: '皮卡摄影委托' },
+  ];
+
+  for (const cfg of eventConfigs) {
+    const eventName = `[月刊] ${cfg.label} - ${name}`;
+    const periods = JSON.stringify([{ start: start_date, end: end_date }]);
+
+    // 查找是否已存在同名活动
+    const existing = db.prepare(
+      'SELECT id FROM season_events WHERE season_id = ? AND category = ? AND sub_type = ? AND name = ?'
+    ).get(seasonId, 'routine', cfg.sub_type, eventName);
+
+    if (existing) {
+      // 更新日期
+      db.prepare('UPDATE season_events SET periods = ?, start_date = ?, end_date = ? WHERE id = ?')
+        .run(periods, start_date, end_date, existing.id);
+    } else {
+      // 新建
+      db.prepare(`
+        INSERT INTO season_events (season_id, category, sub_type, name, start_date, end_date, periods, row_order)
+        VALUES (?, 'routine', ?, ?, ?, ?, ?, 0)
+      `).run(seasonId, cfg.sub_type, eventName, start_date, end_date, periods);
+    }
+  }
+}
+
+// ============================================================
 // 皮卡月刊专用接口（处理关联表 pika_monthly_pets）
 // ============================================================
 
@@ -381,6 +423,11 @@ router.post('/pika-monthlies', (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(monthlyId, pet.pet_uid, pet.pet_name || '', pet.pet_icon || '', pet.locke_male || '', pet.locke_female || '', pet.sort_order || 0);
       }
+    }
+
+    // 自动同步关联活动（命定花种 + 皮卡摄影委托）
+    if (req.body.sync_events && start_date && end_date) {
+      syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId });
     }
     
     db.close();
@@ -423,6 +470,14 @@ router.put('/pika-monthlies/:id', (req, res) => {
           INSERT INTO pika_monthly_pets (monthly_id, pet_uid, pet_name, pet_icon, locke_male, locke_female, sort_order)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(id, pet.pet_uid, pet.pet_name || '', pet.pet_icon || '', pet.locke_male || '', pet.locke_female || '', pet.sort_order || 0);
+      }
+    }
+
+    // 自动同步关联活动
+    if (req.body.sync_events) {
+      const monthly = db.prepare('SELECT * FROM pika_monthlies WHERE id = ?').get(id);
+      if (monthly && monthly.start_date && monthly.end_date) {
+        syncMonthlyEvents(db, { period: monthly.period, name: monthly.name, start_date: monthly.start_date, end_date: monthly.end_date, monthlyId: +id });
       }
     }
     

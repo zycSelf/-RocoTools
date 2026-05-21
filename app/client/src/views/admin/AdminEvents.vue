@@ -186,6 +186,11 @@
                 <option v-for="st in VERSION_SUB_TYPES" :key="st.value" :value="st.value">{{ st.label }}</option>
               </select>
             </div>
+            <!-- 抱抱团：选择关联精灵 -->
+            <div v-if="form.sub_type === 'hug'">
+              <label class="text-xs text-muted">关联精灵</label>
+              <PetPicker v-model="form.pet_uid" />
+            </div>
           </div>
         </div>
 
@@ -284,6 +289,11 @@
                 <option value="">不分类</option>
                 <option v-for="st in VERSION_SUB_TYPES" :key="st.value" :value="st.value">{{ st.label }}</option>
               </select>
+            </div>
+            <!-- 抱抱团：选择关联精灵 -->
+            <div v-if="editForm.sub_type === 'hug'">
+              <label class="text-xs text-muted">关联精灵</label>
+              <PetPicker v-model="editForm.pet_uid" />
             </div>
           </div>
 
@@ -581,7 +591,7 @@ async function createEvent() {
     category: form.value.category,
     name: form.value.name,
     sub_type: form.value.sub_type || '',
-    pet_uid: form.value.category === 'mass_outbreak' ? form.value.pet_uid : '',
+    pet_uid: (form.value.category === 'mass_outbreak' || form.value.sub_type === 'hug') ? form.value.pet_uid : '',
     row_order: events.value.length, // 新增放最后
     start_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.start_date : '',
     end_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.end_date : '',
@@ -641,7 +651,7 @@ function onEditCategoryChange() {
   if (editForm.category === 'routine' && !editForm.periodsArr.length) {
     editForm.periodsArr = [{ start: '', end: '' }]
   }
-  if (editForm.category !== 'mass_outbreak') editForm.pet_uid = ''
+  if (editForm.category !== 'mass_outbreak' && editForm.sub_type !== 'hug') editForm.pet_uid = ''
   if (editForm.category !== 'routine') editForm.sub_type = ''
 }
 
@@ -695,7 +705,7 @@ async function updateEvent() {
       name: editForm.name,
       category: editForm.category,
       sub_type: editForm.sub_type || '',
-      pet_uid: editForm.category === 'mass_outbreak' ? editForm.pet_uid : '',
+      pet_uid: (editForm.category === 'mass_outbreak' || editForm.sub_type === 'hug') ? editForm.pet_uid : '',
       start_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.start_date : '',
       end_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.end_date : '',
       periods: editForm.category === 'routine'
