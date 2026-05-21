@@ -69,6 +69,7 @@
       <button @click="createEvent" class="btn-primary text-sm" :disabled="saving">
         {{ saving ? '保存中...' : '添加活动' }}
       </button>
+      <span v-if="msg" class="ml-3 text-sm" :class="msgOk ? 'text-green-600' : 'text-red-500'">{{ msg }}</span>
     </div>
 
     <!-- 活动列表 -->
@@ -114,10 +115,14 @@
 import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { seasonsApi, eventsApi } from '@/api'
+import { useModal } from '@/composables/useModal'
 
+const modal = useModal()
 const currentSeason = ref(null)
 const events = ref([])
 const saving = ref(false)
+const msg = ref('')
+const msgOk = ref(false)
 
 const form = ref({
   name: '',
@@ -193,19 +198,26 @@ async function createEvent() {
     form.value.row_order = 0
     form.value.periodsArr = [{ start: '', end: '' }]
     await loadEvents()
+    msg.value = '活动添加成功'
+    msgOk.value = true
   } catch (err) {
-    alert('创建失败: ' + (err.message || '未知错误'))
+    msg.value = '创建失败: ' + (err.message || '未知错误')
+    msgOk.value = false
   }
   saving.value = false
 }
 
 async function deleteEvent(event) {
-  if (!confirm(`确认删除「${event.name}」？`)) return
+  const confirmed = await modal.danger('删除活动', `确认删除「${event.name}」？`)
+  if (!confirmed) return
   try {
     await adminApi.delete('season_events', event.id)
     await loadEvents()
+    msg.value = `「${event.name}」已删除`
+    msgOk.value = true
   } catch (err) {
-    alert('删除失败: ' + (err.message || '未知错误'))
+    msg.value = '删除失败: ' + (err.message || '未知错误')
+    msgOk.value = false
   }
 }
 
