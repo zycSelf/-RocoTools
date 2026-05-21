@@ -12,12 +12,15 @@
 | 页面 | 路由 | 功能 |
 |------|------|------|
 | 首页 | `/rocotools/` | 数据概览、快速导航 |
+| 赛季 | `/rocotools/season` | 赛季封面+精灵展示，支持过往赛季切换 |
+| 活动日历 | `/rocotools/events` | 当前赛季活跃活动时间轴 |
 | 精灵图鉴 | `/rocotools/pets` | 搜索/属性筛选/排序/分页，支持异色预览 |
 | 精灵详情 | `/rocotools/pets/:uid` | 立绘切换、种族值雷达图、属性克制、技能列表 |
 | 技能列表 | `/rocotools/skills` | 按属性/分类/应对/效果关键词筛选 |
 | 技能详情 | `/rocotools/skills/:uid` | 技能数据 + 可学习精灵（按来源分类） |
 | 打击面分析 | `/rocotools/coverage` | 选属性组合 → 查匹配精灵（含血脉） |
 | 蛋组 | `/rocotools/eggs` | 15 种蛋组及其精灵成员 |
+| 性格 | `/rocotools/natures` | 30 种性格属性增减查询 |
 | 属性克制 | `/rocotools/elements` | 克制表(18×18)、双属性表、详细查询 |
 
 ---
@@ -159,6 +162,10 @@ BWIKI → crawler(采集+清洗) → data/(JSON+图片) → sync_db.js → SQLit
 | `GET /api/pets?page&limit&search&element_id&sort_by&order` | 精灵列表 |
 | `GET /api/pets/:uid` | 精灵完整详情 |
 | `GET /api/pets/shiny` | 异色精灵列表 |
+| `GET /api/natures` | 性格列表（30种） |
+| `GET /api/seasons` | 所有赛季 |
+| `GET /api/seasons/current` | 当前赛季 |
+| `GET /api/events?season_id&all` | 活动日历（默认仅活跃） |
 
 ---
 
