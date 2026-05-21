@@ -57,15 +57,17 @@
               <td class="py-2.5 px-3 font-medium">{{ event.name }}</td>
               <td class="py-2.5 px-3 text-xs">
                 <template v-if="event.pet_name">
-                  <div class="flex items-center gap-1">
-                    <div 
-                      v-if="event.pet_icon" 
-                      class="w-8 h-8 rounded cursor-zoom-in hover:rounded-none transition-rounded flex items-center justify-center"
-                      @click="openPreview(event.pet_icon)"
-                    >
-                      <img :src="event.pet_icon" class="w-5 h-5 rounded" />
-                    </div>
-                    <span>{{ event.pet_name }}</span>
+                  <div class="flex items-center gap-1 flex-wrap">
+                    <template v-if="parsePetIcons(event.pet_icon).length">
+                      <img v-for="p in parsePetIcons(event.pet_icon)" :key="p.uid"
+                        :src="p.icon" :title="p.name"
+                        class="w-6 h-6 rounded cursor-zoom-in hover:scale-150 transition-transform"
+                        @click="openPreview(p.icon)" />
+                    </template>
+                    <img v-else-if="event.pet_icon && !event.pet_icon.startsWith('[')"
+                      :src="event.pet_icon" class="w-6 h-6 rounded"
+                      @click="openPreview(event.pet_icon)" />
+                    <span class="text-muted">{{ event.pet_name }}</span>
                   </div>
                 </template>
                 <template v-else-if="event.sub_type">
@@ -481,6 +483,12 @@ function getCategoryCount(cat) {
 }
 
 function subTypeLabel(st) { return SUB_TYPE_LABELS[st] || st }
+
+/** 解析 pet_icon 字段：可能是 JSON 数组（多精灵）或普通路径（单精灵） */
+function parsePetIcons(petIcon) {
+  if (!petIcon || !petIcon.startsWith('[')) return []
+  try { return JSON.parse(petIcon) } catch { return [] }
+}
 
 function handleFileSelect(e) {
   const file = e.target.files[0]

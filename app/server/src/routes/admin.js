@@ -381,9 +381,10 @@ function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }
     }
   }
 
-  // 取第一只精灵作为活动图标展示
+  // 取第一只精灵 uid，所有精灵名用顿号拼接，所有图标存 JSON 数组
   const firstPet = monthlyPets[0] || {};
   const petNames = monthlyPets.map(p => p.pet_name).filter(Boolean).join('、');
+  const petIcons = JSON.stringify(monthlyPets.map(p => ({ uid: p.pet_uid, name: p.pet_name, icon: p.pet_icon })));
 
   const eventConfigs = [
     { sub_type: 'fate_flower', label: '命定花种' },
@@ -404,7 +405,7 @@ function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }
       db.prepare(`UPDATE season_events SET periods = ?, start_date = ?, end_date = ?,
         pet_uid = ?, pet_name = ?, pet_icon = ? WHERE id = ?`)
         .run(periods, start_date, end_date,
-          firstPet.pet_uid || '', petNames || '', firstPet.pet_icon || '',
+          firstPet.pet_uid || '', petNames || '', petIcons,
           existing.id);
     } else {
       // 新建（含精灵信息）
@@ -412,7 +413,7 @@ function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }
         INSERT INTO season_events (season_id, category, sub_type, name, start_date, end_date, periods, pet_uid, pet_name, pet_icon, row_order)
         VALUES (?, 'routine', ?, ?, ?, ?, ?, ?, ?, ?, 0)
       `).run(seasonId, cfg.sub_type, eventName, start_date, end_date, periods,
-        firstPet.pet_uid || '', petNames || '', firstPet.pet_icon || '');
+        firstPet.pet_uid || '', petNames || '', petIcons);
     }
   }
 }

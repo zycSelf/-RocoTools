@@ -90,9 +90,15 @@
               <span class="text-sm font-medium">{{ event.name }}</span>
             </div>
             <!-- 关联精灵 -->
-            <div v-if="event.pet_name" class="flex items-center gap-2 mb-2">
-              <img v-if="event.pet_icon" :src="event.pet_icon" class="w-6 h-6 rounded" />
-              <span class="text-xs text-muted">关联精灵：{{ event.pet_name }}</span>
+            <div v-if="event.pet_name" class="flex items-center gap-2 mb-2 flex-wrap">
+              <template v-if="parsePetIcons(event.pet_icon).length">
+                <img v-for="p in parsePetIcons(event.pet_icon)" :key="p.uid"
+                  :src="p.icon" :title="p.name"
+                  class="w-7 h-7 rounded" />
+              </template>
+              <img v-else-if="event.pet_icon && !event.pet_icon.startsWith('[')"
+                :src="event.pet_icon" class="w-7 h-7 rounded" />
+              <span class="text-xs text-muted">{{ event.pet_name }}</span>
             </div>
             <!-- 多段时间展示 -->
             <div v-if="event.periods && event.periods.length" class="flex flex-wrap gap-2">
@@ -142,6 +148,11 @@ const SUB_TYPE_LABELS = {
   starlight: '星光对决', destiny: '命定花种', pika: '皮卡摄影委托',
 }
 function subTypeLabel(st) { return SUB_TYPE_LABELS[st] || st || '其他' }
+
+function parsePetIcons(petIcon) {
+  if (!petIcon || !petIcon.startsWith('[')) return []
+  try { return JSON.parse(petIcon) } catch { return [] }
+}
 
 function routineTagClass(subType) {
   const map = {
