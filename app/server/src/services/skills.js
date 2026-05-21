@@ -1,4 +1,5 @@
-const db = require('../db/connection');
+const { getDb } = require('../db/connection');
+const db = getDb();
 
 function list({ page = 1, limit = 50, element_id, category, search, counter, keyword } = {}) {
   const offset = (Math.max(1, +page) - 1) * +limit;

@@ -1,9 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Database = require('better-sqlite3');
-const path = require('path');
-
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'roco.db');
+const { getDb } = require('../db/connection');
 
 function parseEvent(e) {
   return {
@@ -34,7 +31,7 @@ function filterActive(events, today) {
 // GET /api/events?season_id=S1&all=1 — 获取活动（默认只返回活跃的，all=1返回全部）
 router.get('/', (req, res) => {
   const { season_id, all } = req.query;
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
 
   let events;
   if (season_id) {
@@ -47,7 +44,6 @@ router.get('/', (req, res) => {
       events = [];
     }
   }
-  db.close();
 
   // 默认只返回活跃的活动，管理端传 all=1 获取全部
   const today = new Date().toISOString().slice(0, 10);

@@ -16,22 +16,16 @@ const eventsRouter = require('./routes/events');
 const adminRouter = require('./routes/admin');
 const { apiCache } = require('./middleware/apiCache');
 
-const Database = require('better-sqlite3');
-// __dirname = app/server/src，2个.. 到 app/server/
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'roco.db');
-// 确保 data 目录存在
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const { DATA_DIR, getDb } = require('./db/connection');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 静态资源：data/public/ → /public/
-const PUBLIC_DIR = path.join(__dirname, '..', '..', '..', 'data', 'public');
-app.use('/public', express.static(PUBLIC_DIR));
+app.use('/public', express.static(path.join(DATA_DIR, 'public')));
 
-// 手动上传资源：data/uploads/ → /uploads/（入 git）
-const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', 'data', 'uploads');
-app.use('/uploads', express.static(UPLOADS_DIR));
+// 手动上传资源：data/uploads/ → /uploads/
+app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads')));
 
 app.use(cors());
 app.use(morgan('dev'));
@@ -51,17 +45,15 @@ app.use('/api/admin', adminRouter);
 
 // 统计数据（首页概览）
 app.get('/api/stats', (req, res) => {
-  const db = new Database(DB_PATH, { readonly: true });
+  const db = getDb();
   try {
     const pets = db.prepare('SELECT COUNT(*) as c FROM pets').get().c;
     const skills = db.prepare('SELECT COUNT(*) as c FROM skills').get().c;
     const elements = db.prepare('SELECT COUNT(*) as c FROM elements').get().c;
     const eggs = db.prepare('SELECT COUNT(*) as c FROM egg_groups').get().c;
     const natures = db.prepare('SELECT COUNT(*) as c FROM natures').get().c;
-    db.close();
     res.json({ pets, skills, elements, eggs, natures });
   } catch (err) {
-    db.close();
     res.status(500).json({ error: err.message });
   }
 });

@@ -1,4 +1,5 @@
-const db = require('../db/connection');
+const { getDb } = require('../db/connection');
+const db = getDb();
 
 const eggStmt = db.prepare(`
   SELECT eg.id, eg.name FROM pet_egg_groups peg

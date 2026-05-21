@@ -1,4 +1,5 @@
-const db = require('../db/connection');
+const { getDb } = require('../db/connection');
+const db = getDb();
 
 function parseRow(row) {
   return {

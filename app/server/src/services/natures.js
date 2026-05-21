@@ -1,4 +1,5 @@
-const db = require('../db/connection');
+const { getDb } = require('../db/connection');
+const db = getDb();
 
 function getAll() {
   const natures = db.prepare('SELECT * FROM natures ORDER BY id').all();
