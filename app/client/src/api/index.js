@@ -55,5 +55,10 @@ export const seasonsApi = {
 }
 
 export const eventsApi = {
-  list: (seasonId) => request(`${BASE}/events`, seasonId ? { season_id: seasonId } : {}),
+  list: (seasonId, all) => {
+    const params = {}
+    if (seasonId) params.season_id = seasonId
+    if (all) params.all = '1'
+    return request(`${BASE}/events`, params)
+  },
 }

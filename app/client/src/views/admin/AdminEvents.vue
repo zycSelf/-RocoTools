@@ -124,7 +124,7 @@ const form = ref({
 
 async function loadEvents() {
   if (!currentSeason.value) return
-  const res = await eventsApi.list(currentSeason.value.id)
+  const res = await eventsApi.list(currentSeason.value.id, true)
   events.value = res.events || []
 }
 
