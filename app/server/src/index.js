@@ -99,6 +99,21 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
+// 全局错误处理（防止堆栈信息泄露）
+app.use((err, req, res, next) => {
+  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err.message);
+  const status = err.status || 500;
+  res.status(status).json({ error: status === 500 ? '服务器内部错误' : err.message });
+});
+
+// 启动前检查关键环境变量
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn('[WARN] 未设置 ADMIN_PASSWORD 环境变量，管理端使用默认密码（仅限开发）');
+}
+if (!process.env.ADMIN_SECRET) {
+  console.warn('[WARN] 未设置 ADMIN_SECRET 环境变量，JWT 使用默认密钥（仅限开发）');
+}
+
 app.listen(PORT, () => {
   console.log(`[Roco API] 运行在 http://localhost:${PORT}`);
   console.log(`[Roco API] 接口文档: http://localhost:${PORT}/api`);

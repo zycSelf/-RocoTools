@@ -11,8 +11,37 @@ const { DB_PATH, DATA_DIR, getDb, getWriteDb } = require('../db/connection');
 const PUBLIC_DIR = path.join(DATA_DIR, 'public');
 const BACKUP_DIR = path.join(path.dirname(DB_PATH), 'backups');
 
-// 管理员密码（环境变量）
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'roco2026';
+// 管理员密码（环境变量，缺失时警告）
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) console.warn('[WARN] ADMIN_PASSWORD 未设置，使用默认密码（仅开发环境）');
+const _password = ADMIN_PASSWORD || 'roco2026';
+
+// ============================================================
+// 安全工具函数
+// ============================================================
+
+/** 校验文件名/uid：只允许字母、数字、下划线、连字符、点 */
+function isSafeFilename(name) {
+  return /^[a-zA-Z0-9_\-.]+$/.test(name) && !name.includes('..');
+}
+
+/** 校验路径是否在预期目录内（防止路径遍历） */
+function isPathWithin(filepath, allowedDir) {
+  const resolved = path.resolve(filepath);
+  const dir = path.resolve(allowedDir);
+  return resolved.startsWith(dir + path.sep) || resolved === dir;
+}
+
+/** 安全解析 JSON 文件（损坏时返回默认值） */
+function safeReadJSON(filepath, fallback = []) {
+  try {
+    if (!fs.existsSync(filepath)) return fallback;
+    return JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+  } catch (err) {
+    console.error(`[ERROR] JSON 解析失败: ${filepath} — ${err.message}`);
+    return fallback;
+  }
+}
 
 // ============================================================
 // 公开 API - 用户端导航标签（不需要鉴权）
@@ -36,7 +65,7 @@ router.get('/nav-tabs/public', (req, res) => {
 // ============================================================
 router.post('/login', (req, res) => {
   const { password } = req.body;
-  if (!password || password !== ADMIN_PASSWORD) {
+  if (!password || password !== _password) {
     return res.status(401).json({ error: '密码错误' });
   }
   const token = signAdminToken();
@@ -192,7 +221,9 @@ router.get('/data/:table', (req, res) => {
   if (!config) return res.status(400).json({ error: '无效的表名' });
 
   const { page = 1, limit = 50, search = '' } = req.query;
-  const offset = (page - 1) * limit;
+  const safeLimit = Math.min(Math.max(1, +limit || 50), 500);
+  const safePage = Math.max(1, +page || 1);
+  const offset = (safePage - 1) * safeLimit;
 
   const db = getDb();
 
@@ -212,7 +243,7 @@ router.get('/data/:table', (req, res) => {
     orderClause = 'ORDER BY period DESC';
   }
   
-  const rows = db.prepare(`SELECT * FROM ${table} ${whereClause} ${orderClause} LIMIT ? OFFSET ?`).all(...params, +limit, offset);
+  const rows = db.prepare(`SELECT * FROM ${table} ${whereClause} ${orderClause} LIMIT ? OFFSET ?`).all(...params, safeLimit, offset);
   
   // 对于 pika_monthlies，附带查询关联的 pika_monthly_pets
   if (table === 'pika_monthlies' && rows.length > 0) {
@@ -222,7 +253,7 @@ router.get('/data/:table', (req, res) => {
     }
   }
   
-  res.json({ total, page: +page, limit: +limit, rows });
+  res.json({ total, page: safePage, limit: safeLimit, rows });
 });
 
 // GET /api/admin/data/:table/:id — 获取单条记录
@@ -511,6 +542,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
 
   const { type, uid } = req.body;
   if (!type || !uid) return res.status(400).json({ error: '缺少 type 或 uid' });
+  if (!isSafeFilename(uid)) return res.status(400).json({ error: 'uid 包含非法字符' });
 
   const imageConfig = IMAGE_TYPES[type];
   if (!imageConfig) return res.status(400).json({ error: `无效的图片类型: ${type}` });
@@ -560,8 +592,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
 const CONFLICTS_PATH = path.join(__dirname, '..', '..', 'data', 'pending_conflicts.json');
 
 function loadConflicts() {
-  if (!fs.existsSync(CONFLICTS_PATH)) return [];
-  return JSON.parse(fs.readFileSync(CONFLICTS_PATH, 'utf-8'));
+  return safeReadJSON(CONFLICTS_PATH, []);
 }
 
 function saveConflicts(conflicts) {
@@ -659,9 +690,7 @@ const SEASON_DIR = path.join(BACKUP_DIR, 'seasons');
 // 备份元数据文件
 function getMetaPath() { return path.join(BACKUP_DIR, '_meta.json'); }
 function loadMeta() {
-  const p = getMetaPath();
-  if (!fs.existsSync(p)) return {};
-  return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  return safeReadJSON(getMetaPath(), {});
 }
 function saveMeta(meta) {
   fs.writeFileSync(getMetaPath(), JSON.stringify(meta, null, 2), 'utf-8');
@@ -758,9 +787,11 @@ const SNAPSHOT_DIR = path.join(BACKUP_DIR, 'snapshots');
 router.post('/restore', (req, res) => {
   const { name, type, save_current, save_label } = req.body;
   if (!name) return res.status(400).json({ error: '缺少备份文件名' });
+  if (!isSafeFilename(name)) return res.status(400).json({ error: '非法文件名' });
 
   const dir = type === 'season' ? SEASON_DIR : type === 'snapshot' ? SNAPSHOT_DIR : BACKUP_DIR;
   const backupPath = path.join(dir, name);
+  if (!isPathWithin(backupPath, dir)) return res.status(400).json({ error: '路径非法' });
   if (!fs.existsSync(backupPath)) {
     return res.status(404).json({ error: '备份文件不存在' });
   }
@@ -791,7 +822,15 @@ router.post('/restore', (req, res) => {
   }
 
   // 执行恢复
-  fs.copyFileSync(backupPath, DB_PATH);
+  try {
+    fs.copyFileSync(backupPath, DB_PATH);
+  } catch (err) {
+    return res.status(500).json({ error: `恢复失败: ${err.message}` });
+  }
+
+  // 恢复后清除 API 缓存（数据已变化）
+  const { clearCache } = require('../middleware/apiCache');
+  clearCache();
 
   const msg = savedAs
     ? `已恢复到 ${name}，当前数据已保存为「${savedAs}」`
@@ -812,7 +851,9 @@ router.get('/backups/snapshots', (req, res) => {
 
 // DELETE /api/admin/backups/snapshots/:name — 删除快照
 router.delete('/backups/snapshots/:name', (req, res) => {
+  if (!isSafeFilename(req.params.name)) return res.status(400).json({ error: '非法文件名' });
   const snapshotPath = path.join(SNAPSHOT_DIR, req.params.name);
+  if (!isPathWithin(snapshotPath, SNAPSHOT_DIR)) return res.status(400).json({ error: '路径非法' });
   if (!fs.existsSync(snapshotPath)) {
     return res.status(404).json({ error: '快照不存在' });
   }
@@ -825,7 +866,9 @@ router.delete('/backups/snapshots/:name', (req, res) => {
 
 // DELETE /api/admin/backups/:name — 删除临时备份
 router.delete('/backups/:name', (req, res) => {
+  if (!isSafeFilename(req.params.name)) return res.status(400).json({ error: '非法文件名' });
   const backupPath = path.join(BACKUP_DIR, req.params.name);
+  if (!isPathWithin(backupPath, BACKUP_DIR)) return res.status(400).json({ error: '路径非法' });
   if (!fs.existsSync(backupPath)) {
     return res.status(404).json({ error: '备份文件不存在' });
   }

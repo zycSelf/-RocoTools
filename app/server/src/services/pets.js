@@ -15,7 +15,8 @@ function getShinyList() {
 }
 
 function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc' } = {}) {
-  const offset = (Math.max(1, +page) - 1) * +limit;
+  const safeLimit = Math.min(Math.max(1, +limit), 200);
+  const offset = (Math.max(1, +page) - 1) * safeLimit;
 
   const allowedSort = ['pet_id', 'name', 'total', 'hp', 'speed', 'atk', 'matk', 'def', 'mdef'];
   const sortCol = allowedSort.includes(sort_by) ? sort_by : 'pet_id';
@@ -48,7 +49,7 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
     ${joins} ${whereClause}
     ORDER BY p.${sortCol} ${sortOrder}
     LIMIT ? OFFSET ?
-  `).all(...params, +limit, offset);
+  `).all(...params, safeLimit, offset);
 
   // 查询每个精灵的形态数量
   const variantCountStmt = db.prepare('SELECT COUNT(*) as c FROM pets WHERE pet_id = ?');
@@ -59,7 +60,7 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
     variant_count: variantCountStmt.get(r.pet_id).c,
   }));
 
-  return { total, page: +page, limit: +limit, pets };
+  return { total, page: +page, limit: safeLimit, pets };
 }
 
 function getByUid(uid) {
