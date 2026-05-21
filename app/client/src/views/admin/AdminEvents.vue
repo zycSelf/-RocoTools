@@ -56,7 +56,7 @@
               </td>
               <td class="py-2.5 px-3 font-medium">{{ event.name }}</td>
               <td class="py-2.5 px-3 text-xs">
-                <template v-if="activeTab === 'mass_outbreak' && event.pet_name">
+                <template v-if="event.pet_name">
                   <div class="flex items-center gap-1">
                     <div 
                       v-if="event.pet_icon" 
@@ -68,7 +68,7 @@
                     <span>{{ event.pet_name }}</span>
                   </div>
                 </template>
-                <template v-else-if="activeTab === 'routine' && event.sub_type">
+                <template v-else-if="event.sub_type">
                   <span class="text-muted text-xs">{{ subTypeLabel(event.sub_type) }}</span>
                 </template>
                 <template v-else>-</template>

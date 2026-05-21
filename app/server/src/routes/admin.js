@@ -370,6 +370,17 @@ function syncMonthlyEvents(db, { period, name, start_date, end_date, monthlyId }
     'SELECT pet_uid, pet_name, pet_icon FROM pika_monthly_pets WHERE monthly_id = ? ORDER BY sort_order'
   ).all(monthlyId);
 
+  // 如果 pet_name/pet_icon 为空，从 pets 表补充
+  for (const mp of monthlyPets) {
+    if (!mp.pet_name || !mp.pet_icon) {
+      const pet = db.prepare('SELECT name, thumb_url, image_url FROM pets WHERE uid = ?').get(mp.pet_uid);
+      if (pet) {
+        if (!mp.pet_name) mp.pet_name = pet.name || '';
+        if (!mp.pet_icon) mp.pet_icon = pet.thumb_url || pet.image_url || '';
+      }
+    }
+  }
+
   // 取第一只精灵作为活动图标展示
   const firstPet = monthlyPets[0] || {};
   const petNames = monthlyPets.map(p => p.pet_name).filter(Boolean).join('、');
