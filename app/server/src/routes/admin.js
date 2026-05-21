@@ -107,8 +107,8 @@ router.put('/nav-tabs/:id', (req, res) => {
 
 router.post('/nav-tabs', (req, res) => {
   const { tab_key, label, route, icon, parent_key, is_visible, sort_order } = req.body;
-  if (!tab_key || !label || !route) {
-    return res.status(400).json({ error: '缺少必填字段: tab_key, label, route' });
+  if (!tab_key || !label) {
+    return res.status(400).json({ error: '缺少必填字段: tab_key, label' });
   }
   const db = getWriteDb();
   try {
