@@ -148,10 +148,14 @@ CREATE TABLE IF NOT EXISTS seasons (
 CREATE TABLE IF NOT EXISTS season_events (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   season_id   TEXT NOT NULL,
-  category    TEXT NOT NULL,        -- 'version' | 'routine'
+  category    TEXT NOT NULL,        -- 'version' | 'mass_outbreak' | 'routine'
   name        TEXT NOT NULL,
-  start_date  TEXT,                 -- 版本活动单段起始
-  end_date    TEXT,                 -- 版本活动单段结束
+  sub_type    TEXT,                 -- 常驻课题子类型: 'starlight' | 'destiny' | 'pika'
+  pet_uid     TEXT,                 -- 大量出没关联精灵 uid
+  pet_name    TEXT,                 -- 大量出没精灵名称（冗余，方便展示）
+  pet_icon    TEXT,                 -- 大量出没精灵图标（冗余，方便展示）
+  start_date  TEXT,                 -- 版本活动/大量出没单段起始
+  end_date    TEXT,                 -- 版本活动/大量出没单段结束
   periods     TEXT,                 -- 常驻课题多段 JSON [{start, end}]
   image       TEXT,                 -- banner图片路径
   row_order   INTEGER DEFAULT 0,

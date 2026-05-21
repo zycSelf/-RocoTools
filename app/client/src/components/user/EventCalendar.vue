@@ -42,13 +42,30 @@
           </div>
         </div>
 
+        <!-- 大量出没 -->
+        <div v-if="massOutbreakEvents.length" class="px-4 sm:px-5 py-3 border-b border-surface-light-border/50 dark:border-surface-dark-border/50">
+          <div class="text-xs text-muted mb-2 font-medium">大量出没</div>
+          <div class="space-y-2">
+            <div v-for="event in massOutbreakEvents" :key="event.id" class="relative h-8 sm:h-9 flex items-center">
+              <div class="absolute h-full rounded-lg overflow-hidden transition-all"
+                :style="{ left: getPosition(event.start_date) + '%', width: getWidth(event.start_date, event.end_date) + '%' }">
+                <div class="h-full flex items-center gap-1.5 px-2 bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/30 rounded-lg">
+                  <img v-if="event.pet_icon" :src="event.pet_icon" class="h-5 sm:h-6 w-5 sm:w-6 rounded flex-shrink-0" />
+                  <span class="text-xs font-medium truncate">{{ event.name }}</span>
+                  <span class="text-[10px] text-muted flex-shrink-0 ml-auto">{{ formatRange(event.start_date, event.end_date) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 常驻课题 -->
         <div v-if="routineEvents.length" class="px-4 sm:px-5 py-3">
           <div class="text-xs text-muted mb-2 font-medium">常驻课题</div>
           <div class="space-y-2">
             <div v-for="event in routineEvents" :key="event.id" class="relative h-8 sm:h-9 flex items-center">
               <!-- 名称标签 -->
-              <div class="absolute left-0 w-24 sm:w-28 text-xs sm:text-sm font-medium truncate pr-2">{{ event.name }}</div>
+              <div class="absolute left-0 w-24 sm:w-28 text-xs sm:text-sm font-medium truncate pr-2">{{ subTypeLabel(event.sub_type) || event.name }}</div>
               <!-- 多段时间条 -->
               <div class="absolute left-24 sm:left-28 right-0 h-full flex items-center">
                 <div class="relative w-full h-full">
@@ -77,7 +94,16 @@ const props = defineProps({
   endDate: { type: String, default: '' },
 })
 
+const SUB_TYPE_LABELS = {
+  starlight: '星光对决',
+  destiny: '命定花种',
+  pika: '皮卡摄影委托',
+}
+
+function subTypeLabel(st) { return SUB_TYPE_LABELS[st] || st }
+
 const versionEvents = computed(() => props.events.filter(e => e.category === 'version'))
+const massOutbreakEvents = computed(() => props.events.filter(e => e.category === 'mass_outbreak'))
 const routineEvents = computed(() => props.events.filter(e => e.category === 'routine'))
 
 // 计算时间轴范围

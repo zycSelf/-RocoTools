@@ -15,11 +15,12 @@ function parseEvent(e) {
 /**
  * 过滤活跃的活动：
  * - version 类型：end_date >= 今天
+ * - mass_outbreak 类型：end_date >= 今天
  * - routine 类型：至少有一个 period 的 end >= 今天
  */
 function filterActive(events, today) {
   return events.filter(e => {
-    if (e.category === 'version') {
+    if (e.category === 'version' || e.category === 'mass_outbreak') {
       return !e.end_date || e.end_date >= today;
     }
     if (e.category === 'routine') {
@@ -59,4 +60,3 @@ router.get('/', (req, res) => {
 });
 
 module.exports = router;
-

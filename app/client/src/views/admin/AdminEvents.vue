@@ -22,23 +22,24 @@
           <label class="text-xs text-muted">类型 <span class="text-red-500">*</span></label>
           <select v-model="form.category" class="select w-full">
             <option value="version">版本活动</option>
+            <option value="mass_outbreak">大量出没</option>
             <option value="routine">常驻课题</option>
           </select>
         </div>
         <div>
-          <label class="text-xs text-muted">排序</label>
+          <label class="text-xs text-muted">排序 <span class="text-red-500">*</span></label>
           <input v-model.number="form.row_order" type="number" class="input w-full" placeholder="数字越小越靠上" />
         </div>
       </div>
 
-      <!-- 版本活动：单段日期 -->
+      <!-- 版本活动：单段日期 + 图片 -->
       <div v-if="form.category === 'version'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
         <div>
-          <label class="text-xs text-muted">开始日期</label>
+          <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
           <input v-model="form.start_date" type="date" class="input w-full" />
         </div>
         <div>
-          <label class="text-xs text-muted">结束日期</label>
+          <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
           <input v-model="form.end_date" type="date" class="input w-full" />
         </div>
         <div>
@@ -54,16 +55,57 @@
         </div>
       </div>
 
-      <!-- 常驻课题：多段日期 -->
-      <div v-if="form.category === 'routine'" class="mb-3">
-        <label class="text-xs text-muted mb-2 block">时间段列表</label>
-        <div v-for="(p, i) in form.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
-          <input v-model="p.start" type="date" class="input flex-1" />
-          <span class="text-muted text-sm">~</span>
-          <input v-model="p.end" type="date" class="input flex-1" />
-          <button @click="form.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
+      <!-- 大量出没：日期 + 精灵搜索 -->
+      <div v-if="form.category === 'mass_outbreak'" class="space-y-3 mb-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
+            <input v-model="form.start_date" type="date" class="input w-full" />
+          </div>
+          <div>
+            <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
+            <input v-model="form.end_date" type="date" class="input w-full" />
+          </div>
         </div>
-        <button @click="form.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
+        <div class="relative">
+          <label class="text-xs text-muted">出没精灵 <span class="text-red-500">*</span></label>
+          <input v-model="petSearchQuery" @input="searchPets" class="input w-full" placeholder="输入精灵名称搜索..." />
+          <div v-if="petSearchResults.length" class="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            <div v-for="pet in petSearchResults" :key="pet.uid" @click="selectPet(pet)"
+              class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
+              <img v-if="pet.thumb_url" :src="pet.thumb_url" class="w-8 h-8 rounded" />
+              <span class="text-sm">{{ pet.name }}</span>
+            </div>
+          </div>
+          <div v-if="form.pet_uid" class="mt-2 flex items-center gap-2">
+            <img v-if="form.pet_icon" :src="form.pet_icon" class="w-8 h-8 rounded" />
+            <span class="text-sm text-primary-500">已选择：{{ form.pet_name }}</span>
+            <button @click="clearPet" class="text-xs text-red-500 hover:underline">清除</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 常驻课题：子类型 + 多段日期 -->
+      <div v-if="form.category === 'routine'" class="space-y-3 mb-3">
+        <div>
+          <label class="text-xs text-muted">课题类型 <span class="text-red-500">*</span></label>
+          <select v-model="form.sub_type" class="select w-full">
+            <option value="">请选择</option>
+            <option value="starlight">星光对决</option>
+            <option value="destiny">命定花种</option>
+            <option value="pika">皮卡摄影委托</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-muted mb-2 block">时间段列表</label>
+          <div v-for="(p, i) in form.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
+            <input v-model="p.start" type="date" class="input flex-1" />
+            <span class="text-muted text-sm">~</span>
+            <input v-model="p.end" type="date" class="input flex-1" />
+            <button @click="form.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
+          </div>
+          <button @click="form.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
+        </div>
       </div>
 
       <button @click="createEvent" class="btn-primary text-sm" :disabled="saving">
@@ -79,6 +121,7 @@
           <tr class="text-left text-muted text-xs bg-gray-50 dark:bg-white/3">
             <th class="py-2.5 px-3">名称</th>
             <th class="py-2.5 px-3">类型</th>
+            <th class="py-2.5 px-3">详情</th>
             <th class="py-2.5 px-3">时间</th>
             <th class="py-2.5 px-3">排序</th>
             <th class="py-2.5 px-3 w-32">操作</th>
@@ -89,13 +132,25 @@
             class="border-t border-surface-light-border/50 dark:border-surface-dark-border/50">
             <td class="py-2.5 px-3 font-medium">{{ event.name }}</td>
             <td class="py-2.5 px-3">
-              <span class="badge" :class="event.category === 'version' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'">
-                {{ event.category === 'version' ? '版本' : '常驻' }}
+              <span class="badge" :class="categoryBadgeClass(event.category)">
+                {{ categoryLabel(event.category) }}
               </span>
             </td>
+            <td class="py-2.5 px-3 text-xs">
+              <template v-if="event.category === 'mass_outbreak' && event.pet_name">
+                <div class="flex items-center gap-1">
+                  <img v-if="event.pet_icon" :src="event.pet_icon" class="w-5 h-5 rounded" />
+                  <span>{{ event.pet_name }}</span>
+                </div>
+              </template>
+              <template v-else-if="event.category === 'routine' && event.sub_type">
+                <span class="text-muted">{{ subTypeLabel(event.sub_type) }}</span>
+              </template>
+              <template v-else>-</template>
+            </td>
             <td class="py-2.5 px-3 text-xs text-muted">
-              <template v-if="event.category === 'version'">{{ event.start_date }} ~ {{ event.end_date }}</template>
-              <template v-else>{{ event.periods.length }} 段</template>
+              <template v-if="event.category === 'version' || event.category === 'mass_outbreak'">{{ event.start_date }} ~ {{ event.end_date }}</template>
+              <template v-else>{{ event.periods?.length || 0 }} 段</template>
             </td>
             <td class="py-2.5 px-3">{{ event.row_order }}</td>
             <td class="py-2.5 px-3 flex gap-2">
@@ -104,7 +159,7 @@
             </td>
           </tr>
           <tr v-if="!events.length">
-            <td colspan="5" class="py-8 text-center text-muted text-sm">暂无活动数据</td>
+            <td colspan="6" class="py-8 text-center text-muted text-sm">暂无活动数据</td>
           </tr>
         </tbody>
       </table>
@@ -127,6 +182,7 @@
               <label class="text-xs text-muted">类型 <span class="text-red-500">*</span></label>
               <select v-model="editForm.category" class="select w-full" @change="onEditCategoryChange">
                 <option value="version">版本活动</option>
+                <option value="mass_outbreak">大量出没</option>
                 <option value="routine">常驻课题</option>
               </select>
             </div>
@@ -148,20 +204,61 @@
             </div>
           </div>
 
-          <!-- 常驻课题：多段日期 -->
-          <div v-if="editForm.category === 'routine'">
-            <label class="text-xs text-muted mb-2 block">时间段列表</label>
-            <div v-for="(p, i) in editForm.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
-              <input v-model="p.start" type="date" class="input flex-1" />
-              <span class="text-muted text-sm">~</span>
-              <input v-model="p.end" type="date" class="input flex-1" />
-              <button @click="editForm.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
+          <!-- 大量出没：日期 + 精灵 -->
+          <div v-if="editForm.category === 'mass_outbreak'" class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
+                <input v-model="editForm.start_date" type="date" class="input w-full" />
+              </div>
+              <div>
+                <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
+                <input v-model="editForm.end_date" type="date" class="input w-full" />
+              </div>
             </div>
-            <button @click="editForm.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
+            <div class="relative">
+              <label class="text-xs text-muted">出没精灵 <span class="text-red-500">*</span></label>
+              <input v-model="editPetSearchQuery" @input="searchEditPets" class="input w-full" placeholder="输入精灵名称搜索..." />
+              <div v-if="editPetSearchResults.length" class="absolute z-10 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                <div v-for="pet in editPetSearchResults" :key="pet.uid" @click="selectEditPet(pet)"
+                  class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer">
+                  <img v-if="pet.thumb_url" :src="pet.thumb_url" class="w-8 h-8 rounded" />
+                  <span class="text-sm">{{ pet.name }}</span>
+                </div>
+              </div>
+              <div v-if="editForm.pet_uid" class="mt-2 flex items-center gap-2">
+                <img v-if="editForm.pet_icon" :src="editForm.pet_icon" class="w-8 h-8 rounded" />
+                <span class="text-sm text-primary-500">已选择：{{ editForm.pet_name }}</span>
+                <button @click="clearEditPet" class="text-xs text-red-500 hover:underline">清除</button>
+              </div>
+            </div>
           </div>
 
-          <!-- 图片 -->
-          <div>
+          <!-- 常驻课题：子类型 + 多段日期 -->
+          <div v-if="editForm.category === 'routine'" class="space-y-3">
+            <div>
+              <label class="text-xs text-muted">课题类型 <span class="text-red-500">*</span></label>
+              <select v-model="editForm.sub_type" class="select w-full">
+                <option value="">请选择</option>
+                <option value="starlight">星光对决</option>
+                <option value="destiny">命定花种</option>
+                <option value="pika">皮卡摄影委托</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-muted mb-2 block">时间段列表</label>
+              <div v-for="(p, i) in editForm.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
+                <input v-model="p.start" type="date" class="input flex-1" />
+                <span class="text-muted text-sm">~</span>
+                <input v-model="p.end" type="date" class="input flex-1" />
+                <button @click="editForm.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
+              </div>
+              <button @click="editForm.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
+            </div>
+          </div>
+
+          <!-- 图片（仅版本活动） -->
+          <div v-if="editForm.category === 'version'">
             <label class="text-xs text-muted">活动图片</label>
             <div v-if="editForm.image && !editForm.imageFile" class="mb-2">
               <img :src="`/uploads/events/event_${editForm.id}.png`" class="h-12 rounded" />
@@ -193,7 +290,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
-import { seasonsApi, eventsApi } from '@/api'
+import { seasonsApi, eventsApi, petsApi } from '@/api'
 import { useModal } from '@/composables/useModal'
 
 const modal = useModal()
@@ -202,6 +299,12 @@ const events = ref([])
 const saving = ref(false)
 const msg = ref('')
 const msgOk = ref(false)
+
+// 精灵搜索
+const petSearchQuery = ref('')
+const petSearchResults = ref([])
+const editPetSearchQuery = ref('')
+const editPetSearchResults = ref([])
 
 // 编辑弹窗状态
 const showEditModal = ref(false)
@@ -212,9 +315,13 @@ const editForm = reactive({
   id: null,
   name: '',
   category: 'version',
+  sub_type: '',
   start_date: '',
   end_date: '',
   row_order: 0,
+  pet_uid: '',
+  pet_name: '',
+  pet_icon: '',
   image: '',
   imageName: '',
   imageFile: null,
@@ -224,6 +331,7 @@ const editForm = reactive({
 const form = ref({
   name: '',
   category: 'version',
+  sub_type: '',
   start_date: '',
   end_date: '',
   image: null,
@@ -231,8 +339,97 @@ const form = ref({
   imagePreview: '',
   imageFile: null,
   row_order: 0,
+  pet_uid: '',
+  pet_name: '',
+  pet_icon: '',
   periodsArr: [{ start: '', end: '' }],
 })
+
+const CATEGORY_LABELS = {
+  version: '版本',
+  mass_outbreak: '大量出没',
+  routine: '常驻',
+}
+
+const SUB_TYPE_LABELS = {
+  starlight: '星光对决',
+  destiny: '命定花种',
+  pika: '皮卡摄影委托',
+}
+
+function categoryLabel(cat) { return CATEGORY_LABELS[cat] || cat }
+function subTypeLabel(st) { return SUB_TYPE_LABELS[st] || st }
+function categoryBadgeClass(cat) {
+  const map = {
+    version: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+    mass_outbreak: 'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+    routine: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
+  }
+  return map[cat] || ''
+}
+
+// 精灵搜索
+let petSearchTimer = null
+function searchPets() {
+  clearTimeout(petSearchTimer)
+  if (!petSearchQuery.value.trim()) {
+    petSearchResults.value = []
+    return
+  }
+  petSearchTimer = setTimeout(async () => {
+    try {
+      const res = await petsApi.list({ search: petSearchQuery.value, limit: 10 })
+      petSearchResults.value = res.pets || []
+    } catch (e) {
+      petSearchResults.value = []
+    }
+  }, 300)
+}
+
+function selectPet(pet) {
+  form.value.pet_uid = pet.uid
+  form.value.pet_name = pet.name
+  form.value.pet_icon = pet.thumb_url || pet.image_url || ''
+  petSearchQuery.value = ''
+  petSearchResults.value = []
+}
+
+function clearPet() {
+  form.value.pet_uid = ''
+  form.value.pet_name = ''
+  form.value.pet_icon = ''
+}
+
+let editPetSearchTimer = null
+function searchEditPets() {
+  clearTimeout(editPetSearchTimer)
+  if (!editPetSearchQuery.value.trim()) {
+    editPetSearchResults.value = []
+    return
+  }
+  editPetSearchTimer = setTimeout(async () => {
+    try {
+      const res = await petsApi.list({ search: editPetSearchQuery.value, limit: 10 })
+      editPetSearchResults.value = res.pets || []
+    } catch (e) {
+      editPetSearchResults.value = []
+    }
+  }, 300)
+}
+
+function selectEditPet(pet) {
+  editForm.pet_uid = pet.uid
+  editForm.pet_name = pet.name
+  editForm.pet_icon = pet.thumb_url || pet.image_url || ''
+  editPetSearchQuery.value = ''
+  editPetSearchResults.value = []
+}
+
+function clearEditPet() {
+  editForm.pet_uid = ''
+  editForm.pet_name = ''
+  editForm.pet_icon = ''
+}
 
 function handleFileSelect(e) {
   const file = e.target.files[0]
@@ -259,10 +456,26 @@ async function loadEvents() {
   }
 }
 
+function validateForm(f, isEdit = false) {
+  if (!f.name?.trim()) return '请填写活动名称'
+  if (f.category === 'version' || f.category === 'mass_outbreak') {
+    if (!f.start_date || !f.end_date) return '请填写开始日期和结束日期'
+    if (f.start_date > f.end_date) return '开始日期不能晚于结束日期'
+  }
+  if (f.category === 'mass_outbreak' && !f.pet_uid) return '请选择出没精灵'
+  if (f.category === 'routine') {
+    if (!f.sub_type) return '请选择课题类型'
+    const validPeriods = (f.periodsArr || []).filter(p => p.start && p.end)
+    if (validPeriods.length === 0) return '请至少添加一个有效的时间段'
+  }
+  if (f.row_order === null || f.row_order === '') return '请填写排序值'
+  return null
+}
+
 async function createEvent() {
-  // 必填项检测
-  if (!form.value.name?.trim()) {
-    msg.value = '请填写活动名称'
+  const err = validateForm(form.value)
+  if (err) {
+    msg.value = err
     msgOk.value = false
     return
   }
@@ -271,47 +484,20 @@ async function createEvent() {
     msgOk.value = false
     return
   }
-  
-  // 版本活动：检测起止时间
-  if (form.value.category === 'version') {
-    if (!form.value.start_date || !form.value.end_date) {
-      msg.value = '请填写开始日期和结束日期'
-      msgOk.value = false
-      return
-    }
-    if (form.value.start_date > form.value.end_date) {
-      msg.value = '开始日期不能晚于结束日期'
-      msgOk.value = false
-      return
-    }
-  }
-  
-  // 常驻课题：检测时间段
-  if (form.value.category === 'routine') {
-    const validPeriods = form.value.periodsArr.filter(p => p.start && p.end)
-    if (validPeriods.length === 0) {
-      msg.value = '请至少添加一个有效的时间段'
-      msgOk.value = false
-      return
-    }
-  }
-  
-  // 检测排序（必须是有效数字）
-  if (form.value.row_order === null || form.value.row_order === '') {
-    msg.value = '请填写排序值'
-    msgOk.value = false
-    return
-  }
-  
+
   saving.value = true
 
   const data = {
     season_id: currentSeason.value.id,
     category: form.value.category,
     name: form.value.name,
+    sub_type: form.value.category === 'routine' ? form.value.sub_type : '',
+    pet_uid: form.value.category === 'mass_outbreak' ? form.value.pet_uid : '',
+    pet_name: form.value.category === 'mass_outbreak' ? form.value.pet_name : '',
+    pet_icon: form.value.category === 'mass_outbreak' ? form.value.pet_icon : '',
     row_order: form.value.row_order || 0,
-    start_date: form.value.category === 'version' ? form.value.start_date : '',
-    end_date: form.value.category === 'version' ? form.value.end_date : '',
+    start_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.start_date : '',
+    end_date: (form.value.category === 'version' || form.value.category === 'mass_outbreak') ? form.value.end_date : '',
     periods: form.value.category === 'routine'
       ? JSON.stringify(form.value.periodsArr.filter(p => p.start && p.end))
       : '[]',
@@ -322,8 +508,7 @@ async function createEvent() {
     const res = await adminApi.create('season_events', data)
     const newId = res.id || res.lastInsertRowid
 
-    // 上传图片并更新记录
-    if (form.value.imageFile && newId) {
+    if (form.value.imageFile && newId && form.value.category === 'version') {
       const imgPath = await uploadEventImage(newId)
       if (imgPath) {
         await adminApi.update('season_events', newId, { image: imgPath })
@@ -332,6 +517,8 @@ async function createEvent() {
 
     // 重置表单
     form.value.name = ''
+    form.value.category = 'version'
+    form.value.sub_type = ''
     form.value.start_date = ''
     form.value.end_date = ''
     form.value.image = null
@@ -339,6 +526,9 @@ async function createEvent() {
     form.value.imagePreview = ''
     form.value.imageFile = null
     form.value.row_order = 0
+    form.value.pet_uid = ''
+    form.value.pet_name = ''
+    form.value.pet_icon = ''
     form.value.periodsArr = [{ start: '', end: '' }]
     await loadEvents()
     msg.value = '活动添加成功'
@@ -384,13 +574,18 @@ async function openEdit(event) {
   editForm.id = event.id
   editForm.name = event.name
   editForm.category = event.category
+  editForm.sub_type = event.sub_type || ''
   editForm.start_date = event.start_date || ''
   editForm.end_date = event.end_date || ''
   editForm.row_order = event.row_order ?? 0
+  editForm.pet_uid = event.pet_uid || ''
+  editForm.pet_name = event.pet_name || ''
+  editForm.pet_icon = event.pet_icon || ''
   editForm.image = event.image || ''
   editForm.imageFile = null
   editForm.imageName = ''
-  // 解析 periods（已有数据存的是 JSON 字符串）
+  editPetSearchQuery.value = ''
+  editPetSearchResults.value = []
   try {
     const periods = typeof event.periods === 'string' ? JSON.parse(event.periods) : (event.periods || [])
     editForm.periodsArr = periods.length ? periods : [{ start: '', end: '' }]
@@ -406,34 +601,9 @@ function closeEdit() {
 }
 
 async function updateEvent() {
-  // 必填项检测（复用创建时的逻辑）
-  if (!editForm.name?.trim()) {
-    editMsg.value = '请填写活动名称'
-    editMsgOk.value = false
-    return
-  }
-  if (editForm.category === 'version') {
-    if (!editForm.start_date || !editForm.end_date) {
-      editMsg.value = '请填写开始日期和结束日期'
-      editMsgOk.value = false
-      return
-    }
-    if (editForm.start_date > editForm.end_date) {
-      editMsg.value = '开始日期不能晚于结束日期'
-      editMsgOk.value = false
-      return
-    }
-  }
-  if (editForm.category === 'routine') {
-    const validPeriods = editForm.periodsArr.filter(p => p.start && p.end)
-    if (validPeriods.length === 0) {
-      editMsg.value = '请至少添加一个有效的时间段'
-      editMsgOk.value = false
-      return
-    }
-  }
-  if (editForm.row_order === null || editForm.row_order === '') {
-    editMsg.value = '请填写排序值'
+  const err = validateForm(editForm, true)
+  if (err) {
+    editMsg.value = err
     editMsgOk.value = false
     return
   }
@@ -443,17 +613,20 @@ async function updateEvent() {
     const data = {
       name: editForm.name,
       category: editForm.category,
+      sub_type: editForm.category === 'routine' ? editForm.sub_type : '',
+      pet_uid: editForm.category === 'mass_outbreak' ? editForm.pet_uid : '',
+      pet_name: editForm.category === 'mass_outbreak' ? editForm.pet_name : '',
+      pet_icon: editForm.category === 'mass_outbreak' ? editForm.pet_icon : '',
       row_order: editForm.row_order,
-      start_date: editForm.category === 'version' ? editForm.start_date : '',
-      end_date: editForm.category === 'version' ? editForm.end_date : '',
+      start_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.start_date : '',
+      end_date: (editForm.category === 'version' || editForm.category === 'mass_outbreak') ? editForm.end_date : '',
       periods: editForm.category === 'routine'
         ? JSON.stringify(editForm.periodsArr.filter(p => p.start && p.end))
         : '[]',
     }
     await adminApi.update('season_events', editForm.id, data)
 
-    // 上传新图片
-    if (editForm.imageFile) {
+    if (editForm.imageFile && editForm.category === 'version') {
       const res = await adminApi.upload(editForm.imageFile, 'event_image', `event_${editForm.id}`)
       if (res.path) {
         await adminApi.update('season_events', editForm.id, { image: res.path })
