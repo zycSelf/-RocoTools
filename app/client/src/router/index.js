@@ -24,6 +24,7 @@ const routes = [
   { path: '/admin/natures', name: 'AdminNatures', component: () => import('@/views/admin/AdminNatures.vue'), meta: { hidden: true, requiresAdmin: true } },
   { path: '/admin/eggs', name: 'AdminEggs', component: () => import('@/views/admin/AdminEggs.vue'), meta: { hidden: true, requiresAdmin: true } },
   { path: '/admin/seasons', name: 'AdminSeasons', component: () => import('@/views/admin/AdminSeasons.vue'), meta: { hidden: true, requiresAdmin: true } },
+  { path: '/admin/events', name: 'AdminEvents', component: () => import('@/views/admin/AdminEvents.vue'), meta: { hidden: true, requiresAdmin: true } },
   { path: '/admin/conflicts', name: 'AdminConflicts', component: () => import('@/views/admin/AdminConflicts.vue'), meta: { hidden: true, requiresAdmin: true } },
 ]
 
