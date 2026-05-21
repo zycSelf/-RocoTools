@@ -6,10 +6,10 @@
 # ============================================================
 # 数据文件（体积大、可通过脚本重新生成）
 # ============================================================
-# 数据库文件
-data/*.db
-data/*.db-shm
-data/*.db-wal
+# 数据库文件（app/server/data/）
+app/server/data/*.db
+app/server/data/*.db-shm
+app/server/data/*.db-wal
 
 data/pets/*.json
 data/pets/*.csv
