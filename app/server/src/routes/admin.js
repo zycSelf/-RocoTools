@@ -366,6 +366,14 @@ router.post('/data/:table', (req, res) => {
         return res.status(409).json({ error: `${config.label}「${req.body[config.primaryKey]}」已存在，无法重复创建` });
       }
     }
+    // skills 表额外检查名称唯一性
+    if (table === 'skills' && req.body.name) {
+      const nameExists = db.prepare('SELECT uid FROM skills WHERE name = ?').get(req.body.name.trim());
+      if (nameExists) {
+        db.close();
+        return res.status(409).json({ error: `技能名称「${req.body.name}」已存在（${nameExists.uid}），不可重复创建` });
+      }
+    }
     const result = db.prepare(`INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`).run(...values);
     db.close();
     res.json({ success: true, id: result.lastInsertRowid });

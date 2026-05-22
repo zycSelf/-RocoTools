@@ -149,6 +149,14 @@ async function save() {
   saving.value = true; msg.value = ''
   try {
     if (isNew) {
+      // Check for duplicate name before creating
+      const existing = await adminApi.searchSkills(form.value.name.trim())
+      const duplicate = existing.find(s => s.name === form.value.name.trim())
+      if (duplicate) {
+        await modal.warning('名称重复', `技能「${form.value.name}」已存在（${duplicate.uid}），请使用其他名称`)
+        saving.value = false
+        return
+      }
       const uidVal = newUid.value
       await adminApi.create('skills', { uid: uidVal, ...form.value })
       await modal.success('创建成功', `技能「${form.value.name}」（${uidVal}）已创建`)
