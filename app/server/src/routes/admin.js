@@ -682,9 +682,10 @@ router.post('/upload', handleUpload('file'), async (req, res) => {
 
   fs.writeFileSync(filepath, req.file.buffer);
 
-  // Auto-generate WebP + thumbnail for pet_default / pet_shiny
+  // Auto-generate WebP for all PNG image types that have WebP counterparts
+  const WEBP_TYPES = ['pet_default', 'pet_shiny', 'pet_fruit', 'pet_egg', 'skill_icon', 'element_icon'];
   let thumbPath = null;
-  if (sharp && (type === 'pet_default' || type === 'pet_shiny')) {
+  if (sharp && WEBP_TYPES.includes(type) && filepath.endsWith('.png')) {
     try {
       // 1. WebP copy in same directory (same name, .webp extension)
       const webpFilepath = filepath.replace('.png', '.webp');
@@ -1292,9 +1293,10 @@ router.post('/media/copy-to-business', authAdmin, async (req, res) => {
   // Copy file
   fs.copyFileSync(sourcePath, destPath);
 
-  // Auto-generate WebP + thumbnail for pet_default / pet_shiny
+  // Auto-generate WebP for all PNG image types that have WebP counterparts
+  const WEBP_TYPES = ['pet_default', 'pet_shiny', 'pet_fruit', 'pet_egg', 'skill_icon', 'element_icon'];
   let thumbPath = null;
-  if (sharp && (type === 'pet_default' || type === 'pet_shiny')) {
+  if (sharp && WEBP_TYPES.includes(type) && destPath.endsWith('.png')) {
     try {
       const imgBuffer = fs.readFileSync(destPath);
       // 1. WebP copy in same directory
