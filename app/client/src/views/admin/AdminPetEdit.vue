@@ -172,6 +172,70 @@
       </div>
     </div>
 
+    <!-- 技能配置 -->
+    <div v-if="!isNew" class="card mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-roco text-base text-primary-500">技能配置</h2>
+        <button @click="saveSkills" :disabled="skillsSaving" class="btn text-xs">
+          {{ skillsSaving ? '保存中...' : '💾 保存技能' }}
+        </button>
+      </div>
+      <span v-if="skillsMsg" class="text-xs mb-2 inline-block" :class="skillsOk ? 'text-green-600' : 'text-red-500'">{{ skillsMsg }}</span>
+
+      <!-- Skill tabs -->
+      <div class="flex gap-1 mb-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-200'">
+        <button v-for="tab in skillTabs" :key="tab.key" @click="activeSkillTab = tab.key"
+          class="px-3 py-1.5 text-xs font-medium transition-colors border-b-2 -mb-px"
+          :class="activeSkillTab === tab.key
+            ? 'border-primary-500 text-primary-500'
+            : 'border-transparent text-muted hover:text-foreground'">
+          {{ tab.label }} ({{ skillForms[tab.key].length }})
+        </button>
+      </div>
+
+      <!-- Skill list for active tab -->
+      <div class="space-y-2 max-h-[500px] overflow-y-auto">
+        <div v-for="(skill, idx) in skillForms[activeSkillTab]" :key="idx"
+          class="flex items-center gap-2 p-2 rounded-lg border transition-colors"
+          :class="isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'">
+          <!-- Level (only for skills type) -->
+          <input v-if="activeSkillTab === 'skills'" v-model="skill.level" class="input w-14 text-xs text-center" placeholder="等级" />
+          <!-- Skill name with autocomplete -->
+          <div class="relative flex-1 min-w-0">
+            <input v-model="skill.name" class="input w-full text-xs" placeholder="技能名称"
+              @input="onSkillNameInput(skill, $event)" @focus="skill._showSuggestions = true" @blur="hideSuggestions(skill)" />
+            <!-- Suggestions dropdown -->
+            <div v-if="skill._showSuggestions && skill._suggestions?.length"
+              class="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg shadow-lg border max-h-40 overflow-y-auto"
+              :class="isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
+              <div v-for="s in skill._suggestions" :key="s.uid"
+                class="px-2 py-1.5 text-xs cursor-pointer hover:bg-primary-500/10 flex items-center gap-2"
+                @mousedown.prevent="selectSkillSuggestion(skill, s)">
+                <img v-if="s.element_icon" :src="s.element_icon" class="w-3.5 h-3.5" />
+                <span class="font-medium">{{ s.name }}</span>
+                <span class="text-muted">{{ s.category }} · {{ s.power || '-' }}威力</span>
+              </div>
+            </div>
+          </div>
+          <!-- Element -->
+          <input v-model="skill.element" class="input w-14 text-xs text-center" placeholder="属性" />
+          <!-- Type (category) -->
+          <input v-model="skill.type" class="input w-14 text-xs text-center" placeholder="类别" />
+          <!-- Cost -->
+          <input v-model.number="skill.cost" type="number" class="input w-12 text-xs text-center" placeholder="PP" />
+          <!-- Power -->
+          <input v-model.number="skill.power" type="number" class="input w-12 text-xs text-center" placeholder="威力" />
+          <!-- Delete -->
+          <button @click="removeSkill(activeSkillTab, idx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0">✕</button>
+        </div>
+      </div>
+
+      <!-- Add skill button -->
+      <button @click="addSkill(activeSkillTab)" class="mt-3 text-xs text-primary-500 hover:underline">
+        + 添加{{ activeSkillTab === 'skills' ? '精灵技能' : activeSkillTab === 'bloodline_skills' ? '血脉技能' : '技能石技能' }}
+      </button>
+    </div>
+
     <!-- 保存按钮 -->
     <div class="flex gap-3 mb-8">
       <button @click="save" class="btn-primary shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving">{{ saving ? '保存中...' : (isNew ? '✨ 创建精灵' : '💾 保存修改') }}</button>
@@ -182,18 +246,20 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { petsApi, elementsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
+import { useTheme } from '@/composables/useTheme'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const route = useRoute()
 const router = useRouter()
 const modal = useModal()
+const { isDark } = useTheme()
 const uid = route.params.uid
 const isNew = uid === 'new'
 
@@ -326,6 +392,9 @@ async function loadData() {
         height: data.detail.height, weight: data.detail.weight, location: data.detail.location,
       }
     }
+
+    // Load skills
+    await loadSkills()
   }
 
   loaded.value = true
@@ -454,6 +523,99 @@ async function save() {
     await modal.alert('操作失败', err.message)
   } finally {
     saving.value = false
+  }
+}
+
+// ============================================================
+// 技能配置
+// ============================================================
+const activeSkillTab = ref('skills')
+const skillsSaving = ref(false)
+const skillsMsg = ref('')
+const skillsOk = ref(false)
+
+const skillTabs = [
+  { key: 'skills', label: '精灵技能' },
+  { key: 'bloodline_skills', label: '血脉技能' },
+  { key: 'learnable_stones', label: '技能石技能' },
+]
+
+const skillForms = reactive({
+  skills: [],
+  bloodline_skills: [],
+  learnable_stones: [],
+})
+
+function createEmptySkill() {
+  return { level: '', name: '', element: '', type: '', cost: 0, power: 0, description: '', skill_ref_uid: '', _suggestions: [], _showSuggestions: false }
+}
+
+function addSkill(tabKey) {
+  skillForms[tabKey].push(createEmptySkill())
+}
+
+function removeSkill(tabKey, idx) {
+  skillForms[tabKey].splice(idx, 1)
+}
+
+let searchTimer = null
+function onSkillNameInput(skill, event) {
+  const q = event.target.value.trim()
+  if (!q) { skill._suggestions = []; return }
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(async () => {
+    try {
+      skill._suggestions = await adminApi.searchSkills(q)
+    } catch { skill._suggestions = [] }
+  }, 300)
+}
+
+function selectSkillSuggestion(skill, s) {
+  skill.name = s.name
+  skill.element = s.element_name || ''
+  skill.type = s.category || ''
+  skill.cost = s.cost || 0
+  skill.power = s.power || 0
+  skill.description = s.description || ''
+  skill.skill_ref_uid = s.uid || ''
+  skill._suggestions = []
+  skill._showSuggestions = false
+}
+
+function hideSuggestions(skill) {
+  setTimeout(() => { skill._showSuggestions = false }, 200)
+}
+
+async function loadSkills() {
+  if (isNew) return
+  try {
+    const data = await adminApi.getPetSkills(uid)
+    skillForms.skills = (data.skills || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
+    skillForms.bloodline_skills = (data.bloodline_skills || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
+    skillForms.learnable_stones = (data.learnable_stones || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
+  } catch (err) {
+    console.error('Load pet skills failed:', err)
+  }
+}
+
+async function saveSkills() {
+  skillsSaving.value = true
+  skillsMsg.value = ''
+  try {
+    // Clean up internal fields before sending
+    const clean = (arr) => arr.map(({ _suggestions, _showSuggestions, id, pet_uid, skill_type, skill_icon, ...rest }) => rest)
+    await adminApi.savePetSkills(uid, {
+      skills: clean(skillForms.skills),
+      bloodline_skills: clean(skillForms.bloodline_skills),
+      learnable_stones: clean(skillForms.learnable_stones),
+    })
+    skillsOk.value = true
+    skillsMsg.value = '技能保存成功'
+  } catch (err) {
+    skillsOk.value = false
+    skillsMsg.value = err.message
+  } finally {
+    skillsSaving.value = false
   }
 }
 

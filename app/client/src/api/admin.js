@@ -202,4 +202,12 @@ export const adminApi = {
 
   // 特性聚合（智能提示）
   abilities: () => adminRequest('/abilities'),
+
+  // 精灵技能管理
+  getPetSkills: (uid) => adminRequest(`/pet-skills/${uid}`),
+  savePetSkills: (uid, data) => adminRequest(`/pet-skills/${uid}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  searchSkills: (q) => adminRequest(`/skills-search?q=${encodeURIComponent(q)}`),
 }

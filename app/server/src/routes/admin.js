@@ -1646,5 +1646,102 @@ router.get('/abilities', authAdmin, (req, res) => {
   }
 });
 
+// ============================================================
+// 精灵技能管理（pet_skills）
+// ============================================================
+
+/**
+ * GET /api/admin/pet-skills/:uid
+ * Get all skills for a pet (grouped by type)
+ */
+router.get('/pet-skills/:uid', authAdmin, (req, res) => {
+  const { uid } = req.params;
+  try {
+    const db = getDb();
+    const skills = db.prepare(`
+      SELECT ps.*, sk.icon_url as skill_icon
+      FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
+      WHERE ps.pet_uid = ? ORDER BY ps.id
+    `).all(uid);
+
+    const result = {
+      skills: skills.filter(s => s.skill_type === 'skills'),
+      bloodline_skills: skills.filter(s => s.skill_type === 'bloodline_skills'),
+      learnable_stones: skills.filter(s => s.skill_type === 'learnable_stones'),
+    };
+    res.json(result);
+  } catch (err) {
+    console.error('[PetSkills GET]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/admin/pet-skills/:uid
+ * Save all skills for a pet (delete-then-insert strategy)
+ * Body: { skills: [...], bloodline_skills: [...], learnable_stones: [...] }
+ * Each skill item: { level, name, element, type, cost, power, description, skill_ref_uid }
+ */
+router.put('/pet-skills/:uid', authAdmin, (req, res) => {
+  const { uid } = req.params;
+  const { skills = [], bloodline_skills = [], learnable_stones = [] } = req.body;
+
+  const db = getWriteDb();
+  try {
+    const deleteAll = db.prepare('DELETE FROM pet_skills WHERE pet_uid = ?');
+    const insert = db.prepare(`
+      INSERT INTO pet_skills (pet_uid, skill_type, level, name, element, type, cost, power, description, skill_ref_uid)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const tx = db.transaction(() => {
+      deleteAll.run(uid);
+
+      for (const s of skills) {
+        insert.run(uid, 'skills', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+      }
+      for (const s of bloodline_skills) {
+        insert.run(uid, 'bloodline_skills', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+      }
+      for (const s of learnable_stones) {
+        insert.run(uid, 'learnable_stones', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+      }
+    });
+
+    tx();
+    db.close();
+
+    const total = skills.length + bloodline_skills.length + learnable_stones.length;
+    res.json({ success: true, total });
+  } catch (err) {
+    db.close();
+    console.error('[PetSkills PUT]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/skills-search?q=xxx
+ * Quick search skills by name (for autocomplete in pet skill editor)
+ */
+router.get('/skills-search', authAdmin, (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json([]);
+
+  try {
+    const db = getDb();
+    const results = db.prepare(`
+      SELECT s.uid, s.name, s.category, s.cost, s.power, s.description,
+        e.name as element_name, e.color as element_color, e.icon as element_icon
+      FROM skills s LEFT JOIN elements e ON s.element_id = e.id
+      WHERE s.name LIKE ? ORDER BY s.name LIMIT 20
+    `).all(`%${q}%`);
+    res.json(results);
+  } catch (err) {
+    console.error('[SkillsSearch]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 
