@@ -367,13 +367,14 @@ async function save() {
 
       for (const [type, pending] of Object.entries(pendingImages.value)) {
         let resultPath = ''
+        let res
         if (pending.source === 'file') {
           // Upload the staged file to server
-          const res = await adminApi.upload(pending.file, type, newUid)
+          res = await adminApi.upload(pending.file, type, newUid)
           resultPath = res.path
         } else if (pending.source === 'library') {
           // Copy from library to business directory
-          const res = await adminApi.mediaCopyToBusiness(pending.path, type, newUid)
+          res = await adminApi.mediaCopyToBusiness(pending.path, type, newUid)
           resultPath = res.path
         }
         // Map to detail fields
@@ -381,6 +382,10 @@ async function save() {
           thumbUrl = resultPath
         } else if (imageFieldMap[type]) {
           detailData[imageFieldMap[type]] = resultPath
+        }
+        // Capture auto-generated thumbnail from pet_default upload
+        if (type === 'pet_default' && res?.thumb_path && !thumbUrl) {
+          thumbUrl = res.thumb_path
         }
       }
 

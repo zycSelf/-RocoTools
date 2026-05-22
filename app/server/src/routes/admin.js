@@ -5,6 +5,10 @@ const fs = require('fs');
 const multer = require('multer');
 const Database = require('better-sqlite3');
 
+// Optional sharp for image compression (thumbnail + WebP generation)
+let sharp;
+try { sharp = require('sharp'); } catch (e) { /* sharp not available */ }
+
 const { authAdmin, signAdminToken } = require('../middleware/authAdmin');
 const { DB_PATH, DATA_DIR, getDb, getWriteDb } = require('../db/connection');
 
@@ -654,7 +658,7 @@ function handleUpload(fieldName) {
  * body: { type: 'pet_default', uid: 'pet_001' }
  * file: 图片文件
  */
-router.post('/upload', handleUpload('file'), (req, res) => {
+router.post('/upload', handleUpload('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
 
   const { type, uid } = req.body;
@@ -677,6 +681,31 @@ router.post('/upload', handleUpload('file'), (req, res) => {
     : `/public/${imageConfig.dir}/${filename}`;
 
   fs.writeFileSync(filepath, req.file.buffer);
+
+  // Auto-generate WebP + thumbnail for pet_default / pet_shiny
+  let thumbPath = null;
+  if (sharp && (type === 'pet_default' || type === 'pet_shiny')) {
+    try {
+      // 1. WebP copy in same directory (same name, .webp extension)
+      const webpFilepath = filepath.replace('.png', '.webp');
+      await sharp(req.file.buffer).webp({ quality: 80 }).toFile(webpFilepath);
+
+      // 2. Thumbnail (128px WebP) — only for pet_default
+      if (type === 'pet_default') {
+        const thumbDir = path.join(PUBLIC_DIR, 'pets', 'thumbs');
+        fs.mkdirSync(thumbDir, { recursive: true });
+        const thumbFilename = `${uid}_default.webp`;
+        const thumbFilepath = path.join(thumbDir, thumbFilename);
+        await sharp(req.file.buffer)
+          .resize(128, 128, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .webp({ quality: 60 })
+          .toFile(thumbFilepath);
+        thumbPath = `/public/pets/thumbs/${thumbFilename}`;
+      }
+    } catch (imgErr) {
+      console.error(`[WARN] Image compression failed for ${uid}:`, imgErr.message);
+    }
+  }
 
   // 更新数据库对应字段（仅对非 pika_locke/pika_concept 类型）
   // pika_locke/pika_concept 类型的图片路径存储在 JSON 中，不在这里更新数据库
@@ -707,10 +736,19 @@ router.post('/upload', handleUpload('file'), (req, res) => {
     } else {
       db.prepare(`UPDATE ${mapping.table} SET ${mapping.field} = ? WHERE ${mapping.key} = ?`).run(publicPath, uid);
     }
+    // Auto-update thumb_url if thumbnail was generated
+    if (thumbPath && type === 'pet_default') {
+      db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
+    }
+    db.close();
+  } else if (thumbPath && type === 'pet_default') {
+    // No fieldMap mapping but we still need to save thumb_url
+    const db = getWriteDb();
+    db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
     db.close();
   }
 
-  res.json({ success: true, path: publicPath });
+  res.json({ success: true, path: publicPath, thumb_path: thumbPath || undefined });
 });
 
 // ============================================================
@@ -1218,7 +1256,7 @@ router.delete('/media', authAdmin, (req, res) => {
  * Copy a library image to a business directory with proper naming
  * body: { source: '/uploads/library/xxx.png', type: 'pika_concept_male', uid: '202605' }
  */
-router.post('/media/copy-to-business', authAdmin, (req, res) => {
+router.post('/media/copy-to-business', authAdmin, async (req, res) => {
   const { source, type, uid } = req.body;
   if (!source || !type || !uid) return res.status(400).json({ error: '缺少 source/type/uid 参数' });
   if (!isSafeFilename(uid)) return res.status(400).json({ error: 'uid 包含非法字符' });
@@ -1254,6 +1292,32 @@ router.post('/media/copy-to-business', authAdmin, (req, res) => {
   // Copy file
   fs.copyFileSync(sourcePath, destPath);
 
+  // Auto-generate WebP + thumbnail for pet_default / pet_shiny
+  let thumbPath = null;
+  if (sharp && (type === 'pet_default' || type === 'pet_shiny')) {
+    try {
+      const imgBuffer = fs.readFileSync(destPath);
+      // 1. WebP copy in same directory
+      const webpPath = destPath.replace('.png', '.webp');
+      await sharp(imgBuffer).webp({ quality: 80 }).toFile(webpPath);
+
+      // 2. Thumbnail (128px WebP) — only for pet_default
+      if (type === 'pet_default') {
+        const thumbDir = path.join(PUBLIC_DIR, 'pets', 'thumbs');
+        fs.mkdirSync(thumbDir, { recursive: true });
+        const thumbFilename = uid + '_default.webp';
+        const thumbFilepath = path.join(thumbDir, thumbFilename);
+        await sharp(imgBuffer)
+          .resize(128, 128, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .webp({ quality: 60 })
+          .toFile(thumbFilepath);
+        thumbPath = '/public/pets/thumbs/' + thumbFilename;
+      }
+    } catch (imgErr) {
+      console.error('[WARN] Image compression failed for ' + uid + ':', imgErr.message);
+    }
+  }
+
   // Update database if applicable
   const fieldMap = {
     pet_default: { table: 'pet_details', field: 'image_default', key: 'pet_uid' },
@@ -1281,10 +1345,19 @@ router.post('/media/copy-to-business', authAdmin, (req, res) => {
     } else {
       db.prepare('UPDATE ' + mapping.table + ' SET ' + mapping.field + ' = ? WHERE ' + mapping.key + ' = ?').run(publicPath, uid);
     }
+    // Auto-update thumb_url if thumbnail was generated
+    if (thumbPath && type === 'pet_default') {
+      db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
+    }
+    db.close();
+  } else if (thumbPath && type === 'pet_default') {
+    // No fieldMap mapping but we still need to save thumb_url
+    const db = getWriteDb();
+    db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
     db.close();
   }
 
-  res.json({ success: true, path: publicPath });
+  res.json({ success: true, path: publicPath, thumb_path: thumbPath || undefined });
 });
 
 // ============================================================
