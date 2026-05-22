@@ -199,42 +199,135 @@
           class="flex items-center gap-2 p-2 rounded-lg border transition-colors"
           :class="isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'">
           <!-- Level (only for skills type) -->
-          <input v-if="activeSkillTab === 'skills'" v-model="skill.level" class="input w-14 text-xs text-center" placeholder="等级" />
-          <!-- Skill name with autocomplete -->
-          <div class="relative flex-1 min-w-0">
-            <input v-model="skill.name" class="input w-full text-xs" placeholder="技能名称"
-              @input="onSkillNameInput(skill, $event)" @focus="skill._showSuggestions = true" @blur="hideSuggestions(skill)" />
-            <!-- Suggestions dropdown -->
-            <div v-if="skill._showSuggestions && skill._suggestions?.length"
-              class="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg shadow-lg border max-h-40 overflow-y-auto"
-              :class="isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'">
-              <div v-for="s in skill._suggestions" :key="s.uid"
-                class="px-2 py-1.5 text-xs cursor-pointer hover:bg-primary-500/10 flex items-center gap-2"
-                @mousedown.prevent="selectSkillSuggestion(skill, s)">
-                <img v-if="s.element_icon" :src="s.element_icon" class="w-3.5 h-3.5" />
-                <span class="font-medium">{{ s.name }}</span>
-                <span class="text-muted">{{ s.category }} · {{ s.power || '-' }}威力</span>
-              </div>
-            </div>
+          <input v-if="activeSkillTab === 'skills'" v-model="skill.level" class="input w-16 text-xs text-center" placeholder="学习等级" />
+          <!-- Skill info display -->
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <span class="text-xs font-medium truncate">{{ skill.name || '(未选择)' }}</span>
+            <span v-if="skill.element" class="text-[10px] px-1.5 py-0.5 rounded"
+              :style="{ background: getElementColor(skill.element) + '20', color: getElementColor(skill.element) }">{{ skill.element }}</span>
+            <span v-if="skill.type" class="text-[10px] px-1.5 py-0.5 rounded"
+              :style="{ background: getCategoryColor(skill.type) + '20', color: getCategoryColor(skill.type) }">{{ skill.type }}</span>
+            <span v-if="skill.cost" class="text-[10px] text-muted">能耗{{ skill.cost }}</span>
+            <span v-if="skill.power" class="text-[10px] text-muted">威力{{ skill.power }}</span>
           </div>
-          <!-- Element -->
-          <input v-model="skill.element" class="input w-14 text-xs text-center" placeholder="属性" />
-          <!-- Type (category) -->
-          <input v-model="skill.type" class="input w-14 text-xs text-center" placeholder="类别" />
-          <!-- Cost -->
-          <input v-model.number="skill.cost" type="number" class="input w-12 text-xs text-center" placeholder="能耗" />
-          <!-- Power -->
-          <input v-model.number="skill.power" type="number" class="input w-12 text-xs text-center" placeholder="威力" />
           <!-- Delete -->
-          <button @click="removeSkill(activeSkillTab, idx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0">✕</button>
+          <button @click="removeSkill(activeSkillTab, idx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="移除">✕</button>
         </div>
+        <div v-if="!skillForms[activeSkillTab].length" class="text-center text-xs text-muted py-4">暂无技能，点击下方按钮从技能库导入</div>
       </div>
 
       <!-- Add skill button -->
-      <button @click="addSkill(activeSkillTab)" class="mt-3 text-xs text-primary-500 hover:underline">
-        + 添加{{ activeSkillTab === 'skills' ? '精灵技能' : activeSkillTab === 'bloodline_skills' ? '血脉技能' : '技能石技能' }}
+      <button @click="openSkillPicker()" class="mt-3 text-xs text-primary-500 hover:underline">
+        + 从技能库导入{{ activeSkillTab === 'skills' ? '精灵技能' : activeSkillTab === 'bloodline_skills' ? '血脉技能' : '技能石技能' }}
       </button>
     </div>
+
+    <!-- 技能选择弹窗 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showSkillPicker" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showSkillPicker = false"></div>
+          <div class="relative w-full max-w-4xl max-h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            :class="isDark ? 'bg-gray-900' : 'bg-white'">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-5 py-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-200'">
+              <h3 class="font-roco text-base text-primary-500">从技能库选择技能</h3>
+              <button @click="showSkillPicker = false" class="text-muted hover:text-foreground text-lg">✕</button>
+            </div>
+
+            <!-- Filters -->
+            <div class="px-5 py-3 border-b space-y-3" :class="isDark ? 'border-gray-700' : 'border-gray-200'">
+              <!-- Search + dropdowns -->
+              <div class="flex flex-wrap gap-2">
+                <input v-model="pickerSearch" placeholder="搜索技能名称..." @input="debouncedPickerFetch" class="input w-full sm:w-52 text-sm" />
+                <select v-model="pickerCategory" @change="pickerFilterChanged" class="select text-sm">
+                  <option value="">分类：全部</option>
+                  <option v-for="c in ['物攻','魔攻','防御','状态']" :key="c" :value="c">分类：{{ c }}</option>
+                </select>
+                <select v-model="pickerCounter" @change="pickerFilterChanged" class="select text-sm">
+                  <option value="">应对：不限</option>
+                  <option value="none">应对：无</option>
+                  <option v-for="c in ['状态','防御','攻击']" :key="c" :value="c">应对：{{ c }}</option>
+                </select>
+                <select v-model="pickerKeyword" @change="pickerFilterChanged" class="select text-sm">
+                  <option value="">效果：不限</option>
+                  <option v-for="k in keywordOptions" :key="k.value" :value="k.value">{{ k.label }}</option>
+                </select>
+                <span class="text-muted text-xs self-center ml-auto">共 {{ pickerTotal }} 条</span>
+              </div>
+              <!-- Element filter icons -->
+              <div class="flex flex-wrap gap-1.5">
+                <button @click="pickerElementId = ''; pickerFilterChanged()"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-medium transition-colors"
+                  :class="!pickerElementId ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'">
+                  全
+                </button>
+                <button v-for="elem in elements" :key="elem.id"
+                  @click="pickerElementId = elem.id; pickerFilterChanged()"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                  :class="pickerElementId === elem.id ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'"
+                  :title="elem.name">
+                  <img :src="elem.icon" class="w-5 h-5" :alt="elem.name" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Skill list -->
+            <div class="flex-1 overflow-y-auto px-5 py-3">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-left text-muted text-xs">
+                    <th class="py-2 px-2 w-10">图标</th>
+                    <th class="py-2 px-2">名称</th>
+                    <th class="py-2 px-2">属性</th>
+                    <th class="py-2 px-2">分类</th>
+                    <th class="py-2 px-2 w-12">能耗</th>
+                    <th class="py-2 px-2 w-12">威力</th>
+                    <th class="py-2 px-2">效果</th>
+                    <th class="py-2 px-2 w-12">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="skill in pickerSkills" :key="skill.uid"
+                    class="border-t hover:bg-primary-500/5 transition-colors"
+                    :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+                    <td class="py-2 px-2">
+                      <img v-if="skill.icon_url" :src="skill.icon_url" class="w-8 h-8 object-contain" loading="lazy" />
+                    </td>
+                    <td class="py-2 px-2 font-medium">{{ skill.name }}</td>
+                    <td class="py-2 px-2">
+                      <span class="flex items-center gap-1">
+                        <img v-if="skill.element_icon" :src="skill.element_icon" class="w-4 h-4" />
+                        <span class="text-xs" :style="{ color: skill.element_color }">{{ skill.element_name }}</span>
+                      </span>
+                    </td>
+                    <td class="py-2 px-2">
+                      <span class="text-xs font-medium" :style="{ color: getCategoryColor(skill.category) }">{{ skill.category }}</span>
+                    </td>
+                    <td class="py-2 px-2 text-center">{{ skill.cost }}</td>
+                    <td class="py-2 px-2 text-center">{{ skill.power }}</td>
+                    <td class="py-2 px-2 text-xs text-muted max-w-[200px] truncate" :title="skill.description">{{ skill.description }}</td>
+                    <td class="py-2 px-2 text-center">
+                      <button @click="importSkill(skill)" class="text-primary-500 hover:text-primary-600 text-xs font-medium">导入</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-if="!pickerSkills.length && !pickerLoading" class="text-center text-muted text-xs py-8">无匹配技能</div>
+              <div v-if="pickerLoading" class="text-center text-muted text-xs py-8">加载中...</div>
+            </div>
+
+            <!-- Pagination -->
+            <div v-if="pickerTotal > pickerLimit" class="flex justify-center items-center gap-3 px-5 py-3 border-t" :class="isDark ? 'border-gray-700' : 'border-gray-200'">
+              <button @click="pickerPage > 1 && (pickerPage--, fetchPickerSkills())" :disabled="pickerPage <= 1" class="btn-ghost text-xs">← 上一页</button>
+              <span class="text-xs text-muted">{{ pickerPage }} / {{ Math.ceil(pickerTotal / pickerLimit) }}</span>
+              <button @click="pickerPage < Math.ceil(pickerTotal / pickerLimit) && (pickerPage++, fetchPickerSkills())"
+                :disabled="pickerPage >= Math.ceil(pickerTotal / pickerLimit)" class="btn-ghost text-xs">下一页 →</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 保存按钮 -->
     <div class="flex gap-3 mb-8">
@@ -248,7 +341,7 @@
 <script setup>
 import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { petsApi, elementsApi } from '@/api'
+import { petsApi, elementsApi, skillsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
@@ -546,53 +639,116 @@ const skillForms = reactive({
   learnable_stones: [],
 })
 
-function createEmptySkill() {
-  return { level: '', name: '', element: '', type: '', cost: 0, power: 0, description: '', skill_ref_uid: '', _suggestions: [], _showSuggestions: false }
+// Skill picker modal state
+const showSkillPicker = ref(false)
+const pickerSkills = ref([])
+const pickerTotal = ref(0)
+const pickerPage = ref(1)
+const pickerLimit = ref(30)
+const pickerSearch = ref('')
+const pickerCategory = ref('')
+const pickerCounter = ref('')
+const pickerElementId = ref('')
+const pickerKeyword = ref('')
+const pickerLoading = ref(false)
+
+const keywordOptions = [
+  { value: '连击', label: '连击' },
+  { value: '回复', label: '回复' },
+  { value: '吸血', label: '吸血' },
+  { value: '永久', label: '永久增益' },
+  { value: '印记', label: '印记' },
+  { value: '驱散', label: '驱散' },
+  { value: '打断', label: '打断' },
+  { value: '脱离', label: '脱离' },
+  { value: '更换', label: '更换精灵' },
+  { value: '先手', label: '先手' },
+  { value: '迸发', label: '迸发' },
+  { value: '迅捷', label: '迅捷' },
+  { value: '蓄力', label: '蓄力' },
+  { value: '中毒', label: '中毒' },
+  { value: '灼烧', label: '灼烧' },
+  { value: '冻结', label: '冻结' },
+  { value: '萌化', label: '萌化' },
+  { value: '奉献', label: '奉献' },
+]
+
+function getElementColor(elementName) {
+  const elem = elements.value.find(e => e.name === elementName)
+  return elem?.color || '#6B7280'
 }
 
-function addSkill(tabKey) {
-  skillForms[tabKey].push(createEmptySkill())
+function getCategoryColor(type) {
+  const colors = { '物攻': '#FF9636', '魔攻': '#9446EC', '防御': '#3F89B4', '状态': '#2E7D32' }
+  return colors[type] || '#6B7280'
 }
 
 function removeSkill(tabKey, idx) {
   skillForms[tabKey].splice(idx, 1)
 }
 
-let searchTimer = null
-function onSkillNameInput(skill, event) {
-  const q = event.target.value.trim()
-  if (!q) { skill._suggestions = []; return }
-  clearTimeout(searchTimer)
-  searchTimer = setTimeout(async () => {
-    try {
-      skill._suggestions = await adminApi.searchSkills(q)
-    } catch { skill._suggestions = [] }
-  }, 300)
+function openSkillPicker() {
+  showSkillPicker.value = true
+  pickerPage.value = 1
+  fetchPickerSkills()
 }
 
-function selectSkillSuggestion(skill, s) {
-  skill.name = s.name
-  skill.element = s.element_name || ''
-  skill.type = s.category || ''
-  skill.cost = s.cost || 0
-  skill.power = s.power || 0
-  skill.description = s.description || ''
-  skill.skill_ref_uid = s.uid || ''
-  skill._suggestions = []
-  skill._showSuggestions = false
+let pickerDebounceTimer = null
+function debouncedPickerFetch() {
+  clearTimeout(pickerDebounceTimer)
+  pickerDebounceTimer = setTimeout(() => { pickerPage.value = 1; fetchPickerSkills() }, 300)
 }
 
-function hideSuggestions(skill) {
-  setTimeout(() => { skill._showSuggestions = false }, 200)
+function pickerFilterChanged() {
+  pickerPage.value = 1
+  fetchPickerSkills()
+}
+
+async function fetchPickerSkills() {
+  pickerLoading.value = true
+  try {
+    const res = await skillsApi.list({
+      page: pickerPage.value,
+      limit: pickerLimit.value,
+      search: pickerSearch.value,
+      category: pickerCategory.value,
+      counter: pickerCounter.value,
+      element_id: pickerElementId.value,
+      keyword: pickerKeyword.value,
+    })
+    pickerSkills.value = res.skills
+    pickerTotal.value = res.total
+  } catch (err) {
+    console.error('Fetch picker skills failed:', err)
+  } finally {
+    pickerLoading.value = false
+  }
+}
+
+function importSkill(skill) {
+  const newSkill = {
+    level: '',
+    name: skill.name,
+    element: skill.element_name || '',
+    type: skill.category || '',
+    cost: skill.cost || 0,
+    power: skill.power || 0,
+    description: skill.description || '',
+    skill_ref_uid: skill.uid || '',
+  }
+  skillForms[activeSkillTab.value].push(newSkill)
+  showSkillPicker.value = false
+  skillsMsg.value = `已导入「${skill.name}」`
+  skillsOk.value = true
 }
 
 async function loadSkills() {
   if (isNew) return
   try {
     const data = await adminApi.getPetSkills(uid)
-    skillForms.skills = (data.skills || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
-    skillForms.bloodline_skills = (data.bloodline_skills || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
-    skillForms.learnable_stones = (data.learnable_stones || []).map(s => ({ ...s, _suggestions: [], _showSuggestions: false }))
+    skillForms.skills = data.skills || []
+    skillForms.bloodline_skills = data.bloodline_skills || []
+    skillForms.learnable_stones = data.learnable_stones || []
   } catch (err) {
     console.error('Load pet skills failed:', err)
   }
@@ -603,7 +759,7 @@ async function saveSkills() {
   skillsMsg.value = ''
   try {
     // Clean up internal fields before sending
-    const clean = (arr) => arr.map(({ _suggestions, _showSuggestions, id, pet_uid, skill_type, skill_icon, ...rest }) => rest)
+    const clean = (arr) => arr.map(({ id, pet_uid, skill_type, skill_icon, ...rest }) => rest)
     await adminApi.savePetSkills(uid, {
       skills: clean(skillForms.skills),
       bloodline_skills: clean(skillForms.bloodline_skills),
