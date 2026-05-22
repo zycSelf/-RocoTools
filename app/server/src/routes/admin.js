@@ -1742,6 +1742,54 @@ router.put('/pet-skills/:uid', authAdmin, (req, res) => {
 });
 
 /**
+ * GET /api/admin/pet-egg-groups/:uid
+ * Get all egg groups for a pet
+ */
+router.get('/pet-egg-groups/:uid', authAdmin, (req, res) => {
+  const { uid } = req.params;
+  try {
+    const db = getDb();
+    const groups = db.prepare(`
+      SELECT eg.id, eg.name FROM pet_egg_groups peg
+      JOIN egg_groups eg ON peg.egg_group_id = eg.id
+      WHERE peg.pet_uid = ?
+    `).all(uid);
+    res.json({ egg_groups: groups });
+  } catch (err) {
+    console.error('[PetEggGroups GET]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/admin/pet-egg-groups/:uid
+ * Save egg groups for a pet (delete-then-insert strategy)
+ * Body: { egg_group_ids: [1, 2, 3] }
+ */
+router.put('/pet-egg-groups/:uid', authAdmin, (req, res) => {
+  const { uid } = req.params;
+  const { egg_group_ids = [] } = req.body;
+
+  const db = getWriteDb();
+  try {
+    const tx = db.transaction(() => {
+      db.prepare('DELETE FROM pet_egg_groups WHERE pet_uid = ?').run(uid);
+      const insert = db.prepare('INSERT INTO pet_egg_groups (pet_uid, egg_group_id, manual_edit) VALUES (?, ?, 1)');
+      for (const groupId of egg_group_ids) {
+        insert.run(uid, groupId);
+      }
+    });
+    tx();
+    db.close();
+    res.json({ success: true, total: egg_group_ids.length });
+  } catch (err) {
+    db.close();
+    console.error('[PetEggGroups PUT]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * GET /api/admin/skills-search?q=xxx
  * Quick search skills by name (for autocomplete in pet skill editor)
  */

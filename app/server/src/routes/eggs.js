@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const eggsService = require('../services/eggs');
 const { authAdmin } = require('../middleware/authAdmin');
+const { clearCache } = require('../middleware/apiCache');
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.post('/:id/pets', authAdmin, (req, res) => {
   if (!pet_uid) return res.status(400).json({ error: '缺少 pet_uid' });
   const result = eggsService.addPet(+req.params.id, pet_uid);
   if (result.error) return res.status(400).json({ error: result.error });
+  clearCache();
   res.json(result);
 });
 
@@ -27,6 +29,7 @@ router.post('/:id/pets', authAdmin, (req, res) => {
 router.delete('/:id/pets/:petId', authAdmin, (req, res) => {
   const result = eggsService.removePet(+req.params.id, req.params.petId);
   if (result.error) return res.status(400).json({ error: result.error });
+  clearCache();
   res.json(result);
 });
 

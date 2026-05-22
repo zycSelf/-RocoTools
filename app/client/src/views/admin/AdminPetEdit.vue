@@ -172,6 +172,42 @@
       </div>
     </div>
 
+    <!-- 蛋组配置 -->
+    <div v-if="!isNew" class="card mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-roco text-base text-primary-500">蛋组配置</h2>
+        <button @click="saveEggGroups" :disabled="eggGroupsSaving" class="btn text-xs">
+          {{ eggGroupsSaving ? '保存中...' : '💾 保存蛋组' }}
+        </button>
+      </div>
+      <span v-if="eggGroupsMsg" class="text-xs mb-2 inline-block" :class="eggGroupsOk ? 'text-green-600' : 'text-red-500'">{{ eggGroupsMsg }}</span>
+
+      <!-- Selected egg groups -->
+      <div class="flex flex-wrap gap-2 mb-3">
+        <div v-for="g in selectedEggGroups" :key="g.id"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
+          :class="isDark ? 'border-primary-500/40 bg-primary-500/10 text-primary-400' : 'border-primary-300 bg-primary-50 text-primary-700'">
+          <span>{{ g.name }}</span>
+          <button @click="removeEggGroup(g.id)" class="text-red-400 hover:text-red-600 ml-0.5" title="移除">✕</button>
+        </div>
+        <div v-if="!selectedEggGroups.length" class="text-xs text-muted py-1">暂未配置蛋组</div>
+      </div>
+
+      <!-- Add egg group -->
+      <div class="flex items-center gap-2">
+        <SearchSelect
+          v-model="addEggGroupId"
+          :options="availableEggGroupOptions"
+          placeholder="选择蛋组..."
+          class="flex-1 max-w-xs"
+        />
+        <button v-if="addEggGroupId" @click="addEggGroup"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors">
+          + 添加
+        </button>
+      </div>
+    </div>
+
     <!-- 技能配置 -->
     <div v-if="!isNew" class="card mb-4">
       <div class="flex items-center justify-between mb-3">
@@ -343,7 +379,7 @@
 <script setup>
 import { ref, computed, watch, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { petsApi, elementsApi, skillsApi } from '@/api'
+import { petsApi, elementsApi, skillsApi, eggsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
@@ -388,6 +424,71 @@ const form = ref({
 })
 
 const detailForm = ref({ height: '', weight: '', location: '' })
+
+// Egg groups
+const allEggGroups = ref([])
+const selectedEggGroups = ref([])
+const addEggGroupId = ref('')
+const eggGroupsSaving = ref(false)
+const eggGroupsMsg = ref('')
+const eggGroupsOk = ref(false)
+
+const availableEggGroupOptions = computed(() =>
+  allEggGroups.value
+    .filter(g => !selectedEggGroups.value.some(s => s.id === g.id))
+    .map(g => ({ value: String(g.id), label: g.name }))
+)
+
+function addEggGroup() {
+  const id = Number(addEggGroupId.value)
+  const group = allEggGroups.value.find(g => g.id === id)
+  if (group && !selectedEggGroups.value.some(s => s.id === id)) {
+    selectedEggGroups.value.push({ id: group.id, name: group.name })
+    addEggGroupId.value = ''
+    eggGroupsMsg.value = `已添加「${group.name}」`
+    eggGroupsOk.value = true
+  }
+}
+
+function removeEggGroup(id) {
+  const idx = selectedEggGroups.value.findIndex(g => g.id === id)
+  if (idx !== -1) {
+    const name = selectedEggGroups.value[idx].name
+    selectedEggGroups.value.splice(idx, 1)
+    eggGroupsMsg.value = `已移除「${name}」`
+    eggGroupsOk.value = true
+  }
+}
+
+async function saveEggGroups() {
+  eggGroupsSaving.value = true
+  eggGroupsMsg.value = ''
+  try {
+    const ids = selectedEggGroups.value.map(g => g.id)
+    await adminApi.savePetEggGroups(uid, ids)
+    eggGroupsMsg.value = '蛋组保存成功'
+    eggGroupsOk.value = true
+  } catch (err) {
+    eggGroupsMsg.value = '保存失败: ' + err.message
+    eggGroupsOk.value = false
+  } finally {
+    eggGroupsSaving.value = false
+  }
+}
+
+async function loadEggGroups() {
+  if (isNew) return
+  try {
+    const [allRes, petRes] = await Promise.all([
+      eggsApi.list(),
+      adminApi.getPetEggGroups(uid),
+    ])
+    allEggGroups.value = allRes.egg_groups || []
+    selectedEggGroups.value = petRes.egg_groups || []
+  } catch (err) {
+    console.error('Load egg groups failed:', err)
+  }
+}
 
 const statFields = [
   { key: 'hp', label: '生命' }, { key: 'atk', label: '物攻' }, { key: 'matk', label: '魔攻' },
@@ -490,6 +591,8 @@ async function loadData() {
 
     // Load skills
     await loadSkills()
+    // Load egg groups
+    await loadEggGroups()
   }
 
   loaded.value = true

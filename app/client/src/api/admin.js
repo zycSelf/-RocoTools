@@ -211,4 +211,11 @@ export const adminApi = {
   }),
   searchSkills: (q) => adminRequest(`/skills-search?q=${encodeURIComponent(q)}`),
   getNextSkillUid: () => adminRequest('/skills-next-uid'),
+
+  // 精灵蛋组管理
+  getPetEggGroups: (uid) => adminRequest(`/pet-egg-groups/${uid}`),
+  savePetEggGroups: (uid, eggGroupIds) => adminRequest(`/pet-egg-groups/${uid}`, {
+    method: 'PUT',
+    body: JSON.stringify({ egg_group_ids: eggGroupIds }),
+  }),
 }
