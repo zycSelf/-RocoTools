@@ -5,6 +5,9 @@ const readline = require('readline');
 
 const { DB_PATH, DATA_DIR } = require('./connection');
 
+// CLI flags
+const FORCE_IMPORT = process.argv.includes('--force');
+
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -196,6 +199,44 @@ function importPets() {
 }
 
 // ============================================================
+// Recovery guide for integrity check failures
+// ============================================================
+function _printRecoveryGuide(reason) {
+  console.log();
+  console.log('────────────────────────────────────────────────────────────');
+  console.log('[GUIDE] 排查与恢复步骤：');
+  console.log('────────────────────────────────────────────────────────────');
+  console.log();
+  console.log('  1. 检查 pet_detail.json 完整性：');
+  console.log(`     node -e "const d=require('${path.join(DATA_DIR, 'pets', 'pet_detail.json').replace(/\\/g, '/')}'); const p=d.pets; const total=Object.keys(p).length; const hasSkills=Object.values(p).filter(x=>x.detail&&x.detail.skills&&x.detail.skills.length>0).length; console.log('总数:',total,'有技能:',hasSkills)"`);
+  console.log();
+  console.log('  2. 如果数据确实不完整，重新执行爬虫：');
+  console.log('     python crawler/run.py --full');
+  console.log();
+  console.log('  3. 如果数据正确（如确实删减了精灵），强制导入：');
+  console.log('     node src/db/import.js --force');
+  console.log();
+  console.log('  4. 如果需要恢复到导入前状态：');
+  console.log(`     - 自动备份位于: ${path.join(path.dirname(DB_PATH), 'backups', 'auto_presync_*.db').replace(/\\/g, '/')}`);
+  console.log('     - 或在管理端 Dashboard → 备份恢复 中操作');
+  console.log();
+
+  if (reason === 'skills_empty') {
+    console.log('  [提示] 技能数据为空通常意味着：');
+    console.log('     - 爬虫网络请求全部超时/被限流');
+    console.log('     - BWIKI 页面结构发生了重大变更');
+    console.log('     - pet_detail.json 文件损坏或被意外清空');
+  } else if (reason === 'data_drop') {
+    console.log('  [提示] 数据大幅减少通常意味着：');
+    console.log('     - 爬虫中途被中断（Ctrl+C / 网络断开）');
+    console.log('     - BWIKI 精灵筛选页面临时异常');
+    console.log('     - 增量模式下 filter 文件配置错误');
+  }
+  console.log('────────────────────────────────────────────────────────────');
+  console.log();
+}
+
+// ============================================================
 // 5. 导入精灵详情
 // ============================================================
 function importPetDetails() {
@@ -231,17 +272,21 @@ function importPetDetails() {
   const newPetsWithSkills = Object.values(pets).filter(p => p.detail && (p.detail.skills?.length || p.detail.bloodline_skills?.length || p.detail.learnable_stones?.length)).length;
 
   if (oldPetSkillCount > 0 && newPetsWithSkills === 0) {
-    console.log(`[ABORT] 数据完整性校验失败：旧数据有 ${oldPetSkillCount} 条技能记录，新数据为 0，中止导入`);
+    console.log(`[ABORT] 数据完整性校验失败：旧数据有 ${oldPetSkillCount} 条技能记录，新数据为 0`);
     console.log(`[ABORT] 可能是爬虫抓取失败，请检查 pet_detail.json 数据完整性`);
-    return;
+    _printRecoveryGuide('skills_empty');
+    if (!FORCE_IMPORT) return;
+    console.log(`[FORCE] --force 已启用，跳过校验继续导入...`);
   }
 
   // Check if new data is significantly less than old (>50% drop)
   const oldDetailCount = db.prepare('SELECT COUNT(*) as cnt FROM pet_details').get().cnt;
   if (oldDetailCount > 10 && newPetCount < oldDetailCount * 0.5) {
-    console.log(`[ABORT] 数据完整性校验失败：旧详情 ${oldDetailCount} 条，新数据仅 ${newPetCount} 条（降幅超过50%），中止导入`);
+    console.log(`[ABORT] 数据完整性校验失败：旧详情 ${oldDetailCount} 条，新数据仅 ${newPetCount} 条（降幅超过50%）`);
     console.log(`[ABORT] 可能是爬虫部分失败，请检查 pet_detail.json 数据完整性`);
-    return;
+    _printRecoveryGuide('data_drop');
+    if (!FORCE_IMPORT) return;
+    console.log(`[FORCE] --force 已启用，跳过校验继续导入...`);
   }
 
   const tx = db.transaction(() => {
@@ -348,6 +393,7 @@ async function main() {
   console.log('========================================');
   console.log(`[INFO] 数据源: ${DATA_DIR}`);
   console.log(`[INFO] 数据库: ${DB_PATH}`);
+  if (FORCE_IMPORT) console.log(`[INFO] 模式: --force（跳过完整性校验）`);
   console.log();
 
   importElements();
