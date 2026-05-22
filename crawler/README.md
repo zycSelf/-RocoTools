@@ -80,3 +80,76 @@ python crawler/scrapers/fetch_pet_detail.py
 | 蛋组 | `data/eggs/` | JSON |
 | 精灵 | `data/pets/` | JSON |
 | 图片 | `data/public/` | PNG |
+
+## 风险预防机制
+
+### 自动备份
+
+爬虫执行 `sync_database()` 前会自动备份当前数据库：
+
+- 备份位置：`app/server/data/backups/auto_presync_YYYYMMDD_HHMMSS.db`
+- 保留策略：最近 5 份，旧的自动清理
+- 备份失败不阻断流程（仅警告）
+
+### UID 稳定化
+
+多形态精灵的 UID 通过 `data/pets/_uid_mapping.json` 持久化：
+
+```
+"pet_id::精灵名" → uid
+例如: "004::魔力猫" → "pet_004_1"
+      "004::叶冕魔力猫" → "pet_004_2"
+```
+
+即使 BWIKI 表格行顺序变化，已有精灵的 UID 不会改变。
+
+### 数据完整性校验
+
+`import.js` 导入前自动检测：
+
+- 旧数据有技能记录但新数据为空 → 中止
+- 新数据量比旧数据少超过 50% → 中止
+
+中止时输出排查指引和恢复命令。
+
+### 增量技能更新
+
+`pet_skills` 不再全表清空，改为按 `pet_uid` 逐个删除再插入。爬虫部分失败时，未涉及的精灵技能数据不受影响。
+
+## 故障恢复
+
+### 导入被 ABORT 中止
+
+```bash
+# 1. 检查数据完整性
+node -e "const d=require('./data/pets/pet_detail.json'); \
+  const p=d.pets; const total=Object.keys(p).length; \
+  const hasSkills=Object.values(p).filter(x=>x.detail&&x.detail.skills&&x.detail.skills.length>0).length; \
+  console.log('总数:',total,'有技能:',hasSkills)"
+
+# 2. 数据不完整 → 重新爬取
+python crawler/run.py --full
+
+# 3. 数据正确但确实减少 → 强制导入
+cd app/server && node src/db/import.js --force
+
+# 4. 需要回滚 → 使用自动备份
+cp app/server/data/backups/auto_presync_最新.db app/server/data/roco.db
+# 或在管理端 Dashboard → 备份恢复 中操作
+```
+
+### 多形态 UID 错位
+
+如果发现月刊/活动绑定的精灵指向了错误形态：
+
+1. 检查 `data/pets/_uid_mapping.json` 中对应精灵的映射
+2. 手动修正映射后重新执行 `python crawler/run.py --full`
+3. 在管理端重新绑定精灵
+
+### 爬虫网络异常
+
+| 现象 | 原因 | 处理 |
+|------|------|------|
+| 567/429 状态码 | BWIKI 限流 | 自动重试（60s × 次数），无需干预 |
+| 部分精灵无详情 | 请求超时 | 重新执行 `--full` 或 `--update` |
+| 全部失败 | 网络断开/BWIKI 维护 | 等待恢复后重试 |
