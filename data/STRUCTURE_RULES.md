@@ -297,7 +297,7 @@ data/
 
 | 机制 | 保护范围 | 实现位置 |
 |------|----------|----------|
-| `manual_edit` 标记 | pets / skills / pet_details | `import.js` 导入时跳过 |
+| `manual_edit` 标记 | pets / skills / pet_details / pet_egg_groups | `import.js` 导入时跳过 |
 | 冲突审查 | 被跳过的记录 | `pending_conflicts.json` → 管理端审查 |
 | 完整性校验 | pet_skills / pet_details | 新数据为空或降幅>50% 时中止 |
 | 增量技能更新 | pet_skills | 按 `pet_uid` 逐个删除再插入 |
@@ -324,7 +324,7 @@ data/
 
 | 关联表 | 外键约束 | 级联行为 | 说明 |
 |--------|----------|----------|------|
-| `pet_egg_groups` | FK → pets(uid) | 无级联删除 | 精灵删除不自动清理 |
+| `pet_egg_groups` | FK → pets(uid) | 无级联删除 | manual_edit 保护，手动增删不被爬虫覆盖 |
 | `pet_skills` | FK → pets(uid) | 无级联删除 | 增量更新，不全表清空 |
 | `pet_details` | FK → pets(uid) | 无级联删除 | manual_edit 保护 |
 | `pika_monthly_pets` | 无 FK 约束 | 无 | 冗余存储 name/icon |

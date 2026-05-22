@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS pets (
 CREATE TABLE IF NOT EXISTS pet_egg_groups (
   pet_uid       TEXT NOT NULL,
   egg_group_id  INTEGER NOT NULL,
+  manual_edit   INTEGER DEFAULT 0,
   PRIMARY KEY (pet_uid, egg_group_id),
   FOREIGN KEY (pet_uid) REFERENCES pets(uid),
   FOREIGN KEY (egg_group_id) REFERENCES egg_groups(id)

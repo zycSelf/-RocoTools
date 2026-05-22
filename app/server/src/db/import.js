@@ -146,6 +146,11 @@ function importPets() {
     db.prepare('SELECT uid FROM pets WHERE manual_edit = 1').all().map(r => r.uid)
   );
 
+  // 获取蛋组关联中手动编辑过的记录（不覆盖）
+  const manualEggEdits = new Set(
+    db.prepare('SELECT pet_uid || "::" || egg_group_id as key FROM pet_egg_groups WHERE manual_edit = 1').all().map(r => r.key)
+  );
+
   // 预加载蛋组名称 → id 映射
   const eggGroupMap = {};
   const eggGroups = db.prepare('SELECT id, name FROM egg_groups').all();
@@ -169,10 +174,12 @@ function importPets() {
           },
         });
         skipped++;
-        // 蛋组关联仍然刷新
+        // 蛋组关联仍然刷新（跳过手动编辑的）
         for (const groupName of (pet.egg_groups || [])) {
           const gid = eggGroupMap[groupName];
-          if (gid !== undefined) insertPetEgg.run(pet.uid, gid);
+          if (gid !== undefined && !manualEggEdits.has(pet.uid + '::' + gid)) {
+            insertPetEgg.run(pet.uid, gid);
+          }
         }
         continue;
       }
@@ -186,10 +193,12 @@ function importPets() {
         pet.version || null, pet.image_url || null,
         pet.thumb_url || null
       );
-      // 蛋组关联
+      // 蛋组关联（跳过手动编辑的）
       for (const groupName of (pet.egg_groups || [])) {
         const gid = eggGroupMap[groupName];
-        if (gid !== undefined) insertPetEgg.run(pet.uid, gid);
+        if (gid !== undefined && !manualEggEdits.has(pet.uid + '::' + gid)) {
+          insertPetEgg.run(pet.uid, gid);
+        }
       }
       imported++;
     }

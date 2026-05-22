@@ -163,4 +163,27 @@ export const adminApi = {
     method: 'POST',
     body: JSON.stringify({ source, type, uid }),
   }),
+
+  // 蛋组精灵管理（路由在 /api/eggs 下，但需要 admin token）
+  addPetToEggGroup: (groupId, petUid) => {
+    const token = getToken()
+    return fetch(`/api/eggs/${groupId}/pets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ pet_uid: petUid }),
+    }).then(async res => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed') }
+      return res.json()
+    })
+  },
+  removePetFromEggGroup: (groupId, petId) => {
+    const token = getToken()
+    return fetch(`/api/eggs/${groupId}/pets/${petId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    }).then(async res => {
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Failed') }
+      return res.json()
+    })
+  },
 }
