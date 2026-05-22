@@ -1,0 +1,323 @@
+# 管理端业务规则
+
+本文档定义了 RocoTools 管理端的业务规则、配置规范、操作约束和技术实现细节。
+
+---
+
+## 一、API 缓存策略
+
+### 后端内存缓存
+
+用户端 API 使用 `apiCache` 中间件进行内存缓存，减少数据库查询：
+
+| 路由 | 缓存时长 | 说明 |
+|------|----------|------|
+| `/api/pets` | 300s (5min) | 精灵列表/详情 |
+| `/api/skills` | 300s (5min) | 技能列表/详情 |
+| `/api/eggs` | 600s (10min) | 蛋组数据 |
+| `/api/elements` | 600s (10min) | 属性数据 |
+| `/api/natures` | 600s (10min) | 性格数据 |
+| `/api/seasons` | 300s (5min) | 赛季数据 |
+| `/api/events` | 300s (5min) | 活动数据 |
+| `/api/pika-monthlies` | 300s (5min) | 皮卡月刊 |
+
+### 自动缓存清除机制
+
+管理端路由 (`/api/admin/*`) 配置了全局中间件，**所有非 GET 请求成功后自动调用 `clearCache()`**：
+
+```javascript
+// admin.js 全局中间件
+router.use((req, res, next) => {
+  if (req.method === 'GET') return next();
+  const originalJson = res.json.bind(res);
+  res.json = (data) => {
+    if (res.statusCode < 400 && data && data.success !== false) {
+      clearCache();
+    }
+    return originalJson(data);
+  };
+  next();
+});
+```
+
+**规则**：
+- 管理端任何写操作（PUT/POST/DELETE）成功后，用户端缓存立即失效
+- 蛋组路由 (`/api/eggs`) 的 POST/DELETE 操作也会调用 `clearCache()`
+- 前端请求层已设置 `{ cache: 'no-store' }`，浏览器端无缓存
+
+---
+
+## 二、技能管理规则
+
+### UID 命名规范
+
+| 规则 | 说明 |
+|------|------|
+| 格式 | `skill_{数字}`，如 `skill_1`、`skill_470` |
+| 分配方式 | 自动递增，取当前最大编号 +1 |
+| 可编辑性 | **不可手动修改**，新建时自动生成并设为只读 |
+| 唯一性 | 后端接口保证不重复 |
+
+### 名称校验
+
+- **不可重复**：新建技能时，前后端双重校验名称唯一性
+- 前端：保存前调用 `searchSkills` 接口精确匹配
+- 后端：`POST /api/admin/data/skills` 时检查 `name` 字段唯一性
+- 重复时返回 409 错误，提示已存在的技能 UID
+
+### 分类类型
+
+技能分类为**下拉选择**，不可自由输入：
+
+| 可选值 | 说明 |
+|--------|------|
+| 物攻 | 物理攻击技能 |
+| 魔攻 | 魔法攻击技能 |
+| 防御 | 防御类技能 |
+| 状态 | 状态类技能 |
+
+### 图标上传
+
+- 图标**非必填**
+- 新建模式下支持暂存图标文件，创建技能后一并上传
+- 支持本地上传和从素材库选取两种方式
+
+---
+
+## 三、精灵管理规则
+
+### 技能配置
+
+#### 布局规范
+
+技能列表采用**表格式固定宽度列布局**：
+
+| 列 | 宽度 | 内容 |
+|----|------|------|
+| 等级 | w-20 (5rem) | `LV` 前缀 + 数字输入框(w-12) |
+| 图标 | w-6 | 技能图标（从 skills 表 JOIN 获取） |
+| 名称 | flex-1 | 技能名称（自适应宽度） |
+| 属性 | w-14 | 属性标签（带颜色） |
+| 分类 | w-14 | 分类标签（带颜色） |
+| 能耗 | w-12 | 数字 |
+| 威力 | w-12 | 数字 |
+| 操作 | w-5 | 删除按钮 |
+
+#### 等级输入
+
+- `LV` 前缀**固定写死**，不可编辑
+- 只需输入数字（type="number"）
+- 仅"精灵技能"类型显示等级列，血脉技能和技能石不显示
+
+#### 技能图标
+
+- 技能列表每条记录前显示技能图标
+- 后端 `GET /api/admin/pet-skills/:uid` 通过 `LEFT JOIN skills` 返回 `skill_icon` 字段
+- 导入技能时同步保存 `icon_url` 到 `skill_icon` 字段
+- 保存时 `clean` 函数过滤掉 `skill_icon`（不发送到后端）
+
+#### 技能绑定与 learner 更新
+
+- 精灵绑定技能后，技能详情页的"可学习精灵"列表**实时查询** `pet_skills` 表
+- 不存在独立的 `learner` 字段，完全通过 SQL JOIN 动态计算
+- 绑定时必须通过"导入技能"功能选择已有技能（填充 `skill_ref_uid`）
+- 若 `skill_ref_uid` 为空，精灵不会出现在技能的 learners 列表中
+
+### 蛋组配置
+
+#### 配置方式
+
+- 在**精灵编辑页面**直接配置蛋组（非蛋组管理页面）
+- 支持多蛋组选择（1-3 个）
+- 保存后自动同步到 `pet_egg_groups` 表
+- 使用 delete-then-insert 策略，自动标记 `manual_edit=1`
+
+#### 颜色区分
+
+蛋组标签按 ID 显示不同颜色，方便辨别：
+
+| ID | 蛋组名称 | 颜色 | 色值 |
+|----|----------|------|------|
+| 0 | 无法孵蛋 | 灰色 | `#9CA3AF` |
+| 1 | 动物组 | 琥珀 | `#D97706` |
+| 2 | 拟人组 | 粉色 | `#EC4899` |
+| 3 | 巨灵组 | 紫色 | `#7C3AED` |
+| 4 | 魔力组 | 浅紫 | `#8B5CF6` |
+| 5 | 天空组 | 青色 | `#06B6D4` |
+| 6 | 两栖组 | 蓝绿 | `#14B8A6` |
+| 7 | 植物组 | 绿色 | `#22C55E` |
+| 8 | 大地组 | 棕色 | `#A16207` |
+| 9 | 妖精组 | 浅粉 | `#F472B6` |
+| 10 | 昆虫组 | 黄绿 | `#84CC16` |
+| 11 | 软体组 | 淡紫 | `#A78BFA` |
+| 12 | 机械组 | 钢灰 | `#6B7280` |
+| 13 | 海洋组 | 蓝色 | `#3B82F6` |
+| 14 | 龙组 | 红色 | `#EF4444` |
+
+#### 后端接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/admin/pet-egg-groups/:uid` | GET | 获取精灵当前关联的蛋组 |
+| `/api/admin/pet-egg-groups/:uid` | PUT | 保存精灵的蛋组关联 |
+
+### 图片上传与字段同步
+
+上传精灵立绘（`pet_default` 类型）时，自动同步写入以下字段：
+
+| 字段 | 表 | 内容 |
+|------|-----|------|
+| `image_default` | pet_details | 立绘大图路径 |
+| `image_url` | pets | 精灵主图路径（列表/卡片展示） |
+| `thumb_url` | pets | 缩略图路径（128px WebP） |
+
+**规则**：所有引用 `image_url` 的地方（如技能详情的可学习精灵列表）使用 `COALESCE(p.thumb_url, p.image_url)` 做 fallback。
+
+---
+
+## 四、素材管理规则
+
+### 存储路径
+
+| 类型 | 存储路径 | 说明 |
+|------|----------|------|
+| 素材库上传 | `/uploads/library/` | 可指定子目录 |
+| 素材库缩略图 | `/uploads/library/.thumbs/` | 自动生成 |
+| 精灵图片 | `/public/pets/` | 按类型分子目录 |
+| 技能图标 | `/public/skills/icons/` | — |
+| 属性图标 | `/public/elements/icons/` | — |
+| 皮卡月刊 | `/uploads/pika/` | — |
+| 赛季 | `/uploads/seasons/` | — |
+| 活动 | `/uploads/events/` | — |
+
+### 图片上传后的自动处理
+
+#### 素材库上传
+
+上传到素材库时，自动生成 **200×200px WebP 缩略图**：
+
+| 参数 | 值 |
+|------|-----|
+| 尺寸 | 200×200, `fit: 'inside'`, 不放大 |
+| 格式 | WebP |
+| 质量 | 70 |
+| 存储 | `/uploads/library/.thumbs/{同名}.webp` |
+
+#### 精灵立绘上传
+
+上传精灵立绘（`pet_default`）时做双重处理：
+
+| 步骤 | 输出 | 参数 |
+|------|------|------|
+| WebP 压缩版 | 同目录 `.webp` | quality: 80 |
+| 128px 缩略图 | `/public/pets/thumbs/{uid}_default.webp` | 128×128, fit: contain, quality: 60 |
+
+#### 前端加载优化
+
+- 素材管理页面和素材选择器在列表/网格浏览时，**优先加载 `thumb_path`（缩略图）**
+- 只有在点击预览或实际使用时才加载原图
+- 素材库 GET 接口返回每个文件时附带 `thumb_path` 字段
+
+### 批量操作权限
+
+| 分类 | 全选本页 | 批量删除 | Ctrl+点击选择 |
+|------|----------|----------|---------------|
+| 素材库（library） | ✅ | ✅ | ✅ |
+| 精灵 | ❌ | ❌ | ❌ |
+| 皮卡月刊 | ❌ | ❌ | ❌ |
+| 赛季 | ❌ | ❌ | ❌ |
+| 活动 | ❌ | ❌ | ❌ |
+| 技能 | ❌ | ❌ | ❌ |
+| 属性 | ❌ | ❌ | ❌ |
+
+**规则**：只有素材库分类（用户自己上传的文件）可以批量操作，其他分类的图片受保护。
+
+### 切换分类行为
+
+- 切换分类/搜索/子分类时**自动清空已选状态**
+- 防止跨分类误删
+
+---
+
+## 五、管理端页面入口规范
+
+新增管理端页面时，必须在以下**三处**添加入口：
+
+1. **App.vue 桌面端导航** — 侧边栏菜单项
+2. **App.vue 移动端导航** — 底部/抽屉菜单项
+3. **AdminDashboard.vue** — 仪表盘快捷入口卡片
+
+---
+
+## 六、Vue 前端代码规范
+
+### API 导入
+
+- Vue 组件中使用 API 必须**完整导入**，不可使用解构缩写
+- 示例：`import { petsApi, elementsApi, skillsApi, eggsApi } from '@/api'`
+
+### 模板属性
+
+- 模板属性中**禁止使用反引号模板字符串**
+- 必须改用字符串拼接或 computed 属性
+- 错误示例：`:src="`/api/img/${id}`"`
+- 正确示例：`:src="'/api/img/' + id"`
+
+### 共享组件
+
+管理端可用的共享组件列表：
+
+| 组件 | 路径 | 用途 |
+|------|------|------|
+| DatePicker | `components/shared/DatePicker.vue` | 日期选择器 |
+| SearchSelect | `components/shared/SearchSelect.vue` | 搜索下拉选择 |
+| PetPicker | `components/shared/PetPicker.vue` | 精灵选择器 |
+| ModalDialog | `components/shared/ModalDialog.vue` | 模态弹窗 |
+| ImagePreview | `components/shared/ImagePreview.vue` | 图片预览 |
+| ImageUploader | `components/shared/ImageUploader.vue` | 图片上传（支持本地+素材库） |
+| PetCard | `components/shared/PetCard.vue` | 精灵卡片 |
+| StatsRadar | `components/shared/StatsRadar.vue` | 种族值雷达图 |
+
+---
+
+## 七、后端接口规范
+
+### 管理端专用接口
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/admin/data/:table` | POST | 通用创建记录 |
+| `/api/admin/data/:table/:id` | PUT | 通用更新记录 |
+| `/api/admin/data/:table/:id` | DELETE | 通用删除记录 |
+| `/api/admin/pet-skills/:uid` | GET/PUT | 精灵技能管理 |
+| `/api/admin/pet-egg-groups/:uid` | GET/PUT | 精灵蛋组管理 |
+| `/api/admin/skills-next-uid` | GET | 获取下一个技能 UID |
+| `/api/admin/skills-search?q=` | GET | 技能名称搜索（自动补全） |
+| `/api/admin/library/upload` | POST | 素材库上传 |
+| `/api/admin/library` | GET | 素材库列表 |
+| `/api/admin/library/:filename` | DELETE | 素材库删除 |
+| `/api/admin/media` | GET | 所有图片列表 |
+| `/api/admin/media` | DELETE | 按路径删除图片 |
+| `/api/admin/media/copy-to-business` | POST | 素材库复制到业务目录 |
+
+### 鉴权
+
+- 所有 `/api/admin/*` 接口使用 `authAdmin` 中间件
+- JWT Token 鉴权
+- 前端通过 `adminRequest()` 统一附加 Authorization header
+
+---
+
+## 八、manual_edit 保护机制
+
+| 表 | 字段 | 说明 |
+|----|------|------|
+| pets | manual_edit | 管理端编辑后标记为 1 |
+| skills | manual_edit | 管理端编辑后标记为 1 |
+| pet_details | manual_edit | 管理端编辑后标记为 1 |
+| pet_egg_groups | manual_edit | 管理端配置蛋组后标记为 1 |
+
+**规则**：
+- 管理端编辑自动标记 `manual_edit=1`
+- 爬虫导入时跳过 `manual_edit=1` 的记录
+- 冲突数据存入 `pending_conflicts.json`，通过管理端审查页面处理
