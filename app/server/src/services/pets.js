@@ -80,6 +80,21 @@ function getByUid(uid) {
   const detail = db.prepare('SELECT * FROM pet_details WHERE pet_uid = ?').get(pet.uid);
   if (detail) {
     detail.evolution_chain = JSON.parse(detail.evolution_chain || '[]');
+    // Enrich evolution chain with uid and thumb_url for frontend display
+    if (detail.evolution_chain.length) {
+      const evoLookup = db.prepare('SELECT uid, name, thumb_url, image_url FROM pets WHERE name = ? LIMIT 1');
+      detail.evolution_chain = detail.evolution_chain.map(stage => {
+        const name = typeof stage === 'string' ? stage : stage.name;
+        const evolve_level = typeof stage === 'string' ? null : (stage.evolve_level || null);
+        const match = evoLookup.get(name);
+        return {
+          name,
+          evolve_level,
+          uid: match ? match.uid : null,
+          thumb_url: match ? (match.thumb_url || match.image_url) : null,
+        };
+      });
+    }
     detail.restrain_strong = JSON.parse(detail.restrain_strong || '[]');
     detail.restrain_weak = JSON.parse(detail.restrain_weak || '[]');
     detail.restrain_resist = JSON.parse(detail.restrain_resist || '[]');
