@@ -13,6 +13,18 @@
         class="card group flex items-center gap-2 !px-4 !py-3 hover:border-primary-500/30 transition-colors">
         <span class="font-roco text-sm sm:text-base group-hover:text-primary-500 transition-colors">📖 BWIKI 百科</span>
       </a>
+      <a href="https://space.bilibili.com/626796832" target="_blank" rel="noopener noreferrer"
+        class="card group flex items-center gap-2 !px-4 !py-3 hover:border-primary-500/30 transition-colors">
+        <span class="font-roco text-sm sm:text-base group-hover:text-primary-500 transition-colors">📺 官方B站</span>
+      </a>
+      <a href="https://weibo.com/u/7476327149" target="_blank" rel="noopener noreferrer"
+        class="card group flex items-center gap-2 !px-4 !py-3 hover:border-primary-500/30 transition-colors">
+        <span class="font-roco text-sm sm:text-base group-hover:text-primary-500 transition-colors">🐦 官方微博</span>
+      </a>
+      <a href="https://www.taptap.cn/app/188212" target="_blank" rel="noopener noreferrer"
+        class="card group flex items-center gap-2 !px-4 !py-3 hover:border-primary-500/30 transition-colors">
+        <span class="font-roco text-sm sm:text-base group-hover:text-primary-500 transition-colors">🎯 TapTap</span>
+      </a>
     </div>
 
     <!-- 数据概览 -->
@@ -39,19 +51,37 @@
       <div class="space-y-3 sm:space-y-4 text-sm sm:text-base leading-relaxed">
         <div>
           <h3 class="font-medium mb-1">📖 数据来源</h3>
-          <p class="text-muted">
-            本站数据源自
-            <a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer"
-              class="text-primary-500 hover:text-primary-600 underline underline-offset-2">洛克王国世界 BWIKI</a>，
-            由自动化爬虫采集、清洗、结构化后同步至数据库，仅供学习和交流使用。
-          </p>
+          <div class="text-muted space-y-1.5">
+            <p>
+              精灵、技能等基础数据源自
+              <a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer"
+                class="text-primary-500 hover:text-primary-600 underline underline-offset-2">洛克王国世界 BWIKI</a>，
+              经自动化爬虫采集、清洗并结构化入库，仅供学习与交流使用。
+            </p>
+            <p>
+              赛季、活动等运营数据部分来源于洛克王国世界官方在
+              <a href="https://space.bilibili.com/626796832" target="_blank" rel="noopener noreferrer"
+                class="text-primary-500 hover:text-primary-600 underline underline-offset-2">B站</a>、
+              <a href="https://weibo.com/u/7476327149" target="_blank" rel="noopener noreferrer"
+                class="text-primary-500 hover:text-primary-600 underline underline-offset-2">微博</a>、
+              <a href="https://www.taptap.cn/app/188212" target="_blank" rel="noopener noreferrer"
+                class="text-primary-500 hover:text-primary-600 underline underline-offset-2">TapTap</a>
+              等官方社区平台发布的公告与活动信息。
+            </p>
+            <p>
+              部分图片素材来源于
+              <a href="https://rocom.qq.com/" target="_blank" rel="noopener noreferrer"
+                class="text-primary-500 hover:text-primary-600 underline underline-offset-2">游戏官网</a>
+              及官方创作者素材库，相关版权归腾讯/洛克王国世界官方所有。
+            </p>
+          </div>
         </div>
 
         <div>
           <h3 class="font-medium mb-1">⚠️ 数据准确性</h3>
           <p class="text-muted">
             部分数据经过二次处理（如属性克制倍率计算、打击面分析等），处理过程中可能存在偏差或错误。
-            <strong class="text-gray-700 dark:text-gray-200">如发现数据有误，欢迎指正，一切以游戏官方实际数据为准。</strong>
+            <strong class="text-gray-700 dark:text-gray-200">如发现数据有误，欢迎指正，一切以洛克王国世界官方实际数据为准。</strong>
           </p>
         </div>
 
@@ -69,8 +99,7 @@
           <h3 class="font-medium mb-1">©️ 版权声明</h3>
           <div class="text-muted space-y-1.5">
             <p>© 2026 <span class="font-roco text-primary-500">Roco Tools</span> Developed by <a href="https://github.com/eachyczhang" target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:text-primary-600 underline underline-offset-2">@eachzhang</a></p>
-            <p>本项目部分数据与内容引用自 <a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:text-primary-600 underline underline-offset-2">B站洛克王国Wiki</a>，其版权归哔哩哔哩游戏wiki所有。</p>
-            <p>洛克王国游戏及相关IP版权归腾讯公司所有。</p>
+            <p>洛克王国世界游戏及相关IP版权归腾讯公司所有。</p>
             <p>本项目仅用于学习交流，非官方应用，无任何商业用途。</p>
           </div>
         </div>

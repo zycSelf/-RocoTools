@@ -2,9 +2,35 @@
   <div>
     <h1 class="page-title">活动日历</h1>
 
-    <div v-if="season" class="text-xs sm:text-sm text-muted mb-4">
-      当前赛季：<span class="text-primary-500 font-medium">{{ season.name }}</span>
-      <span v-if="season.start_date"> ({{ season.start_date }} ~ {{ season.end_date }})</span>
+    <!-- 当前赛季 Banner -->
+    <div v-if="season" class="mb-5 rounded-xl overflow-hidden relative" style="aspect-ratio: 16/5;">
+      <!-- 背景图 / 渐变占位 -->
+      <div class="absolute inset-0 bg-gradient-to-br from-primary-500/30 via-primary-400/15 to-transparent">
+        <img v-if="season.image" :src="season.image" class="w-full h-full object-cover object-center" />
+      </div>
+      <!-- 遮罩 -->
+      <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
+      <!-- 文字内容 -->
+      <div class="absolute inset-0 flex items-center gap-4 px-5 sm:px-7">
+        <!-- 赛季标识徽章 -->
+        <div class="flex-shrink-0 px-4 py-2 rounded-xl bg-primary-500 text-white font-roco font-bold text-xl tracking-widest shadow-lg">
+          {{ season.id }}
+        </div>
+        <!-- 赛季名称 -->
+        <div class="flex-1 min-w-0">
+          <div class="font-roco text-2xl sm:text-3xl text-white drop-shadow-md leading-tight truncate">
+            {{ season.name }}
+          </div>
+          <div v-if="season.start_date" class="text-xs text-white/70 mt-1">
+            {{ season.start_date }} ~ {{ season.end_date || '进行中' }}
+          </div>
+        </div>
+        <!-- 当前赛季标签 -->
+        <div class="flex-shrink-0 flex items-center gap-1.5 text-xs font-medium text-white/80">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse"></span>
+          当前赛季
+        </div>
+      </div>
     </div>
 
     <div v-if="events.length" class="space-y-5">

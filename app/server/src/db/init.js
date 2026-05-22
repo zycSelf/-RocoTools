@@ -26,14 +26,17 @@ initNavTabs(db);
 console.log(`[DONE] 数据库已初始化: ${DB_PATH}`);
 db.close();
 
+const NAV_TABS_DEFAULTS_PATH = path.join(__dirname, 'nav_tabs_defaults.json');
+
 /**
  * 初始化用户端导航标签默认数据
- * 只在表完全为空时插入，永远不覆盖已有配置
- * 保护逻辑：检查是否已有非默认 tab_key，如有则跳过
+ * 默认配置从 nav_tabs_defaults.json 读取（由管理端「保存为默认配置」按钮维护）
+ * 使用 INSERT OR IGNORE 逐条插入：
+ *   - 新环境（表为空）：全量插入所有默认标签
+ *   - 已有环境：已存在的 tab_key 自动跳过（不覆盖用户在管理端的修改），新增的 tab_key 自动补充
  */
 function initNavTabs(db) {
   try {
-    // 先检查表是否存在（防止 schema.sql 未执行）
     const tableExists = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name='nav_tabs'"
     ).get();
@@ -42,37 +45,36 @@ function initNavTabs(db) {
       return;
     }
 
-    const count = db.prepare('SELECT COUNT(*) as c FROM nav_tabs').get().c;
-    if (count === 0) {
-      console.log('[INIT] nav_tabs 表为空，插入默认数据...');
-      const defaultTabs = [
-        { tab_key: 'home', label: '首页', route: '/', icon: '', parent_key: '', is_visible: 1, sort_order: 100 },
-        { tab_key: 'season', label: '赛季', route: '/season', icon: '', parent_key: '', is_visible: 1, sort_order: 90 },
-        { tab_key: 'events', label: '活动', route: '/events', icon: '', parent_key: '', is_visible: 1, sort_order: 80 },
-        { tab_key: 'pets', label: '精灵', route: '/pets', icon: '', parent_key: '', is_visible: 1, sort_order: 70 },
-        { tab_key: 'skills', label: '技能', route: '/skills', icon: '', parent_key: '', is_visible: 1, sort_order: 60 },
-        { tab_key: 'skills_list', label: '技能列表', route: '/skills', icon: '', parent_key: 'skills', is_visible: 1, sort_order: 61 },
-        { tab_key: 'coverage', label: '打击面分析', route: '/coverage', icon: '', parent_key: 'skills', is_visible: 1, sort_order: 62 },
-        { tab_key: 'eggs', label: '蛋组', route: '/eggs', icon: '', parent_key: '', is_visible: 1, sort_order: 40 },
-        { tab_key: 'natures', label: '性格', route: '/natures', icon: '', parent_key: '', is_visible: 1, sort_order: 30 },
-        { tab_key: 'elements', label: '属性', route: '/elements', icon: '', parent_key: '', is_visible: 1, sort_order: 20 },
-      ];
-      const stmt = db.prepare('INSERT INTO nav_tabs (tab_key, label, route, icon, parent_key, is_visible, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
-      for (const tab of defaultTabs) {
-        stmt.run(tab.tab_key, tab.label, tab.route, tab.icon, tab.parent_key || null, tab.is_visible, tab.sort_order);
-      }
-      console.log(`[INIT] nav_tabs 默认数据已初始化（${defaultTabs.length} 条）`);
+    // 从 JSON 文件读取默认配置
+    if (!fs.existsSync(NAV_TABS_DEFAULTS_PATH)) {
+      console.log('[INIT] nav_tabs_defaults.json 不存在，跳过初始化');
+      return;
+    }
+    const DEFAULT_TABS = JSON.parse(fs.readFileSync(NAV_TABS_DEFAULTS_PATH, 'utf-8'));
+    if (!Array.isArray(DEFAULT_TABS) || DEFAULT_TABS.length === 0) {
+      console.log('[INIT] nav_tabs_defaults.json 为空或格式错误，跳过初始化');
+      return;
+    }
+
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO nav_tabs (tab_key, label, route, icon, parent_key, is_visible, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let inserted = 0;
+    for (const tab of DEFAULT_TABS) {
+      const result = stmt.run(
+        tab.tab_key, tab.label, tab.route ?? null,
+        tab.icon || '', tab.parent_key ?? null,
+        tab.is_visible ?? 1, tab.sort_order ?? 0
+      );
+      if (result.changes > 0) inserted++;
+    }
+
+    if (inserted > 0) {
+      console.log(`[INIT] nav_tabs 已补充 ${inserted} 条默认标签`);
     } else {
-      // 进一步检查：是否已有非默认的 tab_key（说明用户配置过）
-      const defaultKeys = ['home','season','events','pets','skills','skills_list','coverage','eggs','natures','elements'];
-      const customCount = db.prepare(
-        `SELECT COUNT(*) as c FROM nav_tabs WHERE tab_key NOT IN (${defaultKeys.map(() => '?').join(',')})`
-      ).all(...defaultKeys)[0].c;
-      if (customCount > 0) {
-        console.log(`[INIT] nav_tabs 已有用户自定义标签（${customCount} 条非默认），跳过初始化`);
-      } else {
-        console.log(`[INIT] nav_tabs 已有 ${count} 条数据（均为默认数据），跳过初始化`);
-      }
+      console.log('[INIT] nav_tabs 无需更新（所有默认标签已存在）');
     }
   } catch (err) {
     console.log(`[INIT] nav_tabs 初始化失败: ${err.message}`);

@@ -1,6 +1,8 @@
 import { ref, watch } from 'vue'
 
-const isDark = ref(localStorage.getItem('theme') === 'dark')
+const stored = localStorage.getItem('theme')
+const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+const isDark = ref(stored ? stored === 'dark' : prefersDark)
 
 function toggle() {
   isDark.value = !isDark.value

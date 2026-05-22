@@ -35,10 +35,11 @@
         </div>
         <div>
           <label class="text-xs text-muted">属性</label>
-          <select v-model="form.element_id" class="select w-full">
-            <option :value="null">无</option>
-            <option v-for="e in elements" :key="e.id" :value="e.id">{{ e.name }}</option>
-          </select>
+          <SearchSelect
+            v-model="elementIdStr"
+            :options="[{ value: '', label: '无' }, ...elements.map(e => ({ value: String(e.id), label: e.name }))]"
+            placeholder="无"
+          />
         </div>
         <div>
           <label class="text-xs text-muted">分类</label>
@@ -72,11 +73,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { skillsApi, elementsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
 
 const route = useRoute()
 const modal = useModal()
@@ -87,6 +89,12 @@ const form = ref({})
 const saving = ref(false)
 const msg = ref('')
 const ok = ref(false)
+
+// SearchSelect 需要字符串，element_id 在 DB 中是数字，做桥接
+const elementIdStr = computed({
+  get: () => form.value.element_id != null ? String(form.value.element_id) : '',
+  set: (v) => { form.value.element_id = v ? Number(v) : null },
+})
 
 async function loadData() {
   const [data, elemRes] = await Promise.all([skillsApi.get(uid), elementsApi.list()])

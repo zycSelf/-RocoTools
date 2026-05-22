@@ -9,6 +9,14 @@
         <button @click="openAddModal" class="btn-primary text-sm">+ 新增标签</button>
         <button @click="loadList" :disabled="loading" class="text-sm text-muted hover:text-foreground bg-surface-light dark:bg-surface-dark px-3 py-1.5 rounded-lg">刷新</button>
       </div>
+      <button
+        @click="saveDefaults"
+        :disabled="savingDefaults"
+        class="text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-800 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+        title="将当前配置保存到 init.js，换电脑/新服务器部署时自动还原"
+      >
+        {{ savingDefaults ? '保存中...' : '💾 保存为默认配置' }}
+      </button>
     </div>
 
     <!-- 标签列表 -->
@@ -76,8 +84,12 @@
         <div class="p-4 space-y-3">
           <div>
             <label class="text-xs text-muted block mb-1">标识键 <span class="text-red-500">*</span></label>
-            <input v-model="form.tab_key" class="input w-full" placeholder="如 home、season" :disabled="isEdit" />
+            <div class="relative">
+              <input v-model="form.tab_key" class="input w-full" :class="isEdit ? 'pr-8' : ''" placeholder="如 home、season" :disabled="isEdit" />
+              <span v-if="isEdit" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 text-sm select-none" title="创建后不可修改">🔒</span>
+            </div>
             <p v-if="!isEdit" class="text-xs text-muted mt-1">唯一标识，创建后不可修改</p>
+            <p v-else class="text-xs text-amber-500 dark:text-amber-400 mt-1">标识键创建后不可修改</p>
           </div>
           <div>
             <label class="text-xs text-muted block mb-1">显示名称 <span class="text-red-500">*</span></label>
@@ -85,9 +97,15 @@
           </div>
           <div>
             <label class="text-xs text-muted block mb-1">路由路径</label>
-            <input v-model="form.route" class="input w-full" placeholder="如 /、/season" :disabled="form.is_parent" />
+            <SearchSelect
+              v-model="form.route"
+              :options="USER_ROUTES.map(r => ({ value: r.path, label: r.label }))"
+              placeholder="选择或输入路由路径"
+              :disabled="form.is_parent"
+              :allow-custom="true"
+            />
             <p v-if="form.is_parent" class="text-xs text-muted mt-1">已设为父级标签，鼠标悬停显示子标签，无需路由</p>
-            <p v-else class="text-xs text-muted mt-1">留空则作为下拉菜单（父级标签）</p>
+            <p v-else class="text-xs text-muted mt-1">可从列表选择已有页面，也可直接输入自定义路由</p>
           </div>
           <div class="flex items-center gap-2">
             <input v-model="form.is_parent" type="checkbox" id="is_parent" class="w-4 h-4" @change="onParentChange" />
@@ -99,12 +117,11 @@
           </div>
           <div>
             <label class="text-xs text-muted block mb-1">父级标签</label>
-            <select v-model="form.parent_key" class="input w-full">
-              <option value="">— 无（顶级标签）—</option>
-              <option v-for="t in topLevelTabs.filter(t => t.tab_key !== form.tab_key)" :key="t.tab_key" :value="t.tab_key">
-                {{ t.label }}
-              </option>
-            </select>
+            <SearchSelect
+              v-model="form.parent_key"
+              :options="parentKeyOptions"
+              placeholder="— 无（顶级标签）—"
+            />
             <p class="text-xs text-muted mt-1">设为子标签后，用户端将在此标签下显示下拉菜单</p>
           </div>
           <div class="grid grid-cols-2 gap-3">
@@ -130,13 +147,52 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { adminApi } from '@/api/admin'
-import { useModal, useModalState } from '@/composables/useModal'
+import { useModal } from '@/composables/useModal'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
+
+// 父级标签选项（用于 SearchSelect）
+const parentKeyOptions = computed(() => [
+  { value: '', label: '— 无（顶级标签）—' },
+  ...topLevelTabs.value
+    .filter(t => t.tab_key !== form.value.tab_key)
+    .map(t => ({ value: t.tab_key, label: t.label }))
+])
 
 const modal = useModal()
-const { state: modalState, onConfirm: modalConfirm, onCancel: modalCancel } = useModalState()
+const router = useRouter()
+
+// 路由名称 → 中文标签映射（路由 meta.title 优先，否则 fallback 到此表）
+const ROUTE_LABEL_MAP = {
+  Home: '首页',
+  Season: '赛季',
+  Events: '活动日历',
+  Pets: '精灵图鉴',
+  Skills: '技能列表',
+  Coverage: '打击面分析',
+  Eggs: '蛋组',
+  Natures: '性格',
+  Elements: '属性',
+}
+
+// 从 Vue Router 动态读取用户端可导航页面（过滤管理端、详情页、hidden路由）
+const USER_ROUTES = computed(() => {
+  return router.getRoutes()
+    .filter(r =>
+      !r.path.startsWith('/admin') &&
+      !r.meta?.hidden &&
+      !r.path.includes(':')
+    )
+    .map(r => ({
+      path: r.path,
+      label: r.meta?.title || ROUTE_LABEL_MAP[r.name] || r.name || r.path,
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path))
+})
 
 const loading = ref(false)
+const savingDefaults = ref(false)
 const list = ref([])
 const showModal = ref(false)
 const isEdit = ref(false)
@@ -345,6 +401,23 @@ async function deleteTab(item) {
     await loadList()
   } catch (e) {
     await modal.alert('删除失败', e.message)
+  }
+}
+
+async function saveDefaults() {
+  const ok = await modal.confirm(
+    '保存为默认配置',
+    `将当前 ${list.value.length} 个导航标签保存到 init.js 的 DEFAULT_TABS，换电脑或新服务器部署时会自动还原此配置。\n\n确认保存？`
+  )
+  if (!ok) return
+  savingDefaults.value = true
+  try {
+    const res = await adminApi.saveNavTabDefaults()
+    await modal.alert('保存成功', `已将 ${res.count} 个标签写入默认配置，记得 git commit 提交代码即可永久生效。`)
+  } catch (e) {
+    await modal.alert('保存失败', e.message)
+  } finally {
+    savingDefaults.value = false
   }
 }
 

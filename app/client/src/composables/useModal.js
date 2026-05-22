@@ -8,6 +8,7 @@ const state = reactive({
   confirmText: '确定',
   cancelText: '取消',
   showCancel: true,
+  inputPlaceholder: '',
 })
 
 let _resolve = null
@@ -16,14 +17,14 @@ let _resolve = null
  * 全局弹窗状态（供 ModalProvider 使用）
  */
 export function useModalState() {
-  function onConfirm() {
+  function onConfirm(value) {
     state.visible = false
-    _resolve?.(true)
+    _resolve?.(value !== undefined ? value : true)
     _resolve = null
   }
   function onCancel() {
     state.visible = false
-    _resolve?.(false)
+    _resolve?.(null)
     _resolve = null
   }
   return { state, onConfirm, onCancel }
@@ -48,6 +49,7 @@ export function useModal() {
         confirmText: options.confirmText || '确定',
         cancelText: options.cancelText || '取消',
         showCancel: options.showCancel !== false,
+        inputPlaceholder: options.inputPlaceholder || '',
       })
     })
   }
@@ -59,6 +61,8 @@ export function useModal() {
     info: (title, message) => show({ type: 'info', title, message }),
     success: (title, message) => show({ type: 'success', title, message, showCancel: false }),
     alert: (title, message) => show({ type: 'info', title, message, showCancel: false }),
+    /** 输入弹窗，返回输入内容字符串，点取消返回 null */
+    prompt: (title, message, placeholder = '') => show({ type: 'prompt', title, message, inputPlaceholder: placeholder, confirmText: '确认', cancelText: '取消' }),
     show,
   }
 }

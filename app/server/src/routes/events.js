@@ -10,7 +10,7 @@ function parseEvent(e) {
 }
 
 /**
- * 过滤活跃的活动：
+ * 过滤活跃的活动（接收已经 parseEvent 后的数组，periods 已是数组）：
  * - version 类型：end_date >= 今天
  * - mass_outbreak 类型：end_date >= 今天
  * - routine 类型：至少有一个 period 的 end >= 今天
@@ -21,8 +21,7 @@ function filterActive(events, today) {
       return !e.end_date || e.end_date >= today;
     }
     if (e.category === 'routine') {
-      const periods = JSON.parse(e.periods || '[]');
-      return periods.some(p => !p.end || p.end >= today);
+      return (e.periods || []).some(p => !p.end || p.end >= today);
     }
     return true;
   });
@@ -45,13 +44,14 @@ router.get('/', (req, res) => {
     }
   }
 
-  // 默认只返回活跃的活动，管理端传 all=1 获取全部
+  // 先统一 parseEvent，再按需过滤（避免 filterActive 中重复 JSON.parse）
   const today = new Date().toISOString().slice(0, 10);
-  const filtered = all ? events : filterActive(events, today);
+  const parsed = events.map(parseEvent);
+  const filtered = all ? parsed : filterActive(parsed, today);
 
   res.json({
     season_id: season_id || null,
-    events: filtered.map(parseEvent),
+    events: filtered,
   });
 });
 

@@ -96,73 +96,11 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-xs text-muted block mb-1">上架日期</label>
-              <div class="relative">
-                <input 
-                  v-model="form.start_date" 
-                  class="input w-full cursor-pointer" 
-                  placeholder="选择上架日期" 
-                  readonly
-                  @click="openDatePicker('start')"
-                />
-                <div v-if="datePickerOpen && datePickerMode === 'start'" v-click-outside="closeDatePicker" class="absolute z-50 mt-1 w-full bg-surface-light dark:bg-surface-dark border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg p-1">
-                  <div class="flex items-center justify-between px-2 py-1 text-xs text-muted border-b border-surface-light-border/50 dark:border-surface-dark-border/50">
-                    <button @click="changeMonth(-1)" class="text-xs">◀</button>
-                    <span>{{ datePickerYear }}年{{ datePickerMonth }}月</span>
-                    <button @click="changeMonth(1)" class="text-xs">▶</button>
-                  </div>
-                  <div class="grid grid-cols-7 gap-0.5 p-1">
-                    <div v-for="d in datePickerDays" :key="d" class="w-5 h-5 flex items-center justify-center text-[10px] text-muted">{{ d }}</div>
-                    <div 
-                      v-for="day in datePickerCells" 
-                      :key="day.date" 
-                      class="w-5 h-5 flex items-center justify-center text-xs hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
-                      :class="{ 
-                        'text-primary-500 font-bold': day.date === datePickerSelected && isCurrentMonth(day),
-                        'text-muted': !isCurrentMonth(day),
-                        'text-sm': isToday(day.date)
-                      }"
-                      @click="selectDate(day.date)"
-                    >
-                      {{ day.day }}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <DatePicker v-model="form.start_date" />
             </div>
             <div>
               <label class="text-xs text-muted block mb-1">下架日期</label>
-              <div class="relative">
-                <input 
-                  v-model="form.end_date" 
-                  class="input w-full cursor-pointer" 
-                  placeholder="选择下架日期" 
-                  readonly
-                  @click="openDatePicker('end')"
-                />
-                <div v-if="datePickerOpen && datePickerMode === 'end'" v-click-outside="closeDatePicker" class="absolute z-50 mt-1 w-full bg-surface-light dark:bg-surface-dark border border-surface-light-border dark:border-surface-dark-border rounded-lg shadow-lg p-1">
-                  <div class="flex items-center justify-between px-2 py-1 text-xs text-muted border-b border-surface-light-border/50 dark:border-surface-dark-border/50">
-                    <button @click="changeMonth(-1)" class="text-xs">◀</button>
-                    <span>{{ datePickerYear }}年{{ datePickerMonth }}月</span>
-                    <button @click="changeMonth(1)" class="text-xs">▶</button>
-                  </div>
-                  <div class="grid grid-cols-7 gap-0.5 p-1">
-                    <div v-for="d in datePickerDays" :key="d" class="w-5 h-5 flex items-center justify-center text-[10px] text-muted">{{ d }}</div>
-                    <div 
-                      v-for="day in datePickerCells" 
-                      :key="day.date" 
-                      class="w-5 h-5 flex items-center justify-center text-xs hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded"
-                      :class="{ 
-                        'text-primary-500 font-bold': day.date === datePickerSelectedEnd && isCurrentMonth(day),
-                        'text-muted': !isCurrentMonth(day),
-                        'text-sm': isToday(day.date)
-                      }"
-                      @click="selectDateEnd(day.date)"
-                    >
-                      {{ day.day }}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <DatePicker v-model="form.end_date" />
             </div>
           </div>
 
@@ -306,11 +244,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { adminApi, petsApi } from '@/api'
 import { useImagePreview } from '@/composables/useImagePreview'
 import { useModal } from '@/composables/useModal'
 import PetPicker from '@/components/shared/PetPicker.vue'
+import DatePicker from '@/components/shared/DatePicker.vue'
 
 const loading = ref(false)
 const showModal = ref(false)
@@ -325,106 +264,8 @@ const { openPreview } = useImagePreview()
 // 全局弹窗
 const modal = useModal()
 
-// 日期选择器状态
-const datePickerOpen = ref(false)
-const datePickerMode = ref('start') // 'start' | 'end'
-const datePickerYear = ref(new Date().getFullYear())
-const datePickerMonth = ref(new Date().getMonth() + 1)
-const datePickerDays = ['日', '一', '二', '三', '四', '五', '六']
-
-// 解析日期字符串为年月日
-function parseDate(dateStr) {
-  if (!dateStr) return null
-  const parts = dateStr.split('-')
-  return { year: parseInt(parts[0]), month: parseInt(parts[1]), day: parseInt(parts[2]) }
-}
-
-// 生成当月日历单元格
-function generateCalendarCells(year, month) {
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-  const startDay = firstDay.getDay()
-  const daysInMonth = lastDay.getDate()
-  const daysBefore = []
-  for (let i = startDay - 1; i >= 0; i--) {
-    const prevMonthLast = new Date(year, month - 1, 0).getDate()
-    daysBefore.push({ day: prevMonthLast - i, date: null, isCurrentMonth: false })
-  }
-  const daysInCurrentMonth = []
-  for (let d = 1; d <= daysInMonth; d++) {
-    daysInCurrentMonth.push({ day: d, date: `${year}-${month.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`, isCurrentMonth: true })
-  }
-  return [...daysBefore, ...daysInCurrentMonth]
-}
-
-const datePickerCells = computed(() => generateCalendarCells(datePickerYear.value, datePickerMonth.value))
-
-function openDatePicker(mode) {
-  datePickerMode.value = mode
-  datePickerOpen.value = true
-  // 如果已有日期，定位到该日期的月份
-  if (mode === 'start' && form.value.start_date) {
-    const d = parseDate(form.value.start_date)
-    if (d) { datePickerYear.value = d.year; datePickerMonth.value = d.month; }
-  } else if (mode === 'end' && form.value.end_date) {
-    const d = parseDate(form.value.end_date)
-    if (d) { datePickerYear.value = d.year; datePickerMonth.value = d.month; }
-  } else {
-    datePickerYear.value = new Date().getFullYear()
-    datePickerMonth.value = new Date().getMonth() + 1
-  }
-}
-
-function closeDatePicker() {
-  datePickerOpen.value = false
-}
-
-function changeMonth(offset) {
-  const newMonth = datePickerMonth.value + offset
-  if (newMonth <= 0) {
-    datePickerYear.value--
-    datePickerMonth.value = 12
-  } else if (newMonth > 12) {
-    datePickerYear.value++
-    datePickerMonth.value = 1
-  } else {
-    datePickerMonth.value = newMonth
-  }
-}
-
-function isCurrentMonth(day) {
-  return day.isCurrentMonth
-}
-
-function isToday(dateStr) {
-  const today = new Date().toISOString().split('T')[0]
-  return dateStr === today
-}
-
-function selectDate(dateStr) {
-  form.value.start_date = dateStr
-  datePickerOpen.value = false
-}
-
-function selectDateEnd(dateStr) {
-  form.value.end_date = dateStr
-  datePickerOpen.value = false
-}
-
-// 点击外部关闭
-const handleClickOutside = (e) => {
-  if (!e.target.closest('.relative')) {
-    datePickerOpen.value = false
-  }
-}
-
 onMounted(() => {
   loadList()
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
 })
 
 // 表单：pets 数组中每个元素对应一个精灵

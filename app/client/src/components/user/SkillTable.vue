@@ -53,6 +53,7 @@
 
 <script setup>
 import SkillDescription from '@/components/user/SkillDescription.vue'
+import { categoryColor } from '@/constants/categoryColors'
 
 defineProps({
   title: {
@@ -69,14 +70,5 @@ defineProps({
   },
 })
 
-const categoryColors = {
-  '物攻': '#FF9636',
-  '魔攻': '#9446EC',
-  '防御': '#3F89B4',
-  '状态': '#2E7D32',
-}
 
-function categoryColor(type) {
-  return categoryColors[type] || '#6B7280'
-}
 </script>

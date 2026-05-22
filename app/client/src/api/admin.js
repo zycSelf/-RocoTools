@@ -140,4 +140,7 @@ export const adminApi = {
   deleteNavTab: (id) => adminRequest(`/nav-tabs/${id}`, {
     method: 'DELETE',
   }),
+  saveNavTabDefaults: () => adminRequest('/nav-tabs/save-defaults', {
+    method: 'POST',
+  }),
 }

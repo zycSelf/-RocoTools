@@ -30,7 +30,7 @@
         </div>
 
         <!-- 活动列表（支持拖拽排序） -->
-        <div class="drag-hint text-xs text-muted mb-2">拖拽活动可调整排序</div>
+        <div v-if="activeTab === 'all'" class="drag-hint text-xs text-muted mb-2">拖拽活动可调整排序</div>
         <table class="w-full text-sm">
           <thead>
             <tr class="text-left text-muted text-xs bg-gray-50 dark:bg-white/3">
@@ -52,7 +52,7 @@
               @drop="onDrop($event, index)"
             >
               <td class="py-2.5 px-3">
-                <div class="drag-handle cursor-grab text-muted text-xl">⋮⋮</div>
+                <div class="drag-handle text-muted text-xl" :class="activeTab === 'all' ? 'cursor-grab' : 'opacity-0 pointer-events-none'">⋮⋮</div>
               </td>
               <td class="py-2.5 px-3 font-medium">{{ event.name }}</td>
               <td class="py-2.5 px-3 text-xs">
@@ -120,11 +120,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
-                <input v-model="form.start_date" type="date" class="input w-full" />
+                <DatePicker v-model="form.start_date" />
               </div>
               <div>
                 <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
-                <input v-model="form.end_date" type="date" class="input w-full" />
+                <DatePicker v-model="form.end_date" />
               </div>
             </div>
           </div>
@@ -134,11 +134,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
-                <input v-model="form.start_date" type="date" class="input w-full" />
+                <DatePicker v-model="form.start_date" />
               </div>
               <div>
                 <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
-                <input v-model="form.end_date" type="date" class="input w-full" />
+                <DatePicker v-model="form.end_date" />
               </div>
             </div>
             <div>
@@ -159,9 +159,9 @@
             <div>
               <label class="text-xs text-muted mb-2 block">时间段列表</label>
               <div v-for="(p, i) in form.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
-                <input v-model="p.start" type="date" class="input flex-1" />
+                <DatePicker v-model="p.start" class="flex-1" />
                 <span class="text-muted text-sm">~</span>
-                <input v-model="p.end" type="date" class="input flex-1" />
+                <DatePicker v-model="p.end" class="flex-1" />
                 <button @click="form.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
               </div>
               <button @click="form.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
@@ -238,11 +238,11 @@
           <div v-if="editForm.category === 'version'" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
-              <input v-model="editForm.start_date" type="date" class="input w-full" />
+              <DatePicker v-model="editForm.start_date" />
             </div>
             <div>
               <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
-              <input v-model="editForm.end_date" type="date" class="input w-full" />
+              <DatePicker v-model="editForm.end_date" />
             </div>
           </div>
 
@@ -251,11 +251,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="text-xs text-muted">开始日期 <span class="text-red-500">*</span></label>
-                <input v-model="editForm.start_date" type="date" class="input w-full" />
+                <DatePicker v-model="editForm.start_date" />
               </div>
               <div>
                 <label class="text-xs text-muted">结束日期 <span class="text-red-500">*</span></label>
-                <input v-model="editForm.end_date" type="date" class="input w-full" />
+                <DatePicker v-model="editForm.end_date" />
               </div>
             </div>
             <div>
@@ -276,9 +276,9 @@
             <div>
               <label class="text-xs text-muted mb-2 block">时间段列表</label>
               <div v-for="(p, i) in editForm.periodsArr" :key="i" class="flex items-center gap-2 mb-2">
-                <input v-model="p.start" type="date" class="input flex-1" />
+                <DatePicker v-model="p.start" class="flex-1" />
                 <span class="text-muted text-sm">~</span>
-                <input v-model="p.end" type="date" class="input flex-1" />
+                <DatePicker v-model="p.end" class="flex-1" />
                 <button @click="editForm.periodsArr.splice(i, 1)" class="text-red-500 text-xs hover:underline">删除</button>
               </div>
               <button @click="editForm.periodsArr.push({ start: '', end: '' })" class="text-xs text-primary-500 hover:underline">+ 添加时间段</button>
@@ -343,6 +343,7 @@ import { seasonsApi, eventsApi, petsApi } from '@/api'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
 import PetPicker from '@/components/shared/PetPicker.vue'
+import DatePicker from '@/components/shared/DatePicker.vue'
 
 const modal = useModal()
 const currentSeason = ref(null)

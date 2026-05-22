@@ -3,95 +3,143 @@
     <router-link to="/admin/dashboard" class="text-sm text-muted hover:text-primary-500 mb-3 inline-block">← 返回管理首页</router-link>
     <h1 class="font-roco text-xl md:text-2xl text-primary-500 mb-4">赛季管理</h1>
 
-    <!-- 赛季列表 + 新增 -->
-    <div class="flex items-center gap-2 mb-4">
-      <select v-model="currentSeasonId" class="select" @change="loadSeason">
-        <option value="">选择赛季</option>
-        <option v-for="s in seasonList" :key="s.id" :value="s.id">
-          {{ s.name }} ({{ s.id }}) {{ s.is_current ? '← 当前' : '' }}
-        </option>
-      </select>
+    <!-- 赛季列表 + 新增 + 保存/删除 -->
+    <div class="flex items-center gap-2 mb-4 flex-wrap">
+      <SearchSelect
+        v-model="currentSeasonId"
+        :options="seasonOptions"
+        placeholder="选择赛季"
+        class="w-56"
+        @update:model-value="loadSeason"
+      />
       <button @click="showCreate = true" class="btn text-xs">+ 新增赛季</button>
+      <!-- 保存/删除：有赛季时显示 -->
+      <template v-if="season">
+        <div class="flex-1"></div>
+        <button
+          @click="deleteSeason"
+          class="text-sm font-medium text-white bg-red-600 hover:bg-red-500 active:bg-red-700 border border-red-500 rounded-lg px-4 py-1.5 transition-colors shadow-sm"
+        >🗑 删除赛季</button>
+        <button
+          @click="save"
+          :disabled="saving"
+          class="text-sm font-semibold text-white bg-green-600 hover:bg-green-500 active:bg-green-700 border border-green-500 rounded-lg px-5 py-1.5 transition-colors shadow-sm disabled:opacity-50"
+        >{{ saving ? '保存中...' : '✓ 保存配置' }}</button>
+      </template>
     </div>
 
-    <!-- 新增赛季 -->
-    <div v-if="showCreate" class="card mb-4">
-      <h2 class="font-roco text-base text-primary-500 font-bold mb-3">新增赛季</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label class="text-xs text-muted">赛季ID <span class="text-red-500">*</span></label>
-          <input v-model="newSeason.id" class="input w-full" placeholder="如 S1、S2" />
+    <!-- 新增赛季弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showCreate" class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="closeCreate">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+          <div class="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+            :class="isDark ? 'bg-gray-800' : 'bg-white'">
+            <!-- 顶部色条 -->
+            <div class="h-1 bg-primary-500"></div>
+            <div class="p-5 md:p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="font-roco text-base text-primary-500 font-bold">新增赛季</h2>
+                <button @click="closeCreate" class="text-muted hover:text-gray-600 dark:hover:text-gray-300 text-xl leading-none">&times;</button>
+              </div>
+              <div class="space-y-3">
+                <div>
+                  <label class="text-xs text-muted block mb-1">赛季ID <span class="text-red-500">*</span></label>
+                  <input v-model="newSeason.id" class="input w-full" placeholder="如 S1、S2" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted block mb-1">赛季名称 <span class="text-red-500">*</span></label>
+                  <input v-model="newSeason.name" class="input w-full" placeholder="如 第一赛季" />
+                </div>
+                <div>
+                  <label class="text-xs text-muted block mb-1">设为当前赛季</label>
+                  <select v-model="newSeason.is_current" class="select w-full">
+                    <option :value="1">是</option>
+                    <option :value="0">否</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex justify-end gap-2 mt-5">
+                <button @click="closeCreate" class="btn-ghost text-sm">取消</button>
+                <button @click="createSeason" class="btn text-sm" :disabled="creating">{{ creating ? '创建中...' : '创建赛季' }}</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="text-xs text-muted">赛季名称 <span class="text-red-500">*</span></label>
-          <input v-model="newSeason.name" class="input w-full" placeholder="如 第一赛季" />
-        </div>
-        <div>
-          <label class="text-xs text-muted">设为当前赛季</label>
-          <select v-model="newSeason.is_current" class="select w-full">
-            <option :value="1">是</option>
-            <option :value="0">否</option>
-          </select>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <button @click="createSeason" class="btn text-xs">创建</button>
-        <button @click="showCreate = false" class="btn-ghost text-xs">取消</button>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
 
     <!-- 赛季详情编辑 -->
     <div v-if="season" class="space-y-4">
-      <!-- 赛季封面 -->
-      <div class="card">
-        <h2 class="font-roco text-base text-primary-500 font-bold mb-3">赛季封面</h2>
-        <div class="flex items-center gap-4">
-          <div class="w-32 h-20 md:w-48 md:h-28 bg-gray-50 dark:bg-white/5 rounded-lg flex items-center justify-center overflow-hidden cursor-zoom-in hover:rounded-none transition-rounded"
-            @click="openPreview(form.image)">
-            <img v-if="form.image" :src="form.image" class="w-full h-full object-cover rounded-lg" />
-            <span v-else class="text-xs text-muted">无封面</span>
+
+      <!-- Hero：封面 + 基本信息叠加 -->
+      <div class="card overflow-hidden !p-0">
+        <!-- 背景图区域 -->
+        <div class="relative w-full" style="aspect-ratio: 16/7; min-height: 180px;">
+          <!-- 背景图 -->
+          <img v-if="form.image" :src="form.image" class="absolute inset-0 w-full h-full object-cover cursor-zoom-in" @click="openPreview(form.image)" />
+          <div v-else class="absolute inset-0 bg-gradient-to-br from-primary-900/30 to-gray-800/60 flex items-center justify-center">
+            <span class="text-xs text-muted">暂无封面</span>
           </div>
-          <div>
-            <label class="text-xs text-primary-500 hover:underline cursor-pointer block mb-1">
-              上传封面图
+          <!-- 渐变遮罩：双层，底部更深确保表单可读 -->
+          <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/10"></div>
+          <div class="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-black/70 to-transparent"></div>
+
+          <!-- 叠加内容：底部信息区 -->
+          <div class="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+            <!-- 第一行：赛季ID + 名称大字展示 -->
+            <div class="flex items-end gap-3 mb-4">
+              <span class="font-roco text-3xl md:text-4xl font-black text-yellow-400 drop-shadow-lg leading-none tracking-wide">{{ season.id }}</span>
+              <input
+                v-model="form.name"
+                class="font-roco text-xl md:text-2xl font-bold text-white bg-transparent border-b-2 border-white/40 focus:border-yellow-400 outline-none transition-colors pb-0.5 flex-1 min-w-0 placeholder-white/40 drop-shadow"
+                placeholder="赛季名称"
+              />
+              <!-- 当前赛季徽章 -->
+              <span
+                v-if="form.is_current"
+                class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-400 text-black shadow"
+              >当前赛季</span>
+            </div>
+            <!-- 第二行：其余字段 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
+              <!-- 当前赛季切换 -->
+              <div>
+                <label class="text-xs text-white/70 block mb-1 font-medium">设为当前赛季</label>
+                <select v-model="form.is_current" class="w-full text-sm text-white bg-black/50 backdrop-blur-sm hover:bg-black/60 border border-white/40 focus:border-yellow-400 rounded-lg px-2.5 py-1.5 outline-none transition-colors">
+                  <option :value="1" class="text-black bg-white">是</option>
+                  <option :value="0" class="text-black bg-white">否</option>
+                </select>
+              </div>
+              <!-- 开始日期 -->
+              <div>
+                <label class="text-xs text-white/70 block mb-1 font-medium">开始日期</label>
+                <DatePicker v-model="form.start_date" variant="dark" />
+              </div>
+              <!-- 结束日期 -->
+              <div>
+                <label class="text-xs text-white/70 block mb-1 font-medium">结束日期</label>
+                <DatePicker v-model="form.end_date" variant="dark" />
+              </div>
+              <!-- 备注 -->
+              <div>
+                <label class="text-xs text-white/70 block mb-1 font-medium">备注</label>
+                <input v-model="form.note" class="w-full text-sm text-white bg-black/50 backdrop-blur-sm hover:bg-black/60 focus:bg-black/70 border border-white/40 focus:border-yellow-400 rounded-lg px-2.5 py-1.5 outline-none transition-colors placeholder-white/40" placeholder="可选" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 右上角：上传封面按钮 -->
+          <div class="absolute top-3 right-3">
+            <label class="cursor-pointer text-xs text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 transition-colors">
+              📷 更换封面
               <input type="file" accept="image/*" class="hidden" @change="uploadCover" />
             </label>
-            <p class="text-[10px] text-muted">命名规则：{{ currentSeasonId }}_cover.png</p>
           </div>
         </div>
-      </div>
-
-      <!-- 基本信息 -->
-      <div class="card">
-        <h2 class="font-roco text-base text-primary-500 font-bold mb-3">基本信息</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="text-xs text-muted">赛季ID</label>
-            <input :value="season.id" class="input w-full bg-gray-50 dark:bg-white/10" disabled />
-          </div>
-          <div>
-            <label class="text-xs text-muted">赛季名称</label>
-            <input v-model="form.name" class="input w-full" />
-          </div>
-          <div>
-            <label class="text-xs text-muted">设为当前赛季</label>
-            <select v-model="form.is_current" class="select w-full">
-              <option :value="1">是</option>
-              <option :value="0">否</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-xs text-muted">开始日期</label>
-            <input v-model="form.start_date" type="date" class="input w-full" />
-          </div>
-          <div>
-            <label class="text-xs text-muted">结束日期</label>
-            <input v-model="form.end_date" type="date" class="input w-full" />
-          </div>
-          <div>
-            <label class="text-xs text-muted">备注</label>
-            <input v-model="form.note" class="input w-full" />
-          </div>
+        <!-- 底部提示 -->
+        <div class="px-4 py-2 border-t border-white/5 flex items-center gap-2">
+          <span class="text-[10px] text-muted">建议封面尺寸 16:9 &nbsp;·&nbsp; 命名规则：{{ currentSeasonId }}_cover.png</span>
         </div>
       </div>
 
@@ -140,21 +188,21 @@
         </div>
       </div>
 
-      <!-- 保存 -->
-      <div class="flex gap-3 mb-8">
-        <button @click="save" class="btn" :disabled="saving">{{ saving ? '保存中...' : '保存赛季配置' }}</button>
-        <button @click="deleteSeason" class="text-xs text-red-500 hover:underline self-center">删除此赛季</button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
+import { useTheme } from '@/composables/useTheme'
 import PetPicker from '@/components/shared/PetPicker.vue'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
+import DatePicker from '@/components/shared/DatePicker.vue'
+
+const { isDark } = useTheme()
 
 const modal = useModal()
 
@@ -163,6 +211,12 @@ const currentSeasonId = ref('')
 const season = ref(null)
 const showCreate = ref(false)
 const saving = ref(false)
+const creating = ref(false)
+
+function closeCreate() {
+  showCreate.value = false
+  newSeason.id = ''; newSeason.name = ''; newSeason.is_current = 0
+}
 
 const newSeason = reactive({ id: '', name: '', is_current: 0 })
 
@@ -176,10 +230,26 @@ const form = reactive({
   shiny_pets: [],
 })
 
-async function loadList() {
+// 赛季列表选项（用于 SearchSelect）
+const seasonOptions = computed(() =>
+  seasonList.value.map(s => ({
+    value: s.id,
+    label: `${s.name}${s.is_current ? ' ← 当前' : ''}`,
+  }))
+)
+
+async function loadList(keepCurrent = false) {
   try {
     const res = await adminApi.list('seasons', { limit: 100 })
     seasonList.value = res.rows || []
+    // 自动切换到当前赛季（仅首次加载或未指定保持当前选中时）
+    if (!keepCurrent || !currentSeasonId.value) {
+      const current = seasonList.value.find(s => s.is_current)
+      if (current) {
+        currentSeasonId.value = current.id
+        loadSeason()
+      }
+    }
   } catch (err) { console.error("[Page] 加载失败:", err) }
 }
 
@@ -209,21 +279,29 @@ async function createSeason() {
     await modal.warning('提示', '请填写赛季ID和名称')
     return
   }
+  creating.value = true
   try {
+    const createdId = newSeason.id.trim()
+    // 如果设为当前赛季，先清除其他赛季的 is_current
+    if (newSeason.is_current) {
+      const others = seasonList.value.filter(s => s.is_current)
+      await Promise.all(others.map(s => adminApi.update('seasons', s.id, { is_current: 0 })))
+    }
     await adminApi.create('seasons', {
-      id: newSeason.id.trim(),
+      id: createdId,
       name: newSeason.name.trim(),
       is_current: newSeason.is_current,
       pass_pets: '[]', season_pets: '[]', shiny_pets: '[]',
     })
-    await modal.success('创建成功', `赛季 ${newSeason.id} 已创建`)
-    showCreate.value = false
-    newSeason.id = ''; newSeason.name = ''; newSeason.is_current = 0
+    closeCreate()
     await loadList()
-    currentSeasonId.value = newSeason.id || seasonList.value[seasonList.value.length - 1]?.id
+    currentSeasonId.value = createdId
     loadSeason()
+    await modal.success('创建成功', `赛季 ${createdId} 已创建`)
   } catch (err) {
     await modal.alert('创建失败', err.message)
+  } finally {
+    creating.value = false
   }
 }
 
@@ -234,7 +312,7 @@ async function uploadCover(e) {
     const res = await adminApi.upload(file, 'season_cover', currentSeasonId.value)
     form.image = res.path
     await modal.success('上传成功', `封面已保存为 ${res.path}`)
-    loadList()
+    loadList(true)
   } catch (err) {
     await modal.alert('上传失败', err.message)
   }
@@ -245,11 +323,8 @@ async function save() {
   saving.value = true
   try {
     if (form.is_current) {
-      for (const s of seasonList.value) {
-        if (s.id !== currentSeasonId.value && s.is_current) {
-          await adminApi.update('seasons', s.id, { is_current: 0 })
-        }
-      }
+      const others = seasonList.value.filter(s => s.id !== currentSeasonId.value && s.is_current)
+      await Promise.all(others.map(s => adminApi.update('seasons', s.id, { is_current: 0 })))
     }
 
     await adminApi.update('seasons', currentSeasonId.value, {
@@ -265,7 +340,7 @@ async function save() {
       shiny_pets: JSON.stringify(form.shiny_pets.filter(Boolean)),
     })
     await modal.success('保存成功', '赛季配置已更新')
-    loadList()
+    await loadList(true)
   } catch (err) {
     await modal.alert('保存失败', err.message)
   } finally {
@@ -274,8 +349,21 @@ async function save() {
 }
 
 async function deleteSeason() {
-  const ok = await modal.danger('删除赛季', `确定删除赛季 ${currentSeasonId.value}？`)
+  // 第一次确认
+  const ok = await modal.danger(
+    '删除赛季',
+    `此操作不可恢复！\n\n将永久删除赛季「${season.value?.name}（${currentSeasonId.value}）」及其所有配置数据。\n\n确定要继续吗？`
+  )
   if (!ok) return
+  // 第二次确认：输入赛季ID
+  const input = await modal.prompt(
+    '二次确认',
+    `请输入赛季ID「${currentSeasonId.value}」以确认删除：`
+  )
+  if (input !== currentSeasonId.value) {
+    if (input !== null) await modal.warning('取消删除', '输入的赛季ID不匹配，已取消删除')
+    return
+  }
   try {
     await adminApi.delete('seasons', currentSeasonId.value)
     season.value = null
@@ -288,3 +376,11 @@ async function deleteSeason() {
 
 onMounted(loadList)
 </script>
+
+<style scoped>
+.modal-enter-active, .modal-leave-active { transition: all 0.2s ease; }
+.modal-enter-active > div:last-child, .modal-leave-active > div:last-child { transition: all 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from > div:last-child { transform: scale(0.95) translateY(8px); }
+.modal-leave-to > div:last-child { transform: scale(0.95) translateY(8px); }
+</style>

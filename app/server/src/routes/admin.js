@@ -140,6 +140,27 @@ router.delete('/nav-tabs/:id', (req, res) => {
   }
 });
 
+/**
+ * 将当前 nav_tabs 数据保存为默认配置（写入 nav_tabs_defaults.json）
+ * 换电脑/新服务器运行 node init.js 时会自动读取此文件还原配置
+ */
+router.post('/nav-tabs/save-defaults', (req, res) => {
+  const db = getDb();
+  try {
+    const tabs = db.prepare(
+      'SELECT tab_key, label, route, icon, parent_key, is_visible, sort_order FROM nav_tabs ORDER BY sort_order DESC'
+    ).all();
+
+    const defaultsPath = path.join(__dirname, '../db/nav_tabs_defaults.json');
+    // 写入格式化 JSON，方便 git diff 查看变更
+    fs.writeFileSync(defaultsPath, JSON.stringify(tabs, null, 2), 'utf-8');
+
+    res.json({ success: true, count: tabs.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================================
 // 通用 CRUD
 // ============================================================

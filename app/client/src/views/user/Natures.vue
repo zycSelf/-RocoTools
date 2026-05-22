@@ -81,6 +81,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { naturesApi } from '@/api'
+import { statColor } from '@/constants/categoryColors'
 
 const natures = ref([])
 const filter = ref('')
@@ -91,18 +92,6 @@ const filteredNatures = computed(() => {
   return natures.value.filter(n => n.stat_up === filter.value)
 })
 
-const statColors = {
-  '物攻': '#FF9636',
-  '物防': '#3F89B4',
-  '魔攻': '#9446EC',
-  '魔防': '#2E7D32',
-  '速度': '#E91E63',
-  '生命': '#FF5722',
-}
-
-function statColor(stat) {
-  return statColors[stat] || '#6B7280'
-}
 
 onMounted(async () => {
   const data = await naturesApi.list()

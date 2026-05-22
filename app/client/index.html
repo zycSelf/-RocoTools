@@ -17,10 +17,11 @@
   <meta property="og:locale" content="zh_CN" />
   <meta property="og:url" content="https://eachz.cn/rocotools/" />
 
+  <meta name="theme-color" content="#D69F23" />
   <link rel="icon" href="/rocotools/favicon.ico" />
 
-  <!-- 标题字体预加载 -->
-  <link rel="preload" href="//game.gtimg.cn/images/rocom/web202409/font-origin/MIANFEIZITI.ttf" as="font" type="font/ttf" crossorigin />
+  <!-- 标题字体预加载（anonymous crossorigin 与 @font-face 保持一致） -->
+  <link rel="preload" href="//game.gtimg.cn/images/rocom/web202409/font-origin/MIANFEIZITI.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
 
   <!-- 关键CSS内联：避免首次加载白屏 -->
   <style>

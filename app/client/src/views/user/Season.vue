@@ -1,22 +1,34 @@
 <template>
   <div>
     <!-- 赛季选择器 -->
-    <div v-if="allSeasons.length > 1" class="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-5 overflow-x-auto">
+    <div v-if="allSeasons.length > 1" class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto mb-5 sm:mb-6 pb-1 pt-2">
       <button v-for="s in allSeasons" :key="s.id" @click="switchSeason(s)"
-        class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0"
+        class="relative flex flex-col items-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all whitespace-nowrap flex-shrink-0 border"
         :class="currentId === s.id
-          ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400'
-          : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
-        {{ s.name }}
-        <span v-if="s.is_current" class="ml-1 text-[10px] opacity-60">当前</span>
+          ? 'bg-primary-500/15 border-primary-500/40 text-primary-600 dark:bg-primary-400/15 dark:border-primary-400/40 dark:text-primary-400 shadow-sm'
+          : 'border-transparent text-muted hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-200 dark:hover:border-white/10'">
+        <!-- S几 编号（直接用数据库配置的id） -->
+        <span class="text-[11px] sm:text-xs font-bold tracking-widest mb-0.5"
+          :class="currentId === s.id ? 'text-primary-500 dark:text-primary-400' : 'text-muted'">
+          {{ s.id }}
+        </span>
+        <!-- 赛季名称 -->
+        <span class="text-xs sm:text-sm font-medium leading-tight">{{ s.name }}</span>
+        <!-- 当前赛季标识 -->
+        <span v-if="s.is_current"
+          class="absolute -top-1.5 -right-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary-500 text-white shadow-sm">
+          <span class="w-1 h-1 rounded-full bg-white/80 animate-pulse"></span>
+          当前
+        </span>
       </button>
     </div>
 
-    <div v-if="season">
+    <div v-if="season && !switching">
       <!-- 赛季头部 -->
-      <div class="relative mb-6 sm:mb-8 rounded-2xl overflow-hidden">
-        <div class="h-36 sm:h-48 md:h-56 bg-gradient-to-br from-primary-500/20 via-primary-400/10 to-transparent">
-          <img v-if="season.image" :src="season.image" class="w-full h-full object-cover" />
+      <div class="relative mb-6 sm:mb-8 rounded-2xl overflow-hidden" style="aspect-ratio: 16/7;">
+        <!-- 背景图 / 渐变占位 -->
+        <div class="absolute inset-0 bg-gradient-to-br from-primary-500/20 via-primary-400/10 to-transparent">
+          <img v-if="season.image" :src="season.image" class="w-full h-full object-cover object-center" />
         </div>
         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end p-5 sm:p-6 md:p-8">
           <div>
@@ -112,12 +124,14 @@
     </div>
 
     <!-- 无赛季 -->
-    <div v-else-if="loaded" class="text-center mt-20">
+    <div v-else-if="loaded && !switching" class="text-center mt-20">
       <div class="text-3xl mb-3">🏖️</div>
       <p class="text-muted">暂无赛季信息</p>
     </div>
 
-    <div v-else class="text-muted text-center mt-20">加载中...</div>
+    <div v-else class="text-muted text-center mt-20">
+      <div class="animate-pulse">加载中...</div>
+    </div>
   </div>
 </template>
 
@@ -130,6 +144,7 @@ const allSeasons = ref([])
 const season = ref(null)
 const currentId = ref('')
 const loaded = ref(false)
+const switching = ref(false)
 const legendPet = ref(null)
 const passPetList = ref([])
 const seasonPetList = ref([])
@@ -165,8 +180,9 @@ async function loadSeasonData(s) {
 }
 
 function switchSeason(s) {
-  if (currentId.value === s.id) return
-  loadSeasonData(s)
+  if (currentId.value === s.id || switching.value) return
+  switching.value = true
+  loadSeasonData(s).finally(() => { switching.value = false })
 }
 
 onMounted(async () => {

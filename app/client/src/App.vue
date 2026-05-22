@@ -132,7 +132,11 @@
     <!-- 底部（仅用户端显示） -->
     <footer v-if="!isAdminRoute" class="text-center py-4 text-xs sm:text-sm text-muted border-t"
       :class="isDark ? 'border-surface-dark-border' : 'border-surface-light-border'">
-      数据来源：<a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">洛克王国世界 BWIKI</a>
+      数据来源：<a href="https://wiki.biligame.com/rocom" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">BWIKI</a>
+      · <a href="https://space.bilibili.com/626796832" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">B站</a>
+      · <a href="https://weibo.com/u/7476327149" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">微博</a>
+      · <a href="https://www.taptap.cn/app/188212" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">TapTap</a>
+      · 官方创作者素材库
       · 内容遵循 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">CC BY-NC-SA 4.0</a> 协议
     </footer>
     <!-- 全局弹窗 -->
@@ -144,7 +148,8 @@
       :confirm-text="modalState.confirmText"
       :cancel-text="modalState.cancelText"
       :show-cancel="modalState.showCancel"
-      @confirm="modalConfirm"
+      :input-placeholder="modalState.inputPlaceholder"
+      @confirm="(val) => modalConfirm(val)"
       @cancel="modalCancel"
     />
 

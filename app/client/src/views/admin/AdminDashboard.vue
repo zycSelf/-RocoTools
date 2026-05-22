@@ -150,7 +150,6 @@ import { adminApi } from '@/api/admin'
 import { petsApi, skillsApi, elementsApi, eggsApi } from '@/api'
 import { useAdmin } from '@/composables/useAdmin'
 import { useModal } from '@/composables/useModal'
-import ModalDialog from '@/components/shared/ModalDialog.vue'
 
 const router = useRouter()
 const { logout } = useAdmin()

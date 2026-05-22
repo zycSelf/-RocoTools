@@ -54,20 +54,20 @@
         <!-- 信息 -->
         <div class="flex-1 text-center md:text-left w-full">
           <!-- 名称 + 属性 -->
-          <div class="flex items-center gap-2 md:gap-3 mb-2 md:mb-3 justify-center md:justify-start flex-wrap">
-            <h1 class="font-roco text-2xl md:text-3xl text-primary-500">{{ pet.name }}</h1>
-            <span class="badge flex items-center gap-1 md:gap-1.5 text-xs md:text-sm" :style="{ background: pet.element_color + '18', color: pet.element_color }">
-              <img v-if="pet.element_icon" :src="pet.element_icon" class="w-5 h-5 md:w-6 md:h-6" />
+          <div class="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3 justify-center sm:justify-start flex-wrap">
+            <h1 class="font-roco text-2xl sm:text-3xl text-primary-500">{{ pet.name }}</h1>
+            <span class="badge flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm" :style="{ background: pet.element_color + '18', color: pet.element_color }">
+              <img v-if="pet.element_icon" :src="pet.element_icon" class="w-5 h-5 sm:w-6 sm:h-6" />
               {{ pet.element_name }}
             </span>
-            <span v-if="pet.sub_element_name" class="badge flex items-center gap-1 md:gap-1.5 text-xs md:text-sm" :style="{ background: pet.sub_element_color + '18', color: pet.sub_element_color }">
-              <img v-if="pet.sub_element_icon" :src="pet.sub_element_icon" class="w-5 h-5 md:w-6 md:h-6" />
+            <span v-if="pet.sub_element_name" class="badge flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm" :style="{ background: pet.sub_element_color + '18', color: pet.sub_element_color }">
+              <img v-if="pet.sub_element_icon" :src="pet.sub_element_icon" class="w-5 h-5 sm:w-6 sm:h-6" />
               {{ pet.sub_element_name }}
             </span>
           </div>
 
           <!-- 蛋组 -->
-          <div class="flex flex-wrap gap-1.5 md:gap-2 mb-2 md:mb-3 justify-center md:justify-start">
+          <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3 justify-center sm:justify-start">
             <router-link v-for="eg in pet.egg_groups" :key="eg.id"
               :to="{ path: '/eggs', query: { group: eg.id } }"
               class="badge text-xs md:text-sm hover:opacity-80 transition-opacity"
@@ -77,17 +77,17 @@
           </div>
 
           <!-- 特性 -->
-          <div class="flex items-center gap-2 mb-2 md:mb-3 justify-center md:justify-start">
+          <div class="flex items-center gap-2 mb-2 sm:mb-3 justify-center sm:justify-start">
             <img v-if="pet.detail?.ability_icon" :src="pet.detail.ability_icon"
-              class="w-7 h-7 md:w-9 md:h-9 rounded object-contain flex-shrink-0" loading="lazy" />
+              class="w-7 h-7 sm:w-9 sm:h-9 rounded object-contain flex-shrink-0" loading="lazy" />
             <div class="text-left">
-              <div class="font-medium text-xs md:text-sm">{{ pet.ability_name }}</div>
+              <div class="font-medium text-xs sm:text-sm">{{ pet.ability_name }}</div>
               <div class="text-xs text-muted">{{ pet.ability_desc }}</div>
             </div>
           </div>
 
           <!-- 身高/体重/分布 -->
-          <div class="flex gap-3 md:gap-6 text-xs md:text-sm justify-center md:justify-start flex-wrap">
+          <div class="flex gap-3 sm:gap-6 text-xs sm:text-sm justify-center sm:justify-start flex-wrap">
             <div v-if="pet.detail?.height"><span class="text-muted">身高</span> {{ pet.detail.height }}m</div>
             <div v-if="pet.detail?.weight"><span class="text-muted">体重</span> {{ pet.detail.weight }}kg</div>
             <div v-if="pet.detail?.location"><span class="text-muted">分布</span> {{ pet.detail.location }}</div>
@@ -97,17 +97,17 @@
     </div>
 
     <!-- 种族值 -->
-    <div class="card mb-4 md:mb-6">
-      <h3 class="font-roco text-sm md:text-base mb-3 md:mb-4">种族值 <span class="text-primary-500 font-bold ml-2">{{ pet.total }}</span></h3>
-      <div class="flex flex-col md:flex-row items-center gap-4 md:gap-6">
-        <div class="flex-1 w-full space-y-2 md:space-y-3">
-          <div v-for="s in statsBarList" :key="s.key" class="flex items-center gap-2 md:gap-3">
-            <span class="text-xs md:text-sm text-muted w-8 md:w-10 text-right">{{ s.label }}</span>
+    <div class="card mb-4 sm:mb-6">
+      <h3 class="font-roco text-sm sm:text-base mb-3 sm:mb-4">种族值 <span class="text-primary-500 font-bold ml-2">{{ pet.total }}</span></h3>
+      <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+        <div class="flex-1 w-full space-y-2 sm:space-y-3">
+          <div v-for="s in statsBarList" :key="s.key" class="flex items-center gap-2 sm:gap-3">
+            <span class="text-xs sm:text-sm text-muted w-8 sm:w-10 text-right">{{ s.label }}</span>
             <div class="flex-1 h-3 md:h-4 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden">
               <div class="h-full rounded-full transition-all duration-500 bg-primary-500/70"
                 :style="{ width: (s.value / 200 * 100) + '%' }"></div>
             </div>
-            <span class="text-xs md:text-sm font-medium w-7 md:w-8">{{ s.value }}</span>
+              <span class="text-xs sm:text-sm font-medium w-7 sm:w-8">{{ s.value }}</span>
           </div>
         </div>
         <StatsRadar v-if="pet" :values="{ hp: pet.hp, atk: pet.atk, matk: pet.matk, def: pet.def, mdef: pet.mdef, speed: pet.speed }" :size="radarSize" />
@@ -125,10 +125,10 @@
 
     <!-- 技能区域（Tab 切换） -->
     <div class="card" v-if="pet.skills?.length || pet.bloodline_skills?.length || pet.learnable_stones?.length">
-      <div class="flex items-center gap-1.5 md:gap-2 mb-3 md:mb-4 border-b border-surface-light-border dark:border-surface-dark-border pb-2 md:pb-3 overflow-x-auto">
+      <div class="flex items-center gap-1.5 sm:gap-2 mb-3 sm:mb-4 border-b border-surface-light-border dark:border-surface-dark-border pb-2 sm:pb-3 overflow-x-auto">
         <button v-for="tab in skillTabs" :key="tab.key"
           @click="activeSkillTab = tab.key"
-          class="px-3 py-1.5 md:px-5 md:py-2.5 rounded-lg text-sm md:text-base font-medium transition-colors whitespace-nowrap flex-shrink-0"
+          class="px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-lg text-sm sm:text-base font-medium transition-colors whitespace-nowrap flex-shrink-0"
           :class="activeSkillTab === tab.key
             ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400'
             : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
@@ -138,17 +138,17 @@
       </div>
 
       <!-- 技能筛选 -->
-      <div class="flex flex-wrap gap-1.5 md:gap-2 mb-2 md:mb-3">
-        <select v-model="skillCategory" class="select text-xs md:text-sm">
+      <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+        <select v-model="skillCategory" class="select text-xs sm:text-sm">
           <option value="">分类：全部</option>
           <option v-for="c in ['物攻','魔攻','防御','状态']" :key="c" :value="c">分类：{{ c }}</option>
         </select>
-        <select v-model="skillCounter" class="select text-xs md:text-sm">
+        <select v-model="skillCounter" class="select text-xs sm:text-sm">
           <option value="">应对：不限</option>
           <option value="none">应对：无</option>
           <option v-for="c in ['状态','防御','攻击']" :key="c" :value="c">应对：{{ c }}</option>
         </select>
-        <select v-model="skillKeyword" class="select text-xs md:text-sm">
+        <select v-model="skillKeyword" class="select text-xs sm:text-sm">
           <option value="">效果：不限</option>
           <option v-for="k in skillKeywordOptions" :key="k.value" :value="k.value">{{ k.label }}</option>
         </select>
@@ -156,18 +156,18 @@
       </div>
 
       <!-- 属性筛选 -->
-      <div class="flex flex-wrap gap-1 md:gap-1.5 mb-3 md:mb-4">
+      <div class="flex flex-wrap gap-1 sm:gap-1.5 mb-3 sm:mb-4">
         <button @click="skillElement = ''"
-          class="w-7 h-7 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-xs font-medium transition-colors"
+          class="w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-xs font-medium transition-colors"
           :class="!skillElement ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'">
           全
         </button>
         <button v-for="elem in availableSkillElements" :key="elem.name"
           @click="skillElement = elem.name"
-          class="w-7 h-7 md:w-9 md:h-9 rounded-lg flex items-center justify-center transition-colors"
+          class="w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center transition-colors"
           :class="skillElement === elem.name ? 'ring-2 ring-primary-500 bg-primary-50 dark:bg-primary-500/20' : 'bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10'"
           :title="elem.name">
-          <img :src="elem.icon" class="w-5 h-5 md:w-7 md:h-7" :alt="elem.name" />
+          <img :src="elem.icon" class="w-5 h-5 sm:w-7 sm:h-7" :alt="elem.name" />
         </button>
       </div>
 
@@ -338,16 +338,6 @@ function switchVariant(uid) {
   router.replace(`/pets/${uid}`)
   loadPet(uid)
 }
-
-const statsList = [
-  { key: 'hp', label: '生命' },
-  { key: 'atk', label: '物攻' },
-  { key: 'matk', label: '魔攻' },
-  { key: 'def', label: '物防' },
-  { key: 'mdef', label: '魔防' },
-  { key: 'speed', label: '速度' },
-  { key: 'total', label: '总计' },
-]
 
 const statsBarList = computed(() => {
   if (!pet.value) return []

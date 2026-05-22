@@ -44,6 +44,7 @@ function clearQueue() {
 export const vLazySrc = {
   mounted(el, binding) {
     if (!binding.value) return
+    el.dataset._lazySrc = binding.value
     // 占位透明像素
     el.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
@@ -51,7 +52,7 @@ export const vLazySrc = {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            enqueue(el, binding.value)
+            enqueue(el, el.dataset._lazySrc)
             observer.unobserve(el)
           }
         }
@@ -64,25 +65,16 @@ export const vLazySrc = {
   updated(el, binding) {
     if (!binding.value) return
     if (binding.value !== binding.oldValue) {
-      // URL 变了（翻页），清空旧队列 + 重新观察
+      // URL 变了（翻页），清空旧队列 + 重置图片 + 重新观察
       clearQueue()
-      if (el._lazyObserver) el._lazyObserver.disconnect()
-
+      el.dataset._lazySrc = binding.value
       el.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
-      const observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              enqueue(el, binding.value)
-              observer.unobserve(el)
-            }
-          }
-        },
-        { rootMargin: '300px 0px' }
-      )
-      observer.observe(el)
-      el._lazyObserver = observer
+      // 复用已有 observer，只需重新 observe
+      if (el._lazyObserver) {
+        el._lazyObserver.unobserve(el)
+        el._lazyObserver.observe(el)
+      }
     }
   },
   beforeUnmount(el) {

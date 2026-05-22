@@ -174,8 +174,10 @@ BWIKI → crawler(采集+清洗) → data/(JSON+图片) → sync_db.js → SQLit
 
 © 2026 **Roco Tools** — Developed by [@eachzhang](https://github.com/eachyczhang)
 
-- 数据引用自 [B站洛克王国Wiki](https://wiki.biligame.com/rocom/)，版权归哔哩哔哩游戏wiki所有
-- 洛克王国游戏及相关IP版权归腾讯公司所有
+- 精灵、技能等基础数据引用自 [洛克王国世界 BWIKI](https://wiki.biligame.com/rocom/)，版权归哔哩哔哩游戏Wiki所有
+- 赛季、活动等运营数据部分来源于洛克王国世界官方在 [B站](https://space.bilibili.com/626796832)、[微博](https://weibo.com/u/7476327149)、[TapTap](https://www.taptap.cn/app/188212) 等官方社区平台发布的公告与活动信息
+- 部分图片素材来源于游戏官网及官方创作者素材库，相关版权归腾讯/洛克王国世界官方所有
+- 洛克王国世界游戏及相关IP版权归腾讯公司所有
 - 本项目仅用于学习交流，非官方应用，无任何商业用途
 
 ## 协议

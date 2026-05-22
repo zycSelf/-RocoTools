@@ -74,21 +74,19 @@
         </div>
         <div>
           <label class="text-xs text-muted">主属性 <span class="text-red-500">*</span></label>
-          <select v-model="form.element_id" class="select w-full">
-            <option :value="null" disabled>请选择属性</option>
-            <option v-for="e in elements" :key="e.id" :value="e.id">
-              {{ e.name }}
-            </option>
-          </select>
+          <SearchSelect
+            v-model="elementIdStr"
+            :options="elements.map(e => ({ value: String(e.id), label: e.name }))"
+            placeholder="请选择属性"
+          />
         </div>
         <div>
           <label class="text-xs text-muted">副属性</label>
-          <select v-model="form.sub_element_id" class="select w-full">
-            <option :value="null">无</option>
-            <option v-for="e in elements" :key="e.id" :value="e.id">
-              {{ e.name }}
-            </option>
-          </select>
+          <SearchSelect
+            v-model="subElementIdStr"
+            :options="[{ value: '', label: '无' }, ...elements.map(e => ({ value: String(e.id), label: e.name }))]"
+            placeholder="无"
+          />
         </div>
         <div>
           <label class="text-xs text-muted">版本</label>
@@ -171,6 +169,7 @@ import { petsApi, elementsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
+import SearchSelect from '@/components/shared/SearchSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -187,6 +186,16 @@ const msg = ref('')
 const ok = ref(false)
 const previewType = ref('pet_default')
 const formVariant = ref('')
+
+// SearchSelect 需要字符串类型，element_id 在 DB 中是数字，做桥接
+const elementIdStr = computed({
+  get: () => form.value.element_id != null ? String(form.value.element_id) : '',
+  set: (v) => { form.value.element_id = v ? Number(v) : null },
+})
+const subElementIdStr = computed({
+  get: () => form.value.sub_element_id != null ? String(form.value.sub_element_id) : '',
+  set: (v) => { form.value.sub_element_id = v ? Number(v) : null },
+})
 
 const { openPreview } = useImagePreview()
 

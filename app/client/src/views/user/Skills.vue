@@ -119,6 +119,7 @@
 import { ref, onMounted } from 'vue'
 import { skillsApi, elementsApi } from '@/api'
 import SkillDescription from '@/components/user/SkillDescription.vue'
+import { categoryColor } from '@/constants/categoryColors'
 
 const skills = ref([])
 const elements = ref([])
@@ -175,14 +176,5 @@ onMounted(async () => {
   fetchData()
 })
 
-const categoryColors = {
-  '物攻': '#FF9636',
-  '魔攻': '#9446EC',
-  '防御': '#3F89B4',
-  '状态': '#2E7D32',
-}
 
-function categoryColor(type) {
-  return categoryColors[type] || '#6B7280'
-}
 </script>
