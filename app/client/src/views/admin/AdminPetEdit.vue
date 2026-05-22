@@ -43,10 +43,12 @@
             :upload-uid="isNew ? computedUid : uid"
             btn-class="text-[10px] text-primary-500 hover:underline cursor-pointer"
             upload-label="上传"
-            @uploaded="() => { msg = '上传成功'; ok = true; if (!isNew) loadData() }"
+            @uploaded="(p) => handleImageUploaded(img.type, p)"
+            @file-selected="() => handleNoUid()"
           />
         </div>
       </div>
+      <p v-if="isNew && !computedUid" class="text-xs text-amber-500 mt-2">⚠️ 请先填写精灵编号，再上传图片</p>
     </div>
 
     <!-- 编号 + UID -->
@@ -125,7 +127,8 @@
             :upload-uid="isNew ? computedUid : uid"
             upload-label="上传特性图标"
             btn-class="text-xs text-primary-500 hover:underline cursor-pointer"
-            @uploaded="() => { msg = '图标上传成功'; ok = true; if (!isNew) loadData() }"
+            @uploaded="(p) => handleImageUploaded('pet_ability', p)"
+            @file-selected="() => handleNoUid()"
           />
         </label>
       </div>
@@ -294,6 +297,23 @@ async function loadData() {
   loaded.value = true
 }
 
+// Track uploaded images for new pet (file saved on disk but not yet in DB)
+const pendingImages = ref({})
+
+function handleImageUploaded(type, path) {
+  msg.value = '上传成功'; ok.value = true
+  if (isNew) {
+    // Store the path so we can associate it after pet creation
+    pendingImages.value[type] = path
+  } else {
+    loadData()
+  }
+}
+
+async function handleNoUid() {
+  await modal.warning('请先填写编号', '上传图片前需要先填写精灵编号，以便生成 UID')
+}
+
 function validate() {
   if (!form.value.pet_id?.trim()) return '请填写精灵编号'
   if (!form.value.name?.trim()) return '请填写名称'
@@ -314,13 +334,29 @@ async function save() {
       const newUid = computedUid.value
       if (!newUid) { await modal.warning('提示', '编号无效'); saving.value = false; return }
       await adminApi.create('pets', { uid: newUid, ...form.value })
-      await adminApi.create('pet_details', { pet_uid: newUid, ...detailForm.value })
+      // Build pet_details with pending image paths
+      const detailData = { pet_uid: newUid, ...detailForm.value }
+      const imageFieldMap = {
+        pet_default: 'image_default', pet_shiny: 'image_shiny',
+        pet_fruit: 'image_fruit', pet_egg: 'image_egg', pet_ability: 'ability_icon',
+      }
+      for (const [type, field] of Object.entries(imageFieldMap)) {
+        if (pendingImages.value[type]) detailData[field] = pendingImages.value[type]
+      }
+      await adminApi.create('pet_details', detailData)
+      // Update pets.thumb_url if uploaded
+      if (pendingImages.value.pet_thumb) {
+        await adminApi.update('pets', newUid, { thumb_url: pendingImages.value.pet_thumb })
+      }
       await modal.success('创建成功', `精灵 ${form.value.name}（${newUid}）已创建`)
       router.replace(`/admin/pets/${newUid}`)
     } else {
       await adminApi.update('pets', uid, form.value)
       if (detail.value) {
         await adminApi.update('pet_details', uid, detailForm.value)
+      } else {
+        // pet_details record doesn't exist yet, create it
+        await adminApi.create('pet_details', { pet_uid: uid, ...detailForm.value })
       }
       ok.value = true; msg.value = '保存成功'
       loadData()

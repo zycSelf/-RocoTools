@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div v-if="visible" class="fixed inset-0 z-[100] flex items-center justify-center p-4" @click.self="handleCancel">
+      <div v-if="visible" class="fixed inset-0 z-[300] flex items-center justify-center p-4" @click.self="handleCancel">
         <!-- 遮罩 -->
         <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 

@@ -624,7 +624,7 @@ const IMAGE_TYPES = {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
   fileFilter: (req, file, cb) => {
     if (/^image\/(png|jpeg|webp|gif)$/.test(file.mimetype)) {
       cb(null, true);
@@ -634,12 +634,27 @@ const upload = multer({
   },
 });
 
+/** Multer error handling wrapper */
+function handleUpload(fieldName) {
+  return (req, res, next) => {
+    upload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: '文件过大，最大支持 20MB' });
+        }
+        return res.status(400).json({ error: err.message || '上传失败' });
+      }
+      next();
+    });
+  };
+}
+
 /**
  * POST /api/admin/upload
  * body: { type: 'pet_default', uid: 'pet_001' }
  * file: 图片文件
  */
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', handleUpload('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
 
   const { type, uid } = req.body;
@@ -680,7 +695,18 @@ router.post('/upload', upload.single('file'), (req, res) => {
   const mapping = fieldMap[type];
   if (mapping) {
     const db = getWriteDb();
-    db.prepare(`UPDATE ${mapping.table} SET ${mapping.field} = ? WHERE ${mapping.key} = ?`).run(publicPath, uid);
+    // For pet_details table, use UPSERT to auto-create record if not exists
+    // But only if the pet exists in pets table (new pet may not be created yet)
+    if (mapping.table === 'pet_details') {
+      const petExists = db.prepare('SELECT 1 FROM pets WHERE uid = ?').get(uid);
+      if (petExists) {
+        db.prepare(`INSERT INTO pet_details (pet_uid, ${mapping.field}) VALUES (?, ?) ON CONFLICT(pet_uid) DO UPDATE SET ${mapping.field} = excluded.${mapping.field}`).run(uid, publicPath);
+      }
+      // If pet doesn't exist yet (new pet flow), skip DB write — file is already saved on disk
+      // The path will be picked up when pet_details is created after pet creation
+    } else {
+      db.prepare(`UPDATE ${mapping.table} SET ${mapping.field} = ? WHERE ${mapping.key} = ?`).run(publicPath, uid);
+    }
     db.close();
   }
 
@@ -1028,7 +1054,7 @@ const LIBRARY_DIR = path.join(DATA_DIR, 'uploads', 'library');
  * POST /api/admin/library/upload
  * 上传图片到素材库，支持 folder 参数指定子目录
  */
-router.post('/library/upload', authAdmin, upload.single('file'), (req, res) => {
+router.post('/library/upload', authAdmin, handleUpload('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
 
   // Support optional sub-folder (sanitize to prevent path traversal)
@@ -1049,8 +1075,10 @@ router.post('/library/upload', authAdmin, upload.single('file'), (req, res) => {
   }
 
   // 用时间戳+原始文件名避免冲突
-  const ext = path.extname(req.file.originalname) || '.png';
-  const base = path.basename(req.file.originalname, ext).replace(/[^\p{L}\p{N}_\-]/gu, '_');
+  // multer uses latin1 for originalname; decode to utf8 for Chinese filenames
+  const rawName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  const ext = path.extname(rawName) || '.png';
+  const base = path.basename(rawName, ext).replace(/[^\p{L}\p{N}_\-]/gu, '_');
   const filename = `${Date.now()}_${base}${ext}`;
   const filepath = path.join(targetDir, filename);
   fs.writeFileSync(filepath, req.file.buffer);
@@ -1242,7 +1270,12 @@ router.post('/media/copy-to-business', authAdmin, (req, res) => {
   const mapping = fieldMap[type];
   if (mapping) {
     const db = getWriteDb();
-    db.prepare('UPDATE ' + mapping.table + ' SET ' + mapping.field + ' = ? WHERE ' + mapping.key + ' = ?').run(publicPath, uid);
+    // For pet_details table, use UPSERT to auto-create record if not exists
+    if (mapping.table === 'pet_details') {
+      db.prepare('INSERT INTO pet_details (pet_uid, ' + mapping.field + ') VALUES (?, ?) ON CONFLICT(pet_uid) DO UPDATE SET ' + mapping.field + ' = excluded.' + mapping.field).run(uid, publicPath);
+    } else {
+      db.prepare('UPDATE ' + mapping.table + ' SET ' + mapping.field + ' = ? WHERE ' + mapping.key + ' = ?').run(publicPath, uid);
+    }
     db.close();
   }
 
