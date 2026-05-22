@@ -54,8 +54,12 @@
                   ? 'border-primary-500 shadow-lg shadow-primary-500/20'
                   : isDark ? 'border-gray-700 hover:border-gray-500' : 'border-gray-200 hover:border-gray-400'"
                 @click="selectedFile = file.filename">
-                <div class="aspect-square bg-gray-100 dark:bg-gray-700">
-                  <img :src="file.path" class="w-full h-full object-cover" loading="lazy" />
+                <div class="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <img
+                    :data-src="file.thumb_path || file.path"
+                    class="w-full h-full object-cover lazy-img"
+                    @load="$event.target.classList.add('loaded')"
+                  />
                 </div>
                 <!-- Selected mark -->
                 <div v-if="selectedFile === file.filename"
@@ -100,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onBeforeUnmount, nextTick } from 'vue'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useTheme } from '@/composables/useTheme'
@@ -167,12 +171,45 @@ async function loadLibrary() {
   try {
     const res = await adminApi.libraryList()
     libraryFiles.value = res.files || []
+    // Start lazy loading after DOM updates
+    nextTick(() => setupLazyLoad())
   } catch (err) {
     await modal.alert('加载失败', err.message)
   } finally {
     libraryLoading.value = false
   }
 }
+
+// IntersectionObserver for lazy loading images
+let observer = null
+
+function setupLazyLoad() {
+  cleanupObserver()
+  observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const img = entry.target
+        if (img.dataset.src) {
+          img.src = img.dataset.src
+          img.removeAttribute('data-src')
+        }
+        observer.unobserve(img)
+      }
+    }
+  }, { rootMargin: '100px' })
+
+  const images = document.querySelectorAll('.lazy-img[data-src]')
+  images.forEach(img => observer.observe(img))
+}
+
+function cleanupObserver() {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+}
+
+onBeforeUnmount(() => cleanupObserver())
 
 // Upload to library
 async function handleLibraryUpload(e) {
@@ -234,4 +271,8 @@ async function confirmSelect() {
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from > div:last-child { transform: scale(0.95) translateY(8px); }
 .modal-leave-to > div:last-child { transform: scale(0.95) translateY(8px); }
+
+/* Lazy loading fade-in */
+.lazy-img { opacity: 0; transition: opacity 0.3s ease; }
+.lazy-img.loaded { opacity: 1; }
 </style>

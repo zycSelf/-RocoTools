@@ -1093,7 +1093,7 @@ const LIBRARY_DIR = path.join(DATA_DIR, 'uploads', 'library');
  * POST /api/admin/library/upload
  * 上传图片到素材库，支持 folder 参数指定子目录
  */
-router.post('/library/upload', authAdmin, handleUpload('file'), (req, res) => {
+router.post('/library/upload', authAdmin, handleUpload('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
 
   // Support optional sub-folder (sanitize to prevent path traversal)
@@ -1122,8 +1122,28 @@ router.post('/library/upload', authAdmin, handleUpload('file'), (req, res) => {
   const filepath = path.join(targetDir, filename);
   fs.writeFileSync(filepath, req.file.buffer);
 
+  // Generate thumbnail for library browsing (200px WebP)
+  let thumbRelPath = null;
+  if (sharp && /\.(png|jpe?g|gif)$/i.test(ext)) {
+    try {
+      const thumbDir = folder ? path.join(LIBRARY_DIR, '.thumbs', folder) : path.join(LIBRARY_DIR, '.thumbs');
+      fs.mkdirSync(thumbDir, { recursive: true });
+      const thumbFilename = filename.replace(/\.[^.]+$/, '.webp');
+      const thumbPath = path.join(thumbDir, thumbFilename);
+      await sharp(req.file.buffer)
+        .resize(200, 200, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 70 })
+        .toFile(thumbPath);
+      thumbRelPath = folder
+        ? `/uploads/library/.thumbs/${folder}/${thumbFilename}`
+        : `/uploads/library/.thumbs/${thumbFilename}`;
+    } catch (e) {
+      console.error('[WARN] Library thumbnail generation failed:', e.message);
+    }
+  }
+
   const relativePath = folder ? `/uploads/library/${folder}/${filename}` : `/uploads/library/${filename}`;
-  res.json({ success: true, path: relativePath, filename });
+  res.json({ success: true, path: relativePath, filename, thumb_path: thumbRelPath || relativePath });
 });
 
 /**
@@ -1137,14 +1157,23 @@ router.get('/library', authAdmin, (req, res) => {
   function scanLibrary(dir, prefix) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
+      if (entry.name === '.thumbs') continue; // Skip thumbs directory
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         scanLibrary(fullPath, prefix + entry.name + '/');
       } else if (/\.(png|jpe?g|webp|gif)$/i.test(entry.name)) {
         const stat = fs.statSync(fullPath);
+        // Check if thumbnail exists
+        const thumbFilename = entry.name.replace(/\.[^.]+$/, '.webp');
+        const thumbDir = path.join(LIBRARY_DIR, '.thumbs', prefix);
+        const thumbFullPath = path.join(thumbDir, thumbFilename);
+        const thumbPath = fs.existsSync(thumbFullPath)
+          ? `/uploads/library/.thumbs/${prefix}${thumbFilename}`
+          : null;
         files.push({
           filename: prefix + entry.name,
           path: `/uploads/library/${prefix}${entry.name}`,
+          thumb_path: thumbPath || `/uploads/library/${prefix}${entry.name}`,
           size: stat.size,
           mtime: stat.mtimeMs,
         });
@@ -1168,6 +1197,14 @@ router.delete('/library/:filename', authAdmin, (req, res) => {
   if (!isPathWithin(filepath, LIBRARY_DIR)) return res.status(400).json({ error: '路径非法' });
   if (!fs.existsSync(filepath)) return res.status(404).json({ error: '文件不存在' });
   fs.unlinkSync(filepath);
+
+  // Also delete corresponding thumbnail
+  const thumbFilename = filename.replace(/\.[^.]+$/, '.webp');
+  const thumbPath = path.join(LIBRARY_DIR, '.thumbs', thumbFilename);
+  if (fs.existsSync(thumbPath)) {
+    try { fs.unlinkSync(thumbPath); } catch (e) { /* ignore */ }
+  }
+
   res.json({ success: true });
 });
 
