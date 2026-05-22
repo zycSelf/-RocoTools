@@ -234,7 +234,7 @@
         <!-- Header row -->
         <div class="flex items-center gap-2 px-2 text-[10px] text-muted font-medium"
           :class="skillForms[activeSkillTab].length ? '' : 'hidden'">
-          <span v-if="activeSkillTab === 'skills'" class="w-14 text-center">等级</span>
+          <span v-if="activeSkillTab === 'skills'" class="w-20 text-center">等级</span>
           <span class="w-6"></span>
           <span class="flex-1 min-w-0">名称</span>
           <span class="w-14 text-center">属性</span>
@@ -247,9 +247,9 @@
           class="flex items-center gap-2 p-2 rounded-lg border transition-colors"
           :class="isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'">
           <!-- Level (only for skills type) -->
-          <div v-if="activeSkillTab === 'skills'" class="flex items-center w-14 flex-shrink-0">
-            <span class="text-[10px] text-muted mr-0.5">LV</span>
-            <input v-model="skill.level" type="number" class="input w-10 text-xs text-center !px-1" placeholder="--" />
+          <div v-if="activeSkillTab === 'skills'" class="flex items-center w-20 flex-shrink-0">
+            <span class="text-xs text-muted mr-1">LV</span>
+            <input v-model="skill.level" type="number" class="input flex-1 text-xs text-center !px-1" placeholder="--" />
           </div>
           <!-- Skill icon -->
           <img v-if="skill.skill_icon" :src="skill.skill_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" loading="lazy" />
