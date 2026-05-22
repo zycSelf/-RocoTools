@@ -186,9 +186,9 @@
       <div class="flex flex-wrap gap-2 mb-3">
         <div v-for="g in selectedEggGroups" :key="g.id"
           class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors"
-          :class="isDark ? 'border-primary-500/40 bg-primary-500/10 text-primary-400' : 'border-primary-300 bg-primary-50 text-primary-700'">
+          :style="{ borderColor: getEggGroupColor(g.id) + '60', background: getEggGroupColor(g.id) + '15', color: getEggGroupColor(g.id) }">
           <span>{{ g.name }}</span>
-          <button @click="removeEggGroup(g.id)" class="text-red-400 hover:text-red-600 ml-0.5" title="移除">✕</button>
+          <button @click="removeEggGroup(g.id)" class="hover:opacity-60 ml-0.5" :style="{ color: getEggGroupColor(g.id) }" title="移除">✕</button>
         </div>
         <div v-if="!selectedEggGroups.length" class="text-xs text-muted py-1">暂未配置蛋组</div>
       </div>
@@ -249,7 +249,7 @@
           <!-- Level (only for skills type) -->
           <div v-if="activeSkillTab === 'skills'" class="flex items-center w-20 flex-shrink-0">
             <span class="text-xs text-muted mr-1">LV</span>
-            <input v-model="skill.level" type="number" class="input flex-1 text-xs text-center !px-1" placeholder="--" />
+            <input v-model="skill.level" type="number" class="input w-12 text-xs text-center !px-1" placeholder="--" />
           </div>
           <!-- Skill icon -->
           <img v-if="skill.skill_icon" :src="skill.skill_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" loading="lazy" />
@@ -454,6 +454,29 @@ const addEggGroupId = ref('')
 const eggGroupsSaving = ref(false)
 const eggGroupsMsg = ref('')
 const eggGroupsOk = ref(false)
+
+// Egg group color palette (15 groups, id 0~14)
+const EGG_GROUP_COLORS = {
+  0: '#9CA3AF',  // 无法孵蛋 - 灰色
+  1: '#D97706',  // 动物组 - 琥珀
+  2: '#EC4899',  // 拟人组 - 粉色
+  3: '#7C3AED',  // 巨灵组 - 紫色
+  4: '#8B5CF6',  // 魔力组 - 浅紫
+  5: '#06B6D4',  // 天空组 - 青色
+  6: '#14B8A6',  // 两栖组 - 蓝绿
+  7: '#22C55E',  // 植物组 - 绿色
+  8: '#A16207',  // 大地组 - 棕色
+  9: '#F472B6',  // 妖精组 - 浅粉
+  10: '#84CC16', // 昆虫组 - 黄绿
+  11: '#A78BFA', // 软体组 - 淡紫
+  12: '#6B7280', // 机械组 - 钢灰
+  13: '#3B82F6', // 海洋组 - 蓝色
+  14: '#EF4444', // 龙组 - 红色
+}
+
+function getEggGroupColor(id) {
+  return EGG_GROUP_COLORS[id] || '#6B7280'
+}
 
 const availableEggGroupOptions = computed(() =>
   allEggGroups.value
