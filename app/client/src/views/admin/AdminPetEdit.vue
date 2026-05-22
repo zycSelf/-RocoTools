@@ -39,15 +39,16 @@
           class="text-center p-2 rounded-lg bg-gray-50 dark:bg-white/5 transition-colors">
           <div class="text-xs font-medium mb-1">{{ img.label }}</div>
           <ImageUploader
-            :upload-type="img.type"
-            :upload-uid="isNew ? computedUid : uid"
+            :upload-type="isNew ? '' : img.type"
+            :upload-uid="isNew ? '' : uid"
             btn-class="text-[10px] text-primary-500 hover:underline cursor-pointer"
             upload-label="上传"
             @uploaded="(p) => handleImageUploaded(img.type, p)"
-            @file-selected="() => handleNoUid()"
+            @file-selected="(f) => handleFileSelected(img.type, f)"
           />
         </div>
       </div>
+      <p v-if="isNew && pendingCount > 0" class="text-xs text-green-600 mt-2">✓ 已暂存 {{ pendingCount }} 张图片，创建精灵时将一并上传</p>
       <p v-if="isNew && !computedUid" class="text-xs text-amber-500 mt-2">⚠️ 请先填写精灵编号，再上传图片</p>
     </div>
 
@@ -58,7 +59,7 @@
         <div>
           <label class="text-xs text-muted">精灵编号 <span class="text-red-500">*</span></label>
           <input v-model="form.pet_id" class="input w-full" placeholder="如 001, 040"
-            :disabled="!isNew" @input="updateUid" />
+            :disabled="!isNew" :class="{ 'bg-gray-50 dark:bg-white/10 cursor-not-allowed': !isNew }" @input="updateUid" />
         </div>
         <div v-if="isNew">
           <label class="text-xs text-muted">形态序号（多形态时填，如 1、2）</label>
@@ -123,12 +124,12 @@
         </div>
         <label class="text-xs text-primary-500 hover:underline cursor-pointer">
           <ImageUploader
-            upload-type="pet_ability"
-            :upload-uid="isNew ? computedUid : uid"
+            :upload-type="isNew ? '' : 'pet_ability'"
+            :upload-uid="isNew ? '' : uid"
             upload-label="上传特性图标"
             btn-class="text-xs text-primary-500 hover:underline cursor-pointer"
             @uploaded="(p) => handleImageUploaded('pet_ability', p)"
-            @file-selected="() => handleNoUid()"
+            @file-selected="(f) => handleFileSelected('pet_ability', f)"
           />
         </label>
       </div>
@@ -246,11 +247,11 @@ function updateUid() {}
 
 // 图片插槽
 const imageSlots = computed(() => [
-  { type: 'pet_default', label: '立绘', url: detail.value?.image_default },
-  { type: 'pet_shiny', label: '异色', url: detail.value?.image_shiny },
-  { type: 'pet_fruit', label: '果实', url: detail.value?.image_fruit },
-  { type: 'pet_egg', label: '精灵蛋', url: detail.value?.image_egg },
-  { type: 'pet_thumb', label: '缩略图', url: pet.value?.thumb_url },
+  { type: 'pet_default', label: '立绘', url: pendingPreviews.value.pet_default || detail.value?.image_default },
+  { type: 'pet_shiny', label: '异色', url: pendingPreviews.value.pet_shiny || detail.value?.image_shiny },
+  { type: 'pet_fruit', label: '果实', url: pendingPreviews.value.pet_fruit || detail.value?.image_fruit },
+  { type: 'pet_egg', label: '精灵蛋', url: pendingPreviews.value.pet_egg || detail.value?.image_egg },
+  { type: 'pet_thumb', label: '缩略图', url: pendingPreviews.value.pet_thumb || pet.value?.thumb_url },
 ])
 
 const uploadSlots = computed(() => [
@@ -267,7 +268,7 @@ const currentPreviewUrl = computed(() => {
   return slot?.url || null
 })
 
-const abilityIconUrl = computed(() => detail.value?.ability_icon || null)
+const abilityIconUrl = computed(() => pendingPreviews.value.pet_ability || detail.value?.ability_icon || null)
 
 async function loadData() {
   const elemRes = await elementsApi.list()
@@ -299,15 +300,36 @@ async function loadData() {
 
 // Track uploaded images for new pet (file saved on disk but not yet in DB)
 const pendingImages = ref({})
+// Blob preview URLs for staged files (new pet mode)
+const pendingPreviews = ref({})
+// Count of pending images
+const pendingCount = computed(() => Object.keys(pendingImages.value).length)
 
 function handleImageUploaded(type, path) {
   msg.value = '上传成功'; ok.value = true
   if (isNew) {
-    // Store the path so we can associate it after pet creation
-    pendingImages.value[type] = path
+    // From library selection in deferred mode — store the library path
+    pendingImages.value[type] = { source: 'library', path }
+    pendingPreviews.value[type] = path
   } else {
     loadData()
   }
+}
+
+function handleFileSelected(type, file) {
+  if (isNew && !computedUid.value) {
+    modal.warning('请先填写编号', '上传图片前需要先填写精灵编号，以便生成 UID')
+    return
+  }
+  // Stage the file locally with a blob preview URL
+  pendingImages.value[type] = { source: 'file', file }
+  // Revoke old blob URL if exists
+  if (pendingPreviews.value[type] && pendingPreviews.value[type].startsWith('blob:')) {
+    URL.revokeObjectURL(pendingPreviews.value[type])
+  }
+  pendingPreviews.value[type] = URL.createObjectURL(file)
+  msg.value = `${uploadSlots.value.find(s => s.type === type)?.label || '图片'}已暂存`
+  ok.value = true
 }
 
 async function handleNoUid() {
@@ -334,20 +356,44 @@ async function save() {
       const newUid = computedUid.value
       if (!newUid) { await modal.warning('提示', '编号无效'); saving.value = false; return }
       await adminApi.create('pets', { uid: newUid, ...form.value })
-      // Build pet_details with pending image paths
-      const detailData = { pet_uid: newUid, ...detailForm.value }
+
+      // Upload all pending images now that the pet exists
       const imageFieldMap = {
         pet_default: 'image_default', pet_shiny: 'image_shiny',
         pet_fruit: 'image_fruit', pet_egg: 'image_egg', pet_ability: 'ability_icon',
       }
-      for (const [type, field] of Object.entries(imageFieldMap)) {
-        if (pendingImages.value[type]) detailData[field] = pendingImages.value[type]
+      const detailData = { pet_uid: newUid, ...detailForm.value }
+      let thumbUrl = ''
+
+      for (const [type, pending] of Object.entries(pendingImages.value)) {
+        let resultPath = ''
+        if (pending.source === 'file') {
+          // Upload the staged file to server
+          const res = await adminApi.upload(pending.file, type, newUid)
+          resultPath = res.path
+        } else if (pending.source === 'library') {
+          // Copy from library to business directory
+          const res = await adminApi.mediaCopyToBusiness(pending.path, type, newUid)
+          resultPath = res.path
+        }
+        // Map to detail fields
+        if (type === 'pet_thumb') {
+          thumbUrl = resultPath
+        } else if (imageFieldMap[type]) {
+          detailData[imageFieldMap[type]] = resultPath
+        }
       }
+
       await adminApi.create('pet_details', detailData)
-      // Update pets.thumb_url if uploaded
-      if (pendingImages.value.pet_thumb) {
-        await adminApi.update('pets', newUid, { thumb_url: pendingImages.value.pet_thumb })
+      if (thumbUrl) {
+        await adminApi.update('pets', newUid, { thumb_url: thumbUrl })
       }
+
+      // Cleanup blob URLs
+      for (const url of Object.values(pendingPreviews.value)) {
+        if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
+      }
+
       await modal.success('创建成功', `精灵 ${form.value.name}（${newUid}）已创建`)
       router.replace(`/admin/pets/${newUid}`)
     } else {

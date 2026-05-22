@@ -1271,8 +1271,13 @@ router.post('/media/copy-to-business', authAdmin, (req, res) => {
   if (mapping) {
     const db = getWriteDb();
     // For pet_details table, use UPSERT to auto-create record if not exists
+    // But only if the pet exists in pets table (foreign key constraint)
     if (mapping.table === 'pet_details') {
-      db.prepare('INSERT INTO pet_details (pet_uid, ' + mapping.field + ') VALUES (?, ?) ON CONFLICT(pet_uid) DO UPDATE SET ' + mapping.field + ' = excluded.' + mapping.field).run(uid, publicPath);
+      const petExists = db.prepare('SELECT 1 FROM pets WHERE uid = ?').get(uid);
+      if (petExists) {
+        db.prepare('INSERT INTO pet_details (pet_uid, ' + mapping.field + ') VALUES (?, ?) ON CONFLICT(pet_uid) DO UPDATE SET ' + mapping.field + ' = excluded.' + mapping.field).run(uid, publicPath);
+      }
+      // If pet doesn't exist yet, skip DB write — file is already copied on disk
     } else {
       db.prepare('UPDATE ' + mapping.table + ' SET ' + mapping.field + ' = ? WHERE ' + mapping.key + ' = ?').run(publicPath, uid);
     }
