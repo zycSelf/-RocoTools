@@ -6,8 +6,12 @@
       <div class="flex items-center gap-2">
         <input v-model="searchQuery" placeholder="搜索文件名..." class="input text-sm w-40 sm:w-52" />
         <label class="btn text-xs cursor-pointer">
-          📷 上传
+          📷 上传文件
           <input type="file" accept="image/*" multiple class="hidden" @change="handleUpload" />
+        </label>
+        <label class="btn text-xs cursor-pointer">
+          📁 上传文件夹
+          <input type="file" webkitdirectory class="hidden" @change="handleFolderUpload" />
         </label>
       </div>
     </div>
@@ -192,6 +196,42 @@
         :class="currentPage === totalPages ? 'text-muted cursor-not-allowed' : 'text-foreground hover:bg-gray-100 dark:hover:bg-white/10'"
       >»</button>
     </div>
+
+    <!-- Upload progress overlay -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="uploadProgress" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-80">
+            <h3 class="text-sm font-medium mb-3">上传中...</h3>
+            <div class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+              <div class="h-full bg-primary-500 transition-all duration-300 rounded-full"
+                :style="{ width: (uploadProgress.current / uploadProgress.total * 100) + '%' }"></div>
+            </div>
+            <p class="text-xs text-muted text-center">{{ uploadProgress.current }} / {{ uploadProgress.total }}</p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Folder prompt dialog -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="folderPrompt" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="cancelFolderPrompt">
+          <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl w-96">
+            <h3 class="text-sm font-medium mb-1">选择目标目录</h3>
+            <p class="text-xs text-muted mb-3">即将上传 {{ folderPrompt.desc }}，请指定存放的子目录（留空则存入素材库根目录）</p>
+            <div class="flex items-center gap-1 mb-3">
+              <span class="text-xs text-muted whitespace-nowrap">uploads/library/</span>
+              <input v-model="folderInputValue" class="input flex-1 text-sm" placeholder="子目录名（如 icons、pets/shiny）" @keyup.enter="confirmFolderPrompt" />
+            </div>
+            <div class="flex justify-end gap-2">
+              <button @click="cancelFolderPrompt" class="btn-ghost text-xs">取消</button>
+              <button @click="confirmFolderPrompt" class="btn text-xs">确认上传</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -212,6 +252,8 @@ const viewMode = ref('grid')
 const selectedFiles = reactive(new Set())
 const currentPage = ref(1)
 const pageSize = ref(36)
+const uploadProgress = ref(null) // { current, total }
+const folderPrompt = ref(null) // { desc, defaultVal, resolve }
 
 const categories = [
   { key: 'all', label: '全部' },
@@ -364,18 +406,94 @@ async function loadAllMedia() {
 async function handleUpload(e) {
   const files = Array.from(e.target.files || [])
   if (!files.length) return
+
+  // Ask for optional target folder
+  const folder = await promptFolder(files.length + ' 个文件')
+  if (folder === null) { e.target.value = ''; return } // cancelled
+
   loading.value = true
+  uploadProgress.value = { current: 0, total: files.length }
   try {
-    // Upload to library by default
-    await Promise.all(files.map(f => adminApi.libraryUpload(f)))
-    await modal.success('上传成功', files.length + ' 张图片已上传到素材库')
+    for (let i = 0; i < files.length; i++) {
+      await adminApi.libraryUpload(files[i], folder || undefined)
+      uploadProgress.value.current = i + 1
+    }
+    await modal.success('上传成功', files.length + ' 张图片已上传到素材库' + (folder ? '/' + folder : ''))
     await loadAllMedia()
   } catch (err) {
-    await modal.alert('上传失败', err.message)
+    await modal.alert('上传失败', '已上传 ' + uploadProgress.value.current + '/' + files.length + '，错误: ' + err.message)
   } finally {
     loading.value = false
+    uploadProgress.value = null
     e.target.value = ''
   }
+}
+
+async function handleFolderUpload(e) {
+  const allEntries = Array.from(e.target.files || [])
+  // Filter to image files only
+  const files = allEntries.filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f.name))
+  if (!files.length) {
+    await modal.alert('无图片', '所选文件夹中没有找到图片文件（支持 PNG/JPEG/WebP/GIF）')
+    e.target.value = ''
+    return
+  }
+
+  // Extract folder structure from webkitRelativePath
+  const topFolder = files[0].webkitRelativePath.split('/')[0] || ''
+  const folder = await promptFolder(files.length + ' 张图片（来自 ' + topFolder + '）', topFolder)
+  if (folder === null) { e.target.value = ''; return }
+
+  loading.value = true
+  uploadProgress.value = { current: 0, total: files.length }
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      // Preserve sub-directory structure: e.g. "myFolder/sub/img.png" → folder = "target/sub"
+      const relativePath = file.webkitRelativePath || ''
+      const parts = relativePath.split('/')
+      // Remove top-level folder name and filename, keep middle dirs
+      const subDirs = parts.slice(1, -1).join('/')
+      const targetFolder = folder ? (subDirs ? folder + '/' + subDirs : folder) : subDirs
+      await adminApi.libraryUpload(file, targetFolder || undefined)
+      uploadProgress.value.current = i + 1
+    }
+    await modal.success('上传成功', files.length + ' 张图片已上传到素材库' + (folder ? '/' + folder : ''))
+    await loadAllMedia()
+  } catch (err) {
+    await modal.alert('上传失败', '已上传 ' + uploadProgress.value.current + '/' + files.length + '，错误: ' + err.message)
+  } finally {
+    loading.value = false
+    uploadProgress.value = null
+    e.target.value = ''
+  }
+}
+
+/**
+ * Prompt user for target sub-folder name
+ * Returns folder string (empty = root), or null if cancelled
+ */
+const folderInputValue = ref('')
+
+async function promptFolder(desc, defaultVal = '') {
+  folderInputValue.value = defaultVal
+  return new Promise(resolve => {
+    folderPrompt.value = { desc, defaultVal, resolve }
+  })
+}
+
+function confirmFolderPrompt() {
+  if (!folderPrompt.value) return
+  const resolve = folderPrompt.value.resolve
+  folderPrompt.value = null
+  resolve(folderInputValue.value.trim())
+}
+
+function cancelFolderPrompt() {
+  if (!folderPrompt.value) return
+  const resolve = folderPrompt.value.resolve
+  folderPrompt.value = null
+  resolve(null)
 }
 
 async function deleteFile(file) {

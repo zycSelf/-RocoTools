@@ -1026,35 +1026,67 @@ const LIBRARY_DIR = path.join(DATA_DIR, 'uploads', 'library');
 
 /**
  * POST /api/admin/library/upload
- * 上传图片到素材库
+ * 上传图片到素材库，支持 folder 参数指定子目录
  */
 router.post('/library/upload', authAdmin, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '未上传文件' });
-  fs.mkdirSync(LIBRARY_DIR, { recursive: true });
+
+  // Support optional sub-folder (sanitize to prevent path traversal)
+  let folder = (req.body.folder || '').trim();
+  if (folder) {
+    // Only allow alphanumeric, underscore, hyphen, forward slash
+    folder = folder.replace(/\\/g, '/').replace(/[^a-zA-Z0-9_\-\/]/g, '_');
+    // Remove leading/trailing slashes and prevent ..
+    folder = folder.replace(/^\/+|\/+$/g, '').replace(/\.\./g, '');
+  }
+
+  const targetDir = folder ? path.join(LIBRARY_DIR, folder) : LIBRARY_DIR;
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  // Verify target is within LIBRARY_DIR
+  if (!isPathWithin(targetDir, LIBRARY_DIR)) {
+    return res.status(400).json({ error: '目标目录非法' });
+  }
 
   // 用时间戳+原始文件名避免冲突
   const ext = path.extname(req.file.originalname) || '.png';
   const base = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
   const filename = `${Date.now()}_${base}${ext}`;
-  const filepath = path.join(LIBRARY_DIR, filename);
+  const filepath = path.join(targetDir, filename);
   fs.writeFileSync(filepath, req.file.buffer);
 
-  res.json({ success: true, path: `/uploads/library/${filename}`, filename });
+  const relativePath = folder ? `/uploads/library/${folder}/${filename}` : `/uploads/library/${filename}`;
+  res.json({ success: true, path: relativePath, filename });
 });
 
 /**
  * GET /api/admin/library
- * 获取素材库图片列表
+ * 获取素材库图片列表（递归扫描子目录）
  */
 router.get('/library', authAdmin, (req, res) => {
   fs.mkdirSync(LIBRARY_DIR, { recursive: true });
-  const files = fs.readdirSync(LIBRARY_DIR)
-    .filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f))
-    .map(f => {
-      const stat = fs.statSync(path.join(LIBRARY_DIR, f));
-      return { filename: f, path: `/uploads/library/${f}`, size: stat.size, mtime: stat.mtimeMs };
-    })
-    .sort((a, b) => b.mtime - a.mtime);
+  const files = [];
+
+  function scanLibrary(dir, prefix) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanLibrary(fullPath, prefix + entry.name + '/');
+      } else if (/\.(png|jpe?g|webp|gif)$/i.test(entry.name)) {
+        const stat = fs.statSync(fullPath);
+        files.push({
+          filename: prefix + entry.name,
+          path: `/uploads/library/${prefix}${entry.name}`,
+          size: stat.size,
+          mtime: stat.mtimeMs,
+        });
+      }
+    }
+  }
+
+  scanLibrary(LIBRARY_DIR, '');
+  files.sort((a, b) => b.mtime - a.mtime);
   res.json({ files });
 });
 

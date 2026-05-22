@@ -146,9 +146,10 @@ export const adminApi = {
 
   // 素材库
   libraryList: () => adminRequest('/library'),
-  libraryUpload: (file) => {
+  libraryUpload: (file, folder) => {
     const form = new FormData()
     form.append('file', file)
+    if (folder) form.append('folder', folder)
     return adminRequest('/library/upload', { method: 'POST', body: form })
   },
   libraryDelete: (filename) => adminRequest(`/library/${filename}`, { method: 'DELETE' }),
