@@ -222,7 +222,7 @@
           <!-- Type (category) -->
           <input v-model="skill.type" class="input w-14 text-xs text-center" placeholder="类别" />
           <!-- Cost -->
-          <input v-model.number="skill.cost" type="number" class="input w-12 text-xs text-center" placeholder="PP" />
+          <input v-model.number="skill.cost" type="number" class="input w-12 text-xs text-center" placeholder="能耗" />
           <!-- Power -->
           <input v-model.number="skill.power" type="number" class="input w-12 text-xs text-center" placeholder="威力" />
           <!-- Delete -->

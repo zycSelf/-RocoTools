@@ -49,7 +49,7 @@
           <input v-model="form.category" class="input w-full" placeholder="物攻/魔攻/防御/状态" />
         </div>
         <div>
-          <label class="text-xs text-muted">PP消耗</label>
+          <label class="text-xs text-muted">能量消耗</label>
           <input v-model.number="form.cost" type="number" class="input w-full" />
         </div>
         <div>
