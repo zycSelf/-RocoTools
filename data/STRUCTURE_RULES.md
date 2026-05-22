@@ -380,3 +380,81 @@ app/server/data/backups/
 | 手动替换了爬虫图片后重新爬取 | 跳过，保留手动替换的版本 |
 | 删除文件后重新爬取 | 重新从 BWIKI 下载 |
 | BWIKI 图片更新但文件名不变 | 不会自动更新（需手动删除后重爬） |
+
+---
+
+## 九、WebP 生成规则
+
+### 概述
+
+所有 PNG 图片资源均需生成同名 `.webp` 副本，配合 Nginx 的 WebP 自动返回策略，浏览器支持时自动获取 WebP 版本以节省带宽。
+
+### 必须生成 WebP 的目录
+
+| 目录 | 内容 | 命名格式 |
+|------|------|----------|
+| `data/public/pets/default/` | 精灵默认立绘 | `{uid}_default.png` → `.webp` |
+| `data/public/pets/shiny/` | 精灵异色立绘 | `{uid}_shiny.png` → `.webp` |
+| `data/public/pets/fruit/` | 精灵果实图 | `{uid}_fruit.png` → `.webp` |
+| `data/public/pets/egg/` | 精灵蛋图 | `{uid}_egg.png` → `.webp` |
+| `data/public/skills/icons/` | 技能图标 | `skill_{N}.png` → `.webp` |
+| `data/public/elements/icons/` | 属性图标 | `elem_{N}.png` → `.webp` |
+
+### 生成时机
+
+WebP 副本通过以下两种方式生成：
+
+#### 1. 管理端上传时自动生成（实时）
+
+上传接口 `/api/admin/media/upload` 和 `/api/admin/media/copy-to-business` 中，对以下类型自动生成 WebP：
+
+```javascript
+const WEBP_TYPES = ['pet_default', 'pet_shiny', 'pet_fruit', 'pet_egg', 'skill_icon', 'element_icon'];
+```
+
+- 上传 PNG 后立即在同目录生成同名 `.webp` 文件（quality: 80）
+- `pet_default` 类型额外生成 128px 缩略图到 `pets/thumbs/`（quality: 60）
+
+#### 2. 批量脚本生成（同步时）
+
+| 脚本 | 用途 | 执行命令 |
+|------|------|----------|
+| `gen_webp.js` | 批量生成所有目录的 WebP 副本 | `cd app/server && node gen_webp.js` |
+| `gen_thumbnails.js` | 生成精灵缩略图（128px WebP） | `cd app/server && node gen_thumbnails.js` |
+
+### 执行顺序（sync_db.js）
+
+```
+1. gen_thumbnails.js  → 生成缩略图 + 更新 pet_list.json
+2. gen_webp.js        → 生成所有目录的 WebP 副本
+3. init.js            → 初始化数据库（建表）
+4. import.js          → 导入数据（JSON → SQLite）
+```
+
+**规则**：`gen_thumbnails.js` 和 `gen_webp.js` 必须在 `import.js` 之前执行，因为导入时会写入图片路径到数据库。
+
+### 增量策略
+
+| 条件 | 行为 |
+|------|------|
+| WebP 已存在且 mtime ≥ 源 PNG | 跳过，不重新生成 |
+| WebP 不存在 | 生成 |
+| 源 PNG 更新（mtime 更新） | 重新生成 WebP |
+
+### 参数规范
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| WebP quality | 80 | 正常图片压缩质量 |
+| 缩略图 quality | 60 | 缩略图压缩质量（更小体积） |
+| 缩略图尺寸 | 128×128 | `fit: contain`，透明背景 |
+| 并发数 | 10 | 批量脚本的并发处理数 |
+
+### 注意事项
+
+1. **依赖 sharp**：WebP 生成依赖 `sharp` 库，未安装时会跳过（`sync_db.js` 中有检测）
+2. **不影响原 PNG**：WebP 作为副本共存，原 PNG 始终保留
+3. **新增类型**：如需为新目录生成 WebP，需同时修改：
+   - `gen_webp.js` 的 `DIRS` 数组
+   - `admin.js` 上传接口的 `WEBP_TYPES` 数组
+4. **Nginx 配置**：需配合 `try_files $uri.webp $uri =404` 或 `map` 规则实现自动返回
