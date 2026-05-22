@@ -224,9 +224,28 @@ function importPetDetails() {
     db.prepare('SELECT pet_uid FROM pet_details WHERE manual_edit = 1').all().map(r => r.pet_uid)
   );
 
+  // Data integrity check: compare new vs old counts
+  const oldPetSkillCount = db.prepare('SELECT COUNT(*) as cnt FROM pet_skills').get().cnt;
+  const oldVariantCount = db.prepare('SELECT COUNT(*) as cnt FROM variants_map').get().cnt;
+  const newPetCount = Object.keys(pets).length;
+  const newPetsWithSkills = Object.values(pets).filter(p => p.detail && (p.detail.skills?.length || p.detail.bloodline_skills?.length || p.detail.learnable_stones?.length)).length;
+
+  if (oldPetSkillCount > 0 && newPetsWithSkills === 0) {
+    console.log(`[ABORT] 数据完整性校验失败：旧数据有 ${oldPetSkillCount} 条技能记录，新数据为 0，中止导入`);
+    console.log(`[ABORT] 可能是爬虫抓取失败，请检查 pet_detail.json 数据完整性`);
+    return;
+  }
+
+  // Check if new data is significantly less than old (>50% drop)
+  const oldDetailCount = db.prepare('SELECT COUNT(*) as cnt FROM pet_details').get().cnt;
+  if (oldDetailCount > 10 && newPetCount < oldDetailCount * 0.5) {
+    console.log(`[ABORT] 数据完整性校验失败：旧详情 ${oldDetailCount} 条，新数据仅 ${newPetCount} 条（降幅超过50%），中止导入`);
+    console.log(`[ABORT] 可能是爬虫部分失败，请检查 pet_detail.json 数据完整性`);
+    return;
+  }
+
   const tx = db.transaction(() => {
-    // 先清空可能有旧数据的表
-    db.prepare('DELETE FROM pet_skills').run();
+    // Incremental update: delete variants_map then rebuild
     db.prepare('DELETE FROM variants_map').run();
 
     // 多形态映射
@@ -234,7 +253,9 @@ function importPetDetails() {
       uids.forEach((uid, i) => insertVariant.run(petId, uid, i));
     }
 
-    // 详情 + 技能
+    // 详情 + 技能 (incremental: delete per pet_uid then re-insert)
+    const deleteSkillsByUid = db.prepare('DELETE FROM pet_skills WHERE pet_uid = ?');
+
     let imported = 0, skipped = 0;
     for (const [uid, pet] of Object.entries(pets)) {
       const d = pet.detail;
@@ -270,7 +291,8 @@ function importPetDetails() {
           imported++;
         }
 
-        // 技能始终导入
+        // Incremental skill update: delete old skills for this pet, then re-insert
+        deleteSkillsByUid.run(uid);
         for (const skillType of ['skills', 'bloodline_skills', 'learnable_stones']) {
           for (const skill of (d[skillType] || [])) {
             insertSkill.run(

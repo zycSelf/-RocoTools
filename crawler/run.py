@@ -248,6 +248,9 @@ def sync_database():
     print("[SYNC] 同步数据到 SQLite")
     print("=" * 60)
 
+    # Auto-backup before sync
+    _auto_backup_database(server_dir)
+
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
 
@@ -263,6 +266,44 @@ def sync_database():
             return
 
     print("[SYNC] 数据库同步完成！")
+
+
+def _auto_backup_database(server_dir: str):
+    """Auto-backup database before import to prevent data loss"""
+    import shutil
+    from datetime import datetime
+
+    db_path = os.path.join(server_dir, "data", "roco.db")
+    if not os.path.exists(db_path):
+        print("[SYNC] 数据库不存在，跳过备份")
+        return
+
+    backup_dir = os.path.join(server_dir, "data", "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+
+    now = datetime.now()
+    backup_name = f"auto_presync_{now.strftime('%Y%m%d_%H%M%S')}.db"
+    backup_path = os.path.join(backup_dir, backup_name)
+
+    try:
+        shutil.copy2(db_path, backup_path)
+        size_mb = os.path.getsize(backup_path) / (1024 * 1024)
+        print(f"[SYNC] 自动备份完成: {backup_name} ({size_mb:.2f} MB)")
+    except Exception as e:
+        print(f"[SYNC] [WARN] 自动备份失败: {e}")
+        return
+
+    # Keep only the latest 5 auto-backups to avoid disk bloat
+    auto_backups = sorted(
+        [f for f in os.listdir(backup_dir) if f.startswith("auto_presync_") and f.endswith(".db")],
+        reverse=True
+    )
+    for old_backup in auto_backups[5:]:
+        try:
+            os.remove(os.path.join(backup_dir, old_backup))
+            print(f"[SYNC] 清理旧备份: {old_backup}")
+        except Exception:
+            pass
 
 
 def print_integrity_summary():

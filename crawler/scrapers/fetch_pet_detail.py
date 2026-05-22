@@ -406,14 +406,42 @@ def main():
     else:
         print("[WARN] 未找到蛋组数据")
 
+    # Load existing UID mapping for stability
+    uid_map_path = os.path.join(OUTPUT_DIR, "_uid_mapping.json")
+    existing_uid_map = {}  # key: "pet_id::name" -> uid
+    if os.path.exists(uid_map_path):
+        with open(uid_map_path, "r", encoding="utf-8") as f:
+            existing_uid_map = json.load(f)
+
     for pid, members in groups.items():
         if len(members) == 1:
             uid = f"pet_{pid}"
             uid_assignments.append((uid, members[0]))
         else:
             uids = []
-            for i, member in enumerate(members, start=1):
-                uid = f"pet_{pid}_{i}"
+            assigned_in_group = set()
+            # First pass: assign from stable mapping
+            member_uids = [None] * len(members)
+            for i, member in enumerate(members):
+                map_key = f"{pid}::{member['name']}"
+                if map_key in existing_uid_map:
+                    member_uids[i] = existing_uid_map[map_key]
+                    assigned_in_group.add(existing_uid_map[map_key])
+
+            # Second pass: assign remaining sequentially
+            seq = 1
+            for i, member in enumerate(members):
+                if member_uids[i] is None:
+                    candidate = f"pet_{pid}_{seq}"
+                    while candidate in assigned_in_group:
+                        seq += 1
+                        candidate = f"pet_{pid}_{seq}"
+                    member_uids[i] = candidate
+                    assigned_in_group.add(candidate)
+                    seq += 1
+
+            for i, member in enumerate(members):
+                uid = member_uids[i]
                 uid_assignments.append((uid, member))
                 uids.append(uid)
             variants_map[pid] = uids

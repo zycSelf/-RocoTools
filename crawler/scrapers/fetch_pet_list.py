@@ -156,18 +156,49 @@ def parse_pet_list(html: str) -> list[dict]:
             "image_url": image_url,
         })
 
-    # 分配 uid
+    # 分配 uid (with stable mapping)
     from collections import Counter
     id_counter = Counter()
     id_total = Counter(p["pet_id"] for p in pets)
 
+    # Load existing UID mapping for stability
+    uid_map_path = os.path.join(OUTPUT_DIR, "_uid_mapping.json")
+    existing_uid_map = {}  # key: "pet_id::name" -> uid
+    if os.path.exists(uid_map_path):
+        with open(uid_map_path, "r", encoding="utf-8") as f:
+            existing_uid_map = json.load(f)
+
+    # First pass: assign UIDs using stable mapping where possible
+    new_uid_map = {}
+    assigned_uids = set()  # Track assigned UIDs to avoid duplicates
+
     for pet in pets:
         pid = pet["pet_id"]
+        map_key = f"{pid}::{pet['name']}"
+
         if id_total[pid] == 1:
             pet["uid"] = f"pet_{pid}"
         else:
-            id_counter[pid] += 1
-            pet["uid"] = f"pet_{pid}_{id_counter[pid]}"
+            # Check if this pet has a stable mapping
+            if map_key in existing_uid_map:
+                pet["uid"] = existing_uid_map[map_key]
+            else:
+                # Fallback: assign sequentially
+                id_counter[pid] += 1
+                candidate = f"pet_{pid}_{id_counter[pid]}"
+                # Avoid collision with existing stable mappings
+                while candidate in assigned_uids:
+                    id_counter[pid] += 1
+                    candidate = f"pet_{pid}_{id_counter[pid]}"
+                pet["uid"] = candidate
+
+        assigned_uids.add(pet["uid"])
+        new_uid_map[map_key] = pet["uid"]
+
+    # Save updated UID mapping for future stability
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    with open(uid_map_path, "w", encoding="utf-8") as f:
+        json.dump(new_uid_map, f, ensure_ascii=False, indent=2)
 
     return pets
 
