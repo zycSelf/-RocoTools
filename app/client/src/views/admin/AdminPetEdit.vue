@@ -231,25 +231,47 @@
 
       <!-- Skill list for active tab -->
       <div class="space-y-2 max-h-[500px] overflow-y-auto">
+        <!-- Header row -->
+        <div class="flex items-center gap-2 px-2 text-[10px] text-muted font-medium"
+          :class="skillForms[activeSkillTab].length ? '' : 'hidden'">
+          <span v-if="activeSkillTab === 'skills'" class="w-14 text-center">等级</span>
+          <span class="w-6"></span>
+          <span class="flex-1 min-w-0">名称</span>
+          <span class="w-14 text-center">属性</span>
+          <span class="w-14 text-center">分类</span>
+          <span class="w-12 text-center">能耗</span>
+          <span class="w-12 text-center">威力</span>
+          <span class="w-5"></span>
+        </div>
         <div v-for="(skill, idx) in skillForms[activeSkillTab]" :key="idx"
           class="flex items-center gap-2 p-2 rounded-lg border transition-colors"
           :class="isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'">
           <!-- Level (only for skills type) -->
-          <input v-if="activeSkillTab === 'skills'" v-model="skill.level" class="input w-16 text-xs text-center" placeholder="学习等级" />
-          <!-- Skill info display -->
-          <div class="flex items-center gap-2 flex-1 min-w-0">
-            <img v-if="skill.skill_icon" :src="skill.skill_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" loading="lazy" />
-            <div v-else class="w-6 h-6 bg-gray-200 dark:bg-white/10 rounded flex-shrink-0"></div>
-            <span class="text-xs font-medium truncate">{{ skill.name || '(未选择)' }}</span>
-            <span v-if="skill.element" class="text-[10px] px-1.5 py-0.5 rounded"
-              :style="{ background: getElementColor(skill.element) + '20', color: getElementColor(skill.element) }">{{ skill.element }}</span>
-            <span v-if="skill.type" class="text-[10px] px-1.5 py-0.5 rounded"
-              :style="{ background: getCategoryColor(skill.type) + '20', color: getCategoryColor(skill.type) }">{{ skill.type }}</span>
-            <span v-if="skill.cost" class="text-[10px] text-muted">能耗{{ skill.cost }}</span>
-            <span v-if="skill.power" class="text-[10px] text-muted">威力{{ skill.power }}</span>
+          <div v-if="activeSkillTab === 'skills'" class="flex items-center w-14 flex-shrink-0">
+            <span class="text-[10px] text-muted mr-0.5">LV</span>
+            <input v-model="skill.level" type="number" class="input w-10 text-xs text-center !px-1" placeholder="--" />
           </div>
+          <!-- Skill icon -->
+          <img v-if="skill.skill_icon" :src="skill.skill_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" loading="lazy" />
+          <div v-else class="w-6 h-6 bg-gray-200 dark:bg-white/10 rounded flex-shrink-0"></div>
+          <!-- Skill name -->
+          <span class="text-xs font-medium truncate flex-1 min-w-0">{{ skill.name || '(未选择)' }}</span>
+          <!-- Element -->
+          <span class="w-14 text-center flex-shrink-0">
+            <span v-if="skill.element" class="text-[10px] px-1.5 py-0.5 rounded inline-block"
+              :style="{ background: getElementColor(skill.element) + '20', color: getElementColor(skill.element) }">{{ skill.element }}</span>
+          </span>
+          <!-- Category -->
+          <span class="w-14 text-center flex-shrink-0">
+            <span v-if="skill.type" class="text-[10px] px-1.5 py-0.5 rounded inline-block"
+              :style="{ background: getCategoryColor(skill.type) + '20', color: getCategoryColor(skill.type) }">{{ skill.type }}</span>
+          </span>
+          <!-- Cost -->
+          <span class="w-12 text-center text-[10px] text-muted flex-shrink-0">{{ skill.cost || '-' }}</span>
+          <!-- Power -->
+          <span class="w-12 text-center text-[10px] text-muted flex-shrink-0">{{ skill.power || '-' }}</span>
           <!-- Delete -->
-          <button @click="removeSkill(activeSkillTab, idx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="移除">✕</button>
+          <button @click="removeSkill(activeSkillTab, idx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0 w-5 text-center" title="移除">✕</button>
         </div>
         <div v-if="!skillForms[activeSkillTab].length" class="text-center text-xs text-muted py-4">暂无技能，点击下方按钮从技能库导入</div>
       </div>
