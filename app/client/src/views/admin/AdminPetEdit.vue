@@ -356,13 +356,15 @@ async function save() {
       const newUid = computedUid.value
       if (!newUid) { await modal.warning('提示', '编号无效'); saving.value = false; return }
       await adminApi.create('pets', { uid: newUid, ...form.value })
+      // Create pet_details first so upload UPSERT can find the record
+      await adminApi.create('pet_details', { pet_uid: newUid, ...detailForm.value })
 
       // Upload all pending images now that the pet exists
       const imageFieldMap = {
         pet_default: 'image_default', pet_shiny: 'image_shiny',
         pet_fruit: 'image_fruit', pet_egg: 'image_egg', pet_ability: 'ability_icon',
       }
-      const detailData = { pet_uid: newUid, ...detailForm.value }
+      const detailUpdates = {}
       let thumbUrl = ''
 
       for (const [type, pending] of Object.entries(pendingImages.value)) {
@@ -381,7 +383,7 @@ async function save() {
         if (type === 'pet_thumb') {
           thumbUrl = resultPath
         } else if (imageFieldMap[type]) {
-          detailData[imageFieldMap[type]] = resultPath
+          detailUpdates[imageFieldMap[type]] = resultPath
         }
         // Capture auto-generated thumbnail from pet_default upload
         if (type === 'pet_default' && res?.thumb_path && !thumbUrl) {
@@ -389,7 +391,10 @@ async function save() {
         }
       }
 
-      await adminApi.create('pet_details', detailData)
+      // Update pet_details with image paths if any were uploaded
+      if (Object.keys(detailUpdates).length > 0) {
+        await adminApi.update('pet_details', newUid, detailUpdates)
+      }
       if (thumbUrl) {
         await adminApi.update('pets', newUid, { thumb_url: thumbUrl })
       }
