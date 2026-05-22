@@ -202,6 +202,8 @@
           <input v-if="activeSkillTab === 'skills'" v-model="skill.level" class="input w-16 text-xs text-center" placeholder="学习等级" />
           <!-- Skill info display -->
           <div class="flex items-center gap-2 flex-1 min-w-0">
+            <img v-if="skill.skill_icon" :src="skill.skill_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" loading="lazy" />
+            <div v-else class="w-6 h-6 bg-gray-200 dark:bg-white/10 rounded flex-shrink-0"></div>
             <span class="text-xs font-medium truncate">{{ skill.name || '(未选择)' }}</span>
             <span v-if="skill.element" class="text-[10px] px-1.5 py-0.5 rounded"
               :style="{ background: getElementColor(skill.element) + '20', color: getElementColor(skill.element) }">{{ skill.element }}</span>
@@ -735,6 +737,7 @@ function importSkill(skill) {
     power: skill.power || 0,
     description: skill.description || '',
     skill_ref_uid: skill.uid || '',
+    skill_icon: skill.icon_url || '',
   }
   skillForms[activeSkillTab.value].push(newSkill)
   showSkillPicker.value = false

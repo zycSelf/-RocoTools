@@ -759,15 +759,18 @@ router.post('/upload', handleUpload('file'), async (req, res) => {
     } else {
       db.prepare(`UPDATE ${mapping.table} SET ${mapping.field} = ? WHERE ${mapping.key} = ?`).run(publicPath, uid);
     }
-    // Auto-update thumb_url if thumbnail was generated
-    if (thumbPath && type === 'pet_default') {
-      db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
+    // Auto-update image_url and thumb_url for pet_default uploads
+    if (type === 'pet_default') {
+      db.prepare('UPDATE pets SET image_url = ? WHERE uid = ?').run(publicPath, uid);
+      if (thumbPath) {
+        db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
+      }
     }
     db.close();
   } else if (thumbPath && type === 'pet_default') {
     // No fieldMap mapping but we still need to save thumb_url
     const db = getWriteDb();
-    db.prepare('UPDATE pets SET thumb_url = ? WHERE uid = ?').run(thumbPath, uid);
+    db.prepare('UPDATE pets SET image_url = ?, thumb_url = ? WHERE uid = ?').run(publicPath, thumbPath, uid);
     db.close();
   }
 
