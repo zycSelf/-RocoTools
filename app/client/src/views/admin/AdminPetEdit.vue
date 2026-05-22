@@ -35,12 +35,17 @@
 
       <!-- 上传按钮组 -->
       <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        <label v-for="img in uploadSlots" :key="img.type"
-          class="text-center p-2 rounded-lg bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/8 cursor-pointer transition-colors">
+        <div v-for="img in uploadSlots" :key="img.type"
+          class="text-center p-2 rounded-lg bg-gray-50 dark:bg-white/5 transition-colors">
           <div class="text-xs font-medium mb-1">{{ img.label }}</div>
-          <div class="text-[10px] text-primary-500">上传</div>
-          <input type="file" accept="image/*" class="hidden" @change="(e) => uploadImage(img.type, e)" />
-        </label>
+          <ImageUploader
+            :upload-type="img.type"
+            :upload-uid="isNew ? computedUid : uid"
+            btn-class="text-[10px] text-primary-500 hover:underline cursor-pointer"
+            upload-label="上传"
+            @uploaded="() => { msg = '上传成功'; ok = true; if (!isNew) loadData() }"
+          />
+        </div>
       </div>
     </div>
 
@@ -115,8 +120,13 @@
           <span v-else class="text-[8px] text-muted">无图标</span>
         </div>
         <label class="text-xs text-primary-500 hover:underline cursor-pointer">
-          上传特性图标
-          <input type="file" accept="image/*" class="hidden" @change="(e) => uploadImage('pet_ability', e)" />
+          <ImageUploader
+            upload-type="pet_ability"
+            :upload-uid="isNew ? computedUid : uid"
+            upload-label="上传特性图标"
+            btn-class="text-xs text-primary-500 hover:underline cursor-pointer"
+            @uploaded="() => { msg = '图标上传成功'; ok = true; if (!isNew) loadData() }"
+          />
         </label>
       </div>
     </div>
@@ -170,6 +180,7 @@ import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
+import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -321,20 +332,4 @@ async function save() {
   }
 }
 
-async function uploadImage(type, event) {
-  const file = event.target.files?.[0]
-  if (!file) return
-  const targetUid = isNew ? computedUid.value : uid
-  if (!targetUid) { msg.value = '请先填写编号'; ok.value = false; return }
-  try {
-    const res = await adminApi.upload(file, type, targetUid)
-    msg.value = `上传成功: ${res.path}`; ok.value = true
-    if (!isNew) loadData()
-  } catch (err) {
-    msg.value = err.message; ok.value = false
-  }
-  event.target.value = ''
-}
-
-onMounted(loadData)
-</script>
+async function save() {</script>

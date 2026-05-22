@@ -124,10 +124,13 @@
                   @click="openPreview(form.concept_male)"
                 />
                 <div v-else class="w-16 h-16 rounded border-2 border-dashed border-surface-light-border dark:border-surface-dark-border flex items-center justify-center text-xs text-muted">无</div>
-                <label class="btn-primary text-xs px-2 py-1 cursor-pointer" for="upload-concept-male">
-                  <input id="upload-concept-male" type="file" accept="image/*" class="hidden" @change="handleUploadConceptMale" />
-                  上传
-                </label>
+                <ImageUploader
+                  upload-type="pika_concept_male"
+                  :upload-uid="form.period"
+                  upload-label="上传"
+                  btn-class="btn-primary text-xs px-2 py-1"
+                  @uploaded="(path) => form.concept_male = path"
+                />
               </div>
             </div>
             <div>
@@ -140,10 +143,13 @@
                   @click="openPreview(form.concept_female)"
                 />
                 <div v-else class="w-16 h-16 rounded border-2 border-dashed border-surface-light-border dark:border-surface-dark-border flex items-center justify-center text-xs text-muted">无</div>
-                <label class="btn-primary text-xs px-2 py-1 cursor-pointer" for="upload-concept-female">
-                  <input id="upload-concept-female" type="file" accept="image/*" class="hidden" @change="handleUploadConceptFemale" />
-                  上传
-                </label>
+                <ImageUploader
+                  upload-type="pika_concept_female"
+                  :upload-uid="form.period"
+                  upload-label="上传"
+                  btn-class="btn-primary text-xs px-2 py-1"
+                  @uploaded="(path) => form.concept_female = path"
+                />
               </div>
             </div>
           </div>
@@ -185,13 +191,12 @@
                           @click="openPreview(pet.locke_male)"
                         />
                         <div v-else class="w-12 h-12 rounded border-2 border-dashed border-surface-light-border dark:border-surface-dark-border flex items-center justify-center text-xs text-muted">无</div>
-                        <label class="btn-primary text-xs px-2 py-1 cursor-pointer" :for="'upload-locke-male-' + idx">上传</label>
-                        <input 
-                          :id="'upload-locke-male-' + idx" 
-                          type="file" 
-                          accept="image/*" 
-                          class="hidden" 
-                          @change="(e) => handleUploadLockeMale(e, idx)" 
+                        <ImageUploader
+                          upload-type="pika_locke_male"
+                          :upload-uid="form.period + '_' + pet.pet_uid"
+                          upload-label="上传"
+                          btn-class="btn-primary text-xs px-2 py-1"
+                          @uploaded="(path) => pet.locke_male = path"
                         />
                       </div>
                     </div>
@@ -205,13 +210,12 @@
                           @click="openPreview(pet.locke_female)"
                         />
                         <div v-else class="w-12 h-12 rounded border-2 border-dashed border-surface-light-border dark:border-surface-dark-border flex items-center justify-center text-xs text-muted">无</div>
-                        <label class="btn-primary text-xs px-2 py-1 cursor-pointer" :for="'upload-locke-female-' + idx">上传</label>
-                        <input 
-                          :id="'upload-locke-female-' + idx" 
-                          type="file" 
-                          accept="image/*" 
-                          class="hidden" 
-                          @change="(e) => handleUploadLockeFemale(e, idx)" 
+                        <ImageUploader
+                          upload-type="pika_locke_female"
+                          :upload-uid="form.period + '_' + pet.pet_uid"
+                          upload-label="上传"
+                          btn-class="btn-primary text-xs px-2 py-1"
+                          @uploaded="(path) => pet.locke_female = path"
                         />
                       </div>
                     </div>
@@ -250,6 +254,7 @@ import { useImagePreview } from '@/composables/useImagePreview'
 import { useModal } from '@/composables/useModal'
 import PetPicker from '@/components/shared/PetPicker.vue'
 import DatePicker from '@/components/shared/DatePicker.vue'
+import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const loading = ref(false)
 const showModal = ref(false)
@@ -348,7 +353,6 @@ function openEdit(item) {
 
 function closeModal() {
   showModal.value = false
-  document.querySelectorAll('input[type="file"]').forEach(el => el.value = '')
 }
 
 function addPet() {
@@ -448,49 +452,3 @@ async function deleteItem(item) {
   }
 }
 
-// 图片上传
-async function uploadImage(file, type, uid) {
-  try {
-    const res = await adminApi.upload(file, type, uid || 'temp')
-    // 添加时间戳防止浏览器缓存旧图片
-    return res.path ? `${res.path}?t=${Date.now()}` : null
-  } catch (e) {
-    await modal.alert('上传失败', e.message)
-    return null
-  }
-}
-
-async function handleUploadLockeMale(e, idx) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  const pet = form.value.pets[idx]
-  // 用 period_petUid 作为唯一标识，避免不同精灵覆盖
-  const uid = `${form.value.period}_${pet.pet_uid}`
-  const path = await uploadImage(file, 'pika_locke_male', uid)
-  if (path) pet.locke_male = path
-}
-
-async function handleUploadLockeFemale(e, idx) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  const pet = form.value.pets[idx]
-  // 用 period_petUid 作为唯一标识，避免不同精灵覆盖
-  const uid = `${form.value.period}_${pet.pet_uid}`
-  const path = await uploadImage(file, 'pika_locke_female', uid)
-  if (path) pet.locke_female = path
-}
-
-async function handleUploadConceptMale(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  const path = await uploadImage(file, 'pika_concept_male', form.value.period)
-  if (path) form.value.concept_male = path
-}
-
-async function handleUploadConceptFemale(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  const path = await uploadImage(file, 'pika_concept_female', form.value.period)
-  if (path) form.value.concept_female = path
-}
-</script>

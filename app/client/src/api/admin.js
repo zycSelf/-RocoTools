@@ -143,4 +143,13 @@ export const adminApi = {
   saveNavTabDefaults: () => adminRequest('/nav-tabs/save-defaults', {
     method: 'POST',
   }),
+
+  // 素材库
+  libraryList: () => adminRequest('/library'),
+  libraryUpload: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return adminRequest('/library/upload', { method: 'POST', body: form })
+  },
+  libraryDelete: (filename) => adminRequest(`/library/${filename}`, { method: 'DELETE' }),
 }

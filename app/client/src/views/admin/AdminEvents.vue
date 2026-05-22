@@ -191,9 +191,15 @@
             <div class="flex items-center gap-2 mt-1">
               <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="handleFileSelect" />
               <button @click="$refs.fileInput.click()" class="btn text-xs">
-                {{ form.image ? '已选择' : '选择图片' }}
+                {{ form.imageFile ? '已选择本地图片' : '本地上传' }}
               </button>
-              <span v-if="form.image" class="text-xs text-green-600 truncate max-w-[120px]">{{ form.imageName }}</span>
+              <ImageUploader
+                upload-label="📂 素材库"
+                btn-class="btn text-xs"
+                @uploaded="(path) => { form.image = path; form.imageFile = null; form.imageName = ''; form.imagePreview = path }"
+              />
+              <span v-if="form.imageFile" class="text-xs text-green-600 truncate max-w-[120px]">{{ form.imageName }}</span>
+              <span v-else-if="form.image && !form.imageFile" class="text-xs text-green-600 truncate max-w-[120px]">已选择素材库图片</span>
             </div>
             <img v-if="form.imagePreview" :src="form.imagePreview" class="mt-2 h-12 rounded" />
           </div>
@@ -302,23 +308,29 @@
           </div>
 
           <!-- 活动图片 -->
-          <div>
-            <label class="text-xs text-muted">活动总览图</label>
-            <div v-if="editForm.image && !editForm.imageFile" class="mb-2">
-              <img 
-                :src="`/uploads/events/event_${editForm.id}.png`" 
-                class="h-12 rounded cursor-zoom-in hover:rounded-none transition-rounded"
-                @click="openPreview(`/uploads/events/event_${editForm.id}.png`)"
-              />
+            <div>
+              <label class="text-xs text-muted">活动总览图</label>
+              <div v-if="editForm.image && !editForm.imageFile" class="mb-2">
+                <img 
+                  :src="editForm.image.startsWith('/uploads') ? editForm.image : `/uploads/events/event_${editForm.id}.png`" 
+                  class="h-12 rounded cursor-zoom-in hover:rounded-none transition-rounded"
+                  @click="openPreview(editForm.image || `/uploads/events/event_${editForm.id}.png`)"
+                />
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="file" ref="editFileInput" accept="image/*" class="hidden" @change="handleEditFileSelect" />
+                <button @click="$refs.editFileInput.click()" class="btn text-xs">
+                  {{ editForm.imageFile ? '已选择新图片' : '本地上传' }}
+                </button>
+                <ImageUploader
+                  upload-label="📂 素材库"
+                  btn-class="btn text-xs"
+                  @uploaded="(path) => { editForm.image = path; editForm.imageFile = null; editForm.imageName = '' }"
+                />
+                <span v-if="editForm.imageFile" class="text-xs text-green-600 truncate max-w-[120px]">{{ editForm.imageName }}</span>
+                <span v-else-if="editForm.image" class="text-xs text-green-600 truncate max-w-[120px]">已有图片</span>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <input type="file" ref="editFileInput" accept="image/*" class="hidden" @change="handleEditFileSelect" />
-              <button @click="$refs.editFileInput.click()" class="btn text-xs">
-                {{ editForm.imageFile ? '已选择新图片' : '更换图片' }}
-              </button>
-              <span v-if="editForm.imageFile" class="text-xs text-green-600 truncate max-w-[120px]">{{ editForm.imageName }}</span>
-            </div>
-          </div>
         </div>
 
         <div class="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-surface-light-border dark:border-surface-dark-border px-4 py-3 flex items-center justify-between">
@@ -344,6 +356,7 @@ import { useModal } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
 import PetPicker from '@/components/shared/PetPicker.vue'
 import DatePicker from '@/components/shared/DatePicker.vue'
+import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const modal = useModal()
 const currentSeason = ref(null)
@@ -623,7 +636,10 @@ async function createEvent() {
     const res = await adminApi.create('season_events', data)
     const newId = res.id || res.lastInsertRowid
 
-    if (form.value.imageFile && newId) {
+    // 如果是素材库图片（已有路径），直接写入数据库，不需要上传
+    if (form.value.image && !form.value.imageFile && newId) {
+      await adminApi.update('season_events', newId, { image: form.value.image })
+    } else if (form.value.imageFile && newId) {
       const imgPath = await uploadEventImage(newId)
       if (imgPath) {
         await adminApi.update('season_events', newId, { image: imgPath })
@@ -736,7 +752,10 @@ async function updateEvent() {
 
     await adminApi.update('season_events', editForm.id, data)
 
-    if (editForm.imageFile) {
+    // 如果是素材库图片（已有路径），直接写入数据库
+    if (editForm.image && !editForm.imageFile) {
+      await adminApi.update('season_events', editForm.id, { image: editForm.image })
+    } else if (editForm.imageFile) {
       const res = await adminApi.upload(editForm.imageFile, 'event_image', `event_${editForm.id}`)
       if (res.path) {
         await adminApi.update('season_events', editForm.id, { image: res.path })

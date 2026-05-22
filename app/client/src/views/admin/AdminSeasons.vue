@@ -131,10 +131,13 @@
 
           <!-- 右上角：上传封面按钮 -->
           <div class="absolute top-3 right-3">
-            <label class="cursor-pointer text-xs text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 transition-colors">
-              📷 更换封面
-              <input type="file" accept="image/*" class="hidden" @change="uploadCover" />
-            </label>
+            <ImageUploader
+              upload-type="season_cover"
+              :upload-uid="currentSeasonId"
+              btn-class="text-xs text-white/70 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1.5 transition-colors"
+              upload-label="📷 更换封面"
+              @uploaded="onCoverUploaded"
+            />
           </div>
         </div>
         <!-- 底部提示 -->
@@ -201,6 +204,7 @@ import { useTheme } from '@/composables/useTheme'
 import PetPicker from '@/components/shared/PetPicker.vue'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import DatePicker from '@/components/shared/DatePicker.vue'
+import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const { isDark } = useTheme()
 
@@ -305,18 +309,9 @@ async function createSeason() {
   }
 }
 
-async function uploadCover(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  try {
-    const res = await adminApi.upload(file, 'season_cover', currentSeasonId.value)
-    form.image = res.path
-    await modal.success('上传成功', `封面已保存为 ${res.path}`)
-    loadList(true)
-  } catch (err) {
-    await modal.alert('上传失败', err.message)
-  }
-  e.target.value = ''
+function onCoverUploaded(path) {
+  form.image = path
+  loadList(true)
 }
 
 async function save() {

@@ -13,16 +13,19 @@
     <!-- 图标上传 -->
     <div class="card mb-4">
       <h2 class="font-roco text-base text-primary-500 mb-3">技能图标</h2>
-      <div class="flex items-center gap-4">
-        <div class="w-16 h-16 bg-gray-50 dark:bg-white/5 rounded-lg flex items-center justify-center">
-          <img v-if="skill.icon_url" :src="skill.icon_url" class="w-full h-full object-contain rounded-lg" />
-          <span v-else class="text-xs text-muted">无</span>
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 bg-gray-50 dark:bg-white/5 rounded-lg flex items-center justify-center">
+            <img v-if="skill.icon_url" :src="skill.icon_url" class="w-full h-full object-contain rounded-lg" />
+            <span v-else class="text-xs text-muted">无</span>
+          </div>
+          <ImageUploader
+            upload-type="skill_icon"
+            :upload-uid="uid"
+            upload-label="上传图标"
+            btn-class="text-xs text-primary-500 hover:underline cursor-pointer"
+            @uploaded="() => { ok = true; msg = '图标上传成功'; loadData() }"
+          />
         </div>
-        <label class="text-xs text-primary-500 hover:underline cursor-pointer">
-          上传图标
-          <input type="file" accept="image/*" class="hidden" @change="uploadIcon" />
-        </label>
-      </div>
     </div>
 
     <!-- 基础信息 -->
@@ -79,6 +82,7 @@ import { skillsApi, elementsApi } from '@/api'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
+import ImageUploader from '@/components/shared/ImageUploader.vue'
 
 const route = useRoute()
 const modal = useModal()
@@ -116,15 +120,4 @@ async function save() {
   finally { saving.value = false }
 }
 
-async function uploadIcon(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  try {
-    await adminApi.upload(file, 'skill_icon', uid)
-    ok.value = true; msg.value = '图标上传成功'; loadData()
-  } catch (err) { await modal.alert('上传失败', err.message) }
-  e.target.value = ''
-}
-
-onMounted(loadData)
-</script>
+async function save() {</script>

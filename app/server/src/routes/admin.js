@@ -1019,4 +1019,58 @@ router.delete('/backups/season/:name', (req, res) => {
   res.json({ success: true, message: `赛季备份「${info?.label || name}」已删除` });
 });
 
+// ============================================================
+// 素材库接口
+// ============================================================
+const LIBRARY_DIR = path.join(DATA_DIR, 'uploads', 'library');
+
+/**
+ * POST /api/admin/library/upload
+ * 上传图片到素材库
+ */
+router.post('/library/upload', authAdmin, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '未上传文件' });
+  fs.mkdirSync(LIBRARY_DIR, { recursive: true });
+
+  // 用时间戳+原始文件名避免冲突
+  const ext = path.extname(req.file.originalname) || '.png';
+  const base = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  const filename = `${Date.now()}_${base}${ext}`;
+  const filepath = path.join(LIBRARY_DIR, filename);
+  fs.writeFileSync(filepath, req.file.buffer);
+
+  res.json({ success: true, path: `/uploads/library/${filename}`, filename });
+});
+
+/**
+ * GET /api/admin/library
+ * 获取素材库图片列表
+ */
+router.get('/library', authAdmin, (req, res) => {
+  fs.mkdirSync(LIBRARY_DIR, { recursive: true });
+  const files = fs.readdirSync(LIBRARY_DIR)
+    .filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f))
+    .map(f => {
+      const stat = fs.statSync(path.join(LIBRARY_DIR, f));
+      return { filename: f, path: `/uploads/library/${f}`, size: stat.size, mtime: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+  res.json({ files });
+});
+
+/**
+ * DELETE /api/admin/library/:filename
+ * 删除素材库图片
+ */
+router.delete('/library/:filename', authAdmin, (req, res) => {
+  const { filename } = req.params;
+  if (!isSafeFilename(filename)) return res.status(400).json({ error: '非法文件名' });
+  const filepath = path.join(LIBRARY_DIR, filename);
+  if (!isPathWithin(filepath, LIBRARY_DIR)) return res.status(400).json({ error: '路径非法' });
+  if (!fs.existsSync(filepath)) return res.status(404).json({ error: '文件不存在' });
+  fs.unlinkSync(filepath);
+  res.json({ success: true });
+});
+
 module.exports = router;
+
