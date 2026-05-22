@@ -186,4 +186,16 @@ export const adminApi = {
       return res.json()
     })
   },
+
+  // 导出 Excel
+  exportExcel: () => {
+    const token = getToken()
+    return fetch(`${BASE}/export-excel`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }).then(async res => {
+      if (res.status === 401) { clearToken(); throw new Error('未登录或 token 已过期') }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Export failed') }
+      return res.blob()
+    })
+  },
 }

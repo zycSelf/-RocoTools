@@ -22,6 +22,19 @@
       </router-link>
     </div>
 
+    <!-- 数据导出 -->
+    <div class="card mb-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="font-roco text-base text-primary-500">数据导出</h2>
+          <p class="text-muted text-xs mt-1">导出所有数据库表为 Excel 文件（不含图片路径）</p>
+        </div>
+        <button @click="exportExcel" class="btn text-xs" :disabled="exporting">
+          {{ exporting ? '导出中...' : '导出 Excel' }}
+        </button>
+      </div>
+    </div>
+
     <!-- ========== 赛季备份 ========== -->
     <div class="card mb-4">
       <div class="flex items-center justify-between mb-3">
@@ -182,6 +195,28 @@ const backingUp = ref(false)
 const backingSeason = ref(false)
 const seasonLabel = ref('')
 const seasonNote = ref('')
+
+// 导出
+const exporting = ref(false)
+
+async function exportExcel() {
+  exporting.value = true
+  try {
+    const blob = await adminApi.exportExcel()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `roco_data_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    await modal.alert('导出失败', err.message)
+  } finally {
+    exporting.value = false
+  }
+}
 
 // 恢复确认弹窗
 const restoreModal = reactive({

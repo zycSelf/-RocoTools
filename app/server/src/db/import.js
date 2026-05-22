@@ -148,7 +148,7 @@ function importPets() {
 
   // 获取蛋组关联中手动编辑过的记录（不覆盖）
   const manualEggEdits = new Set(
-    db.prepare('SELECT pet_uid || "::" || egg_group_id as key FROM pet_egg_groups WHERE manual_edit = 1').all().map(r => r.key)
+    db.prepare("SELECT pet_uid || '::' || egg_group_id as key FROM pet_egg_groups WHERE manual_edit = 1").all().map(r => r.key)
   );
 
   // 预加载蛋组名称 → id 映射
