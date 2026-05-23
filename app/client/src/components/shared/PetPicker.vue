@@ -79,6 +79,10 @@
                   :class="browseElement == e.id ? 'bg-primary-100 dark:bg-primary-500/20 ring-1 ring-primary-400' : 'opacity-60 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-white/5'">
                   <img :src="e.icon" class="w-5 h-5" :alt="e.name" :title="e.name" />
                 </button>
+                <label class="ml-auto flex items-center gap-1.5 text-xs text-muted cursor-pointer select-none">
+                  <input type="checkbox" v-model="showAllVariants" @change="browseFetch()" class="w-3.5 h-3.5 rounded" />
+                  显示所有形态
+                </label>
               </div>
             </div>
 
@@ -122,6 +126,9 @@ const props = defineProps({
   compact: { type: Boolean, default: false },
 })
 
+// Whether to show all variants (user-togglable in browser, or forced by prop)
+const showAllVariants = ref(props.allVariants)
+
 const emit = defineEmits(['update:modelValue'])
 
 // === 搜索模式 ===
@@ -138,7 +145,7 @@ function searchDebounced() {
   timer = setTimeout(async () => {
     loading.value = true
     try {
-      const res = await petsApi.list({ search: query.value.trim(), limit: 20, all_variants: props.allVariants || undefined })
+      const res = await petsApi.list({ search: query.value.trim(), limit: 20, all_variants: showAllVariants.value || undefined })
       results.value = res.pets || []
     } catch { results.value = [] }
     loading.value = false
@@ -191,7 +198,7 @@ async function browseFetch() {
       search: browseQuery.value.trim(),
       element_id: browseElement.value,
       limit: 60, page: 1,
-      all_variants: props.allVariants || undefined,
+      all_variants: showAllVariants.value || undefined,
     })
     browsePets.value = res.pets || []
     browseTotal.value = res.total || 0
@@ -205,7 +212,7 @@ async function browseMore() {
       search: browseQuery.value.trim(),
       element_id: browseElement.value,
       limit: 60, page: browsePage.value,
-      all_variants: props.allVariants || undefined,
+      all_variants: showAllVariants.value || undefined,
     })
     browsePets.value.push(...(res.pets || []))
   } catch (err) { console.error("[PetPicker]", err) }

@@ -234,7 +234,7 @@
                   </div>
                 </div>
                 <!-- Evolve condition (structured) -->
-                <div class="flex items-start gap-2">
+                <div class="flex items-center gap-2">
                   <select class="input w-20 text-xs flex-shrink-0"
                     :value="stage.evolve_condition?.type || ''"
                     @change="onConditionTypeChange(rIdx, sIdx, $event.target.value)">
