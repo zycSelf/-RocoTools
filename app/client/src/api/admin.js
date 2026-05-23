@@ -231,6 +231,16 @@ export const adminApi = {
 
   // 特性聚合（智能提示）
   abilities: () => adminRequest('/abilities'),
+  abilityDetail: (name) => adminRequest('/abilities/' + encodeURIComponent(name)),
+  updateAbility: (name, data) => adminRequest('/abilities/' + encodeURIComponent(name), {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  uploadAbilityIcon: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return adminRequest('/abilities/upload-icon', { method: 'POST', body: form })
+  },
 
   // 精灵技能管理
   getPetSkills: (uid) => adminRequest(`/pet-skills/${uid}`),

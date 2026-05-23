@@ -2226,6 +2226,134 @@ router.get('/abilities', authAdmin, (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/abilities/:name
+ * Get ability detail with all pets that have this ability
+ */
+router.get('/abilities/:name', authAdmin, (req, res) => {
+  try {
+    const db = getDb();
+    const abilityName = decodeURIComponent(req.params.name);
+    const pets = db.prepare(`
+      SELECT p.uid, p.name, p.pet_id, p.element_id, p.ability_name, p.ability_desc,
+             pd.ability_icon, p.thumb_url, p.image_url,
+             e.name AS element_name, e.icon AS element_icon
+      FROM pets p
+      LEFT JOIN pet_details pd ON pd.pet_uid = p.uid
+      LEFT JOIN elements e ON e.id = p.element_id
+      WHERE p.ability_name = ?
+      ORDER BY p.name ASC
+    `).all(abilityName);
+
+    if (pets.length === 0) {
+      return res.status(404).json({ error: '特性不存在' });
+    }
+
+    const first = pets[0];
+    res.json({
+      name: abilityName,
+      description: first.ability_desc || '',
+      icon: first.ability_icon || '',
+      pet_count: pets.length,
+      pets: pets.map(p => ({
+        uid: p.uid,
+        name: p.name,
+        pet_id: p.pet_id,
+        element_name: p.element_name,
+        element_icon: p.element_icon,
+        thumb_url: p.thumb_url || p.image_url,
+      })),
+    });
+  } catch (err) {
+    console.error('[Abilities Detail]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PUT /api/admin/abilities/:name
+ * Update ability: rename, change description, change icon
+ * Body: { newName?, description?, icon? }
+ */
+router.put('/abilities/:name', authAdmin, (req, res) => {
+  try {
+    const db = getWriteDb();
+    const abilityName = decodeURIComponent(req.params.name);
+    const { newName, description, icon } = req.body;
+
+    // Verify ability exists
+    const exists = db.prepare(`SELECT COUNT(*) AS cnt FROM pets WHERE ability_name = ?`).get(abilityName);
+    if (!exists || exists.cnt === 0) {
+      return res.status(404).json({ error: '特性不存在' });
+    }
+
+    const updates = [];
+
+    // Rename: update ability_name in pets table
+    if (newName && newName !== abilityName) {
+      // Check if target name already exists
+      const conflict = db.prepare(`SELECT COUNT(*) AS cnt FROM pets WHERE ability_name = ?`).get(newName);
+      if (conflict && conflict.cnt > 0) {
+        return res.status(409).json({ error: '目标特性名称已存在，请使用合并功能或选择其他名称' });
+      }
+      db.prepare(`UPDATE pets SET ability_name = ?, manual_edit = 1 WHERE ability_name = ?`).run(newName, abilityName);
+      updates.push('name');
+    }
+
+    // Update description
+    if (description !== undefined) {
+      const targetName = (newName && newName !== abilityName) ? newName : abilityName;
+      db.prepare(`UPDATE pets SET ability_desc = ?, manual_edit = 1 WHERE ability_name = ?`).run(description, targetName);
+      updates.push('description');
+    }
+
+    // Update icon in pet_details
+    if (icon !== undefined) {
+      const targetName = (newName && newName !== abilityName) ? newName : abilityName;
+      // Get all pet uids with this ability
+      const petUids = db.prepare(`SELECT uid FROM pets WHERE ability_name = ?`).all(targetName).map(r => r.uid);
+      for (const uid of petUids) {
+        // Ensure pet_details row exists
+        const detail = db.prepare(`SELECT pet_uid FROM pet_details WHERE pet_uid = ?`).get(uid);
+        if (detail) {
+          db.prepare(`UPDATE pet_details SET ability_icon = ?, manual_edit = 1 WHERE pet_uid = ?`).run(icon, uid);
+        } else {
+          db.prepare(`INSERT INTO pet_details (pet_uid, ability_icon, manual_edit) VALUES (?, ?, 1)`).run(uid, icon);
+        }
+      }
+      updates.push('icon');
+    }
+
+    res.json({ success: true, updated: updates });
+  } catch (err) {
+    console.error('[Abilities Update]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/abilities/upload-icon
+ * Upload ability icon image
+ */
+router.post('/abilities/upload-icon', authAdmin, handleUpload('file'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: '未选择文件' });
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || '.png';
+    const filename = Date.now() + '_' + Math.random().toString(36).slice(2, 8) + ext;
+    const destDir = path.join(DATA_DIR, 'public', 'pets', 'abilities');
+    fs.mkdirSync(destDir, { recursive: true });
+    const destPath = path.join(destDir, filename);
+    fs.renameSync(req.file.path, destPath);
+
+    const publicPath = `/public/pets/abilities/${filename}`;
+    res.json({ path: publicPath });
+  } catch (err) {
+    console.error('[Abilities Upload Icon]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============================================================
 // 精灵技能管理（pet_skills）
 // ============================================================

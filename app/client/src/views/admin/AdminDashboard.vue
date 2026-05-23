@@ -179,6 +179,7 @@ const navCards = [
   { path: '/admin/skills', title: '技能管理', desc: '编辑技能数据、图标' },
   { path: '/admin/natures', title: '性格管理', desc: '编辑性格属性加减' },
   { path: '/admin/eggs', title: '蛋组管理', desc: '编辑蛋组成员' },
+  { path: '/admin/abilities', title: '特性管理', desc: '管理精灵特性、图标、关联精灵' },
   { path: '/admin/seasons', title: '赛季管理', desc: '配置通行证/限定/异色精灵' },
   { path: '/admin/events', title: '活动管理', desc: '配置当前赛季活动日历' },
   { path: '/admin/pika', title: '皮卡月刊', desc: '配置角色时装、绑定精灵' },

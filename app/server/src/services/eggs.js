@@ -17,7 +17,8 @@ function getById(id) {
   if (!group) return null;
 
   const pets = db.prepare(`
-    SELECT p.pet_id, MIN(p.uid) as uid, p.name, p.image_url, p.thumb_url,
+    SELECT p.pet_id, MIN(p.uid) as uid, p.name,
+           COALESCE(p.thumb_url, p.image_url) as image_url, p.thumb_url,
            e.name as element_name, e.color as element_color, e.icon as element_icon,
            MAX(peg.manual_edit) as manual_edit
     FROM pet_egg_groups peg

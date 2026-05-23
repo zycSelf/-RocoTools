@@ -28,7 +28,7 @@
         <router-link v-for="pet in pets" :key="pet.uid"
           :to="`/pets/${pet.uid}`"
           class="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 lg:p-3.5 rounded-lg bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors">
-          <img v-if="pet.image_url" :src="pet.image_url" class="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 object-contain flex-shrink-0" loading="lazy" />
+          <img v-if="pet.image_url || pet.thumb_url" :src="pet.thumb_url || pet.image_url" class="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 object-contain flex-shrink-0" loading="lazy" />
           <div class="min-w-0">
             <div class="text-sm sm:text-base font-medium truncate">{{ pet.name }}</div>
             <div class="flex items-center gap-1.5 mt-0.5 sm:mt-1">
