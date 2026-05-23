@@ -59,7 +59,7 @@ function normalizeEvolutionChain(database, raw) {
   }).filter(route => route.length > 0);
 }
 
-function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc' } = {}) {
+function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc', all_variants } = {}) {
   const safeLimit = Math.min(Math.max(1, +limit), 200);
   const offset = (Math.max(1, +page) - 1) * safeLimit;
 
@@ -71,8 +71,10 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
   let params = [];
   let joins = '';
 
-  // 只取每个 pet_id 的第一个形态（uid 最小的）
-  where.push(`p.uid = (SELECT MIN(p2.uid) FROM pets p2 WHERE p2.pet_id = p.pet_id)`);
+  // 只取每个 pet_id 的第一个形态（uid 最小的），除非指定 all_variants
+  if (!all_variants) {
+    where.push(`p.uid = (SELECT MIN(p2.uid) FROM pets p2 WHERE p2.pet_id = p.pet_id)`);
+  }
 
   if (element_id) { where.push('(p.element_id = ? OR p.sub_element_id = ?)'); params.push(+element_id, +element_id); }
   if (search) { where.push('p.name LIKE ?'); params.push(`%${search}%`); }

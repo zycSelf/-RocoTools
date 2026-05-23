@@ -1,11 +1,14 @@
 <template>
   <div class="relative">
     <!-- 已选中 -->
-    <div v-if="selectedPet" class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-white/5">
-      <img :src="selectedPet.thumb_url || selectedPet.image_url" class="w-10 h-10 object-contain rounded" />
+    <div v-if="selectedPet" class="flex items-center rounded-lg bg-gray-50 dark:bg-white/5"
+      :class="compact ? 'gap-1.5 p-1.5' : 'gap-2 p-2'">
+      <img :src="selectedPet.thumb_url || selectedPet.image_url"
+        class="object-contain rounded flex-shrink-0"
+        :class="compact ? 'w-6 h-6' : 'w-10 h-10'" />
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium truncate">{{ selectedPet.name }}</div>
-        <div class="text-xs text-muted">{{ selectedPet.uid }}</div>
+        <div class="font-medium truncate" :class="compact ? 'text-xs' : 'text-sm'">{{ selectedPet.name }}</div>
+        <div v-if="!compact" class="text-xs text-muted">{{ selectedPet.uid }}</div>
       </div>
       <button @click="clear" class="text-xs text-primary-500 hover:underline flex-shrink-0">更换</button>
     </div>
@@ -115,6 +118,8 @@ const { isDark } = useTheme()
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '搜索精灵（名称/编号）' },
+  allVariants: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -133,7 +138,7 @@ function searchDebounced() {
   timer = setTimeout(async () => {
     loading.value = true
     try {
-      const res = await petsApi.list({ search: query.value.trim(), limit: 20 })
+      const res = await petsApi.list({ search: query.value.trim(), limit: 20, all_variants: props.allVariants || undefined })
       results.value = res.pets || []
     } catch { results.value = [] }
     loading.value = false
@@ -186,6 +191,7 @@ async function browseFetch() {
       search: browseQuery.value.trim(),
       element_id: browseElement.value,
       limit: 60, page: 1,
+      all_variants: props.allVariants || undefined,
     })
     browsePets.value = res.pets || []
     browseTotal.value = res.total || 0
@@ -199,6 +205,7 @@ async function browseMore() {
       search: browseQuery.value.trim(),
       element_id: browseElement.value,
       limit: 60, page: browsePage.value,
+      all_variants: props.allVariants || undefined,
     })
     browsePets.value.push(...(res.pets || []))
   } catch (err) { console.error("[PetPicker]", err) }

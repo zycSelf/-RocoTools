@@ -290,6 +290,8 @@
                         :model-value="stage.evolve_condition.pet_uid || ''"
                         @update:model-value="(uid) => onConditionPetSelect(rIdx, sIdx, uid)"
                         placeholder="选择精灵..."
+                        all-variants
+                        compact
                       />
                     </div>
                   </div>
