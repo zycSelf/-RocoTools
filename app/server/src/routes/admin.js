@@ -50,6 +50,24 @@ function isPathWithin(filepath, allowedDir) {
   return resolved.startsWith(dir + path.sep) || resolved === dir;
 }
 
+/**
+ * Sync variants_map for a given pet_id
+ * Rebuilds the mapping by finding all uids with the same pet_id in pets table
+ * @param {object} db - writable database instance (caller is responsible for closing)
+ * @param {string} petId - the pet_id to sync
+ */
+function syncVariantsMap(db, petId) {
+  // Find all uids for this pet_id, ordered by uid (natural order: pet_011, pet_011_1, pet_011_2)
+  const uids = db.prepare('SELECT uid FROM pets WHERE pet_id = ? ORDER BY uid').all(petId).map(r => r.uid);
+  // Delete existing entries for this pet_id
+  db.prepare('DELETE FROM variants_map WHERE pet_id = ?').run(petId);
+  // Re-insert if there are multiple variants
+  if (uids.length > 0) {
+    const insert = db.prepare('INSERT INTO variants_map (pet_id, pet_uid, sort_order) VALUES (?, ?, ?)');
+    uids.forEach((uid, i) => insert.run(petId, uid, i));
+  }
+}
+
 /** 安全解析 JSON 文件（损坏时返回默认值） */
 function safeReadJSON(filepath, fallback = []) {
   try {
@@ -335,6 +353,17 @@ router.put('/data/:table/:id', (req, res) => {
   if (manualEditTables.includes(table)) {
     const fullSet = setClauses + ', manual_edit = 1';
     const result = db.prepare(`UPDATE ${table} SET ${fullSet} WHERE ${config.primaryKey} = ?`).run(...values, id);
+
+    // Auto-sync variants_map when updating a pet (pet_id might change)
+    if (table === 'pets') {
+      const pet = db.prepare('SELECT pet_id FROM pets WHERE uid = ?').get(id);
+      if (pet) syncVariantsMap(db, pet.pet_id);
+      // If pet_id was changed, also sync the old pet_id group
+      if (updates.pet_id && updates.pet_id !== pet?.pet_id) {
+        syncVariantsMap(db, updates.pet_id);
+      }
+    }
+
     db.close();
     if (result.changes === 0) return res.status(404).json({ error: '记录不存在' });
     return res.json({ success: true, changes: result.changes });
@@ -389,6 +418,12 @@ router.post('/data/:table', (req, res) => {
       }
     }
     const result = db.prepare(`INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`).run(...values);
+
+    // Auto-sync variants_map when creating a pet
+    if (table === 'pets' && req.body.pet_id) {
+      syncVariantsMap(db, req.body.pet_id);
+    }
+
     db.close();
     res.json({ success: true, id: result.lastInsertRowid });
   } catch (err) {
@@ -580,7 +615,21 @@ router.delete('/data/:table/:id', (req, res) => {
   if (!config) return res.status(400).json({ error: '无效的表名' });
 
   const db = getWriteDb();
+
+  // For pets table, get pet_id before deletion to sync variants_map after
+  let petId = null;
+  if (table === 'pets') {
+    const pet = db.prepare('SELECT pet_id FROM pets WHERE uid = ?').get(id);
+    if (pet) petId = pet.pet_id;
+  }
+
   const result = db.prepare(`DELETE FROM ${table} WHERE ${config.primaryKey} = ?`).run(id);
+
+  // Sync variants_map after deleting a pet
+  if (table === 'pets' && petId) {
+    syncVariantsMap(db, petId);
+  }
+
   db.close();
 
   if (result.changes === 0) return res.status(404).json({ error: '记录不存在' });
