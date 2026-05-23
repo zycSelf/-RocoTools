@@ -24,6 +24,27 @@ app/
 │   │   │   └── authAdmin.js    # JWT 管理端鉴权
 │   │   ├── services/           # 数据查询层（核心，环境无关）
 │   │   ├── routes/             # Express 路由
+│   │   │   ├── admin/          # 管理端路由（模块化拆分）
+│   │   │   │   ├── index.js    # 主入口（登录 + 鉴权 + 子路由挂载）
+│   │   │   │   ├── utils.js    # 公共工具函数 + 配置常量
+│   │   │   │   ├── crud.js     # 通用表 CRUD
+│   │   │   │   ├── navTabs.js  # 导航标签管理
+│   │   │   │   ├── pika.js     # 皮卡月刊 + 活动同步
+│   │   │   │   ├── upload.js   # 图片上传（WebP/缩略图生成）
+│   │   │   │   ├── conflicts.js # 数据审查（爬虫冲突）
+│   │   │   │   ├── backup.js   # 数据库备份/恢复/快照
+│   │   │   │   ├── library.js  # 素材库（上传/目录/重命名）
+│   │   │   │   ├── media.js    # 统一素材管理（全局浏览/删除）
+│   │   │   │   ├── export.js   # Excel 导出
+│   │   │   │   └── petSkills.js # 精灵技能/蛋组/特性管理
+│   │   │   ├── pets.js         # 精灵 API
+│   │   │   ├── skills.js       # 技能 API
+│   │   │   ├── elements.js     # 属性 API
+│   │   │   ├── eggs.js         # 蛋组 API
+│   │   │   ├── natures.js      # 性格 API
+│   │   │   ├── seasons.js      # 赛季 API
+│   │   │   ├── events.js       # 活动 API
+│   │   │   └── pika.js         # 皮卡月刊 API
 │   │   └── db/                 # SQLite 管理（schema + import + init）
 │   ├── data/                   # SQLite 数据库 + 备份（运行时生成）
 │   └── public/                 # 前端构建产物（build 后生成）

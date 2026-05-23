@@ -54,7 +54,11 @@
 │   └── public/             # 图片静态资源
 ├── app/
 │   ├── server/             # Express 后台（SQLite + RESTful API）
-│   │   ├── src/            # 路由、Service、数据库
+│   │   ├── src/
+│   │   │   ├── routes/     # API 路由
+│   │   │   │   └── admin/  # 管理端（模块化：12 个子文件）
+│   │   │   ├── services/   # 数据查询层
+│   │   │   └── db/         # 数据库管理
 │   │   ├── scripts/        # 工具脚本（进化链同步等）
 │   │   ├── gen_thumbnails.js  # 缩略图生成
 │   │   ├── gen_webp.js     # WebP 批量转换

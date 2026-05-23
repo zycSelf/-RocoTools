@@ -26,7 +26,7 @@
 管理端路由 (`/api/admin/*`) 配置了全局中间件，**所有非 GET 请求成功后自动调用 `clearCache()`**：
 
 ```javascript
-// admin.js 全局中间件
+// admin/index.js 全局中间件
 router.use((req, res, next) => {
   if (req.method === 'GET') return next();
   const originalJson = res.json.bind(res);
