@@ -250,7 +250,7 @@
                   <!-- Skill condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'skill'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">使用</span>
-                    <input v-model="stage.evolve_condition.skill_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.skill_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
                     <span class="text-[10px] text-muted">次</span>
                     <input v-model="stage.evolve_condition.skill_name" class="input flex-1 min-w-[80px] text-xs" placeholder="技能名称" />
                     <label class="flex items-center gap-1 text-[10px] text-muted cursor-pointer">
@@ -261,7 +261,7 @@
                   <!-- Element condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'element'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">击败</span>
-                    <input v-model="stage.evolve_condition.element_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.element_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
                     <span class="text-[10px] text-muted">只</span>
                     <select v-model="stage.evolve_condition.element_name" class="input flex-1 min-w-[60px] text-xs">
                       <option value="">选择属性</option>
@@ -272,9 +272,15 @@
                   <!-- Pet condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'pet'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">击败</span>
-                    <input v-model="stage.evolve_condition.pet_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.pet_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
                     <span class="text-[10px] text-muted">次</span>
-                    <input v-model="stage.evolve_condition.pet_name" class="input flex-1 min-w-[80px] text-xs" placeholder="精灵名称" />
+                    <div class="flex-1 min-w-[120px]">
+                      <PetPicker
+                        :model-value="stage.evolve_condition.pet_uid || ''"
+                        @update:model-value="(uid) => onConditionPetSelect(rIdx, sIdx, uid)"
+                        placeholder="选择精灵..."
+                      />
+                    </div>
                   </div>
                 </div>
                 <div v-if="!stage.pet_uid" class="flex items-center gap-2">
@@ -638,7 +644,25 @@ function onConditionTypeChange(routeIdx, stageIdx, type) {
   } else if (type === 'element') {
     stage.evolve_condition = { type: 'element', element_name: '', element_count: 1 }
   } else if (type === 'pet') {
-    stage.evolve_condition = { type: 'pet', pet_name: '', pet_count: 1 }
+    stage.evolve_condition = { type: 'pet', pet_name: '', pet_uid: '', pet_count: 1 }
+  }
+}
+
+/** Handle pet selection in pet-type evolve condition */
+async function onConditionPetSelect(routeIdx, stageIdx, petUid) {
+  const cond = evolutionRoutes.value[routeIdx][stageIdx].evolve_condition
+  if (!cond) return
+  if (!petUid) {
+    cond.pet_uid = ''
+    cond.pet_name = ''
+    return
+  }
+  cond.pet_uid = petUid
+  try {
+    const pet = await petsApi.get(petUid)
+    cond.pet_name = pet.name || ''
+  } catch {
+    cond.pet_name = petUid
   }
 }
 
@@ -657,8 +681,8 @@ function serializeCondition(cond) {
     return { type: 'element', element_name: cond.element_name.trim(), element_count: cond.element_count || 1 }
   }
   if (cond.type === 'pet') {
-    if (!cond.pet_name?.trim()) return null
-    return { type: 'pet', pet_name: cond.pet_name.trim(), pet_count: cond.pet_count || 1 }
+    if (!cond.pet_name?.trim() && !cond.pet_uid) return null
+    return { type: 'pet', pet_name: cond.pet_name?.trim() || '', pet_uid: cond.pet_uid || '', pet_count: cond.pet_count || 1 }
   }
   return null
 }
