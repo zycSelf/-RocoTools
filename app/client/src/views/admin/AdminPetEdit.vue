@@ -250,9 +250,16 @@
                   <!-- Skill condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'skill'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">使用</span>
-                    <input v-model.number="stage.evolve_condition.skill_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.skill_count" type="number" min="1" class="input w-20 text-xs text-center" placeholder="次数" />
                     <span class="text-[10px] text-muted">次</span>
-                    <input v-model="stage.evolve_condition.skill_name" class="input flex-1 min-w-[80px] text-xs" placeholder="技能名称" />
+                    <div class="flex-1 min-w-[140px]">
+                      <SkillPicker
+                        :model-value="stage.evolve_condition.skill_uid || ''"
+                        @update:model-value="(uid) => onConditionSkillSelect(rIdx, sIdx, uid)"
+                        @selected="(skill) => onConditionSkillInfo(rIdx, sIdx, skill)"
+                        placeholder="搜索技能..."
+                      />
+                    </div>
                     <label class="flex items-center gap-1 text-[10px] text-muted cursor-pointer">
                       <input type="checkbox" v-model="stage.evolve_condition.need_win" class="w-3 h-3" />
                       需战胜
@@ -261,18 +268,22 @@
                   <!-- Element condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'element'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">击败</span>
-                    <input v-model.number="stage.evolve_condition.element_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.element_count" type="number" min="1" class="input w-20 text-xs text-center" placeholder="次数" />
                     <span class="text-[10px] text-muted">只</span>
-                    <select v-model="stage.evolve_condition.element_name" class="input flex-1 min-w-[60px] text-xs">
-                      <option value="">选择属性</option>
-                      <option v-for="elem in elements" :key="elem.id" :value="elem.name">{{ elem.name }}</option>
-                    </select>
+                    <div class="flex-1 min-w-[100px]">
+                      <SearchSelect
+                        :model-value="stage.evolve_condition.element_id ? String(stage.evolve_condition.element_id) : ''"
+                        @update:model-value="(v) => onConditionElementSelect(rIdx, sIdx, v)"
+                        :options="elements.map(e => ({ value: String(e.id), label: e.name, icon: e.icon }))"
+                        placeholder="选择属性"
+                      />
+                    </div>
                     <span class="text-[10px] text-muted">属性精灵</span>
                   </div>
                   <!-- Pet condition -->
                   <div v-else-if="stage.evolve_condition?.type === 'pet'" class="flex-1 flex flex-wrap items-center gap-1.5">
                     <span class="text-[10px] text-muted">击败</span>
-                    <input v-model.number="stage.evolve_condition.pet_count" type="number" min="1" class="input w-14 text-xs text-center" placeholder="次" />
+                    <input v-model.number="stage.evolve_condition.pet_count" type="number" min="1" class="input w-20 text-xs text-center" placeholder="次数" />
                     <span class="text-[10px] text-muted">次</span>
                     <div class="flex-1 min-w-[120px]">
                       <PetPicker
@@ -538,6 +549,7 @@ import { useTheme } from '@/composables/useTheme'
 import SearchSelect from '@/components/shared/SearchSelect.vue'
 import ImageUploader from '@/components/shared/ImageUploader.vue'
 import PetPicker from '@/components/shared/PetPicker.vue'
+import SkillPicker from '@/components/shared/SkillPicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -640,12 +652,47 @@ function onConditionTypeChange(routeIdx, stageIdx, type) {
   if (type === 'text') {
     stage.evolve_condition = { type: 'text', text: '' }
   } else if (type === 'skill') {
-    stage.evolve_condition = { type: 'skill', skill_name: '', skill_count: 1, need_win: false }
+    stage.evolve_condition = { type: 'skill', skill_name: '', skill_uid: '', skill_count: 1, need_win: false }
   } else if (type === 'element') {
-    stage.evolve_condition = { type: 'element', element_name: '', element_count: 1 }
+    stage.evolve_condition = { type: 'element', element_name: '', element_id: null, element_count: 1 }
   } else if (type === 'pet') {
     stage.evolve_condition = { type: 'pet', pet_name: '', pet_uid: '', pet_count: 1 }
   }
+}
+
+/** Handle skill selection in skill-type evolve condition */
+function onConditionSkillSelect(routeIdx, stageIdx, skillUid) {
+  const cond = evolutionRoutes.value[routeIdx][stageIdx].evolve_condition
+  if (!cond) return
+  if (!skillUid) {
+    cond.skill_uid = ''
+    cond.skill_name = ''
+    return
+  }
+  cond.skill_uid = skillUid
+}
+
+/** Handle skill info callback from SkillPicker */
+function onConditionSkillInfo(routeIdx, stageIdx, skill) {
+  const cond = evolutionRoutes.value[routeIdx][stageIdx].evolve_condition
+  if (!cond) return
+  if (skill) {
+    cond.skill_name = skill.name || ''
+    cond.skill_uid = skill.uid || ''
+  } else {
+    cond.skill_name = ''
+    cond.skill_uid = ''
+  }
+}
+
+/** Handle element selection in element-type evolve condition */
+function onConditionElementSelect(routeIdx, stageIdx, elemIdStr) {
+  const cond = evolutionRoutes.value[routeIdx][stageIdx].evolve_condition
+  if (!cond) return
+  const elemId = elemIdStr ? Number(elemIdStr) : null
+  cond.element_id = elemId
+  const elem = elements.value.find(e => e.id === elemId)
+  cond.element_name = elem ? elem.name : ''
 }
 
 /** Handle pet selection in pet-type evolve condition */
@@ -673,12 +720,12 @@ function serializeCondition(cond) {
     return cond.text?.trim() ? { type: 'text', text: cond.text.trim() } : null
   }
   if (cond.type === 'skill') {
-    if (!cond.skill_name?.trim()) return null
-    return { type: 'skill', skill_name: cond.skill_name.trim(), skill_count: cond.skill_count || 1, need_win: !!cond.need_win }
+    if (!cond.skill_uid && !cond.skill_name?.trim()) return null
+    return { type: 'skill', skill_name: cond.skill_name?.trim() || '', skill_uid: cond.skill_uid || '', skill_count: cond.skill_count || 1, need_win: !!cond.need_win }
   }
   if (cond.type === 'element') {
-    if (!cond.element_name?.trim()) return null
-    return { type: 'element', element_name: cond.element_name.trim(), element_count: cond.element_count || 1 }
+    if (!cond.element_id && !cond.element_name?.trim()) return null
+    return { type: 'element', element_name: cond.element_name?.trim() || '', element_id: cond.element_id || null, element_count: cond.element_count || 1 }
   }
   if (cond.type === 'pet') {
     if (!cond.pet_name?.trim() && !cond.pet_uid) return null
