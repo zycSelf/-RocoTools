@@ -14,6 +14,47 @@ function getShinyList() {
   return rows.map(r => ({ uid: r.pet_uid, image_shiny: r.image_shiny }));
 }
 
+/**
+ * Normalize evolution_chain from DB into a 2D array (multi-route format).
+ * Supports 3 legacy formats:
+ *   1. String array: ["喵喵", "喵呜", "魔力猫"]
+ *   2. Object array: [{name, evolve_level, evolve_condition}, ...]
+ *   3. 2D array (new): [[{name, evolve_level, ...}, ...], [...]]
+ * Always returns: [[{name, evolve_level, evolve_condition, uid, thumb_url}, ...], ...]
+ */
+function normalizeEvolutionChain(database, raw) {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+
+  let routes;
+
+  // Detect format: if first element is an array → already 2D
+  if (Array.isArray(raw[0])) {
+    routes = raw;
+  } else {
+    // 1D array (string or object) → wrap as single route
+    routes = [raw];
+  }
+
+  const evoLookup = database.prepare('SELECT uid, name, thumb_url, image_url FROM pets WHERE name = ? LIMIT 1');
+
+  return routes.map(route => {
+    if (!Array.isArray(route)) return [];
+    return route.map(stage => {
+      const name = typeof stage === 'string' ? stage : stage.name;
+      const evolve_level = typeof stage === 'string' ? null : (stage.evolve_level || null);
+      const evolve_condition = typeof stage === 'string' ? null : (stage.evolve_condition || null);
+      const match = evoLookup.get(name);
+      return {
+        name,
+        evolve_level,
+        evolve_condition,
+        uid: match ? match.uid : null,
+        thumb_url: match ? (match.thumb_url || match.image_url) : null,
+      };
+    });
+  }).filter(route => route.length > 0);
+}
+
 function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc' } = {}) {
   const safeLimit = Math.min(Math.max(1, +limit), 200);
   const offset = (Math.max(1, +page) - 1) * safeLimit;
@@ -79,24 +120,7 @@ function getByUid(uid) {
 
   const detail = db.prepare('SELECT * FROM pet_details WHERE pet_uid = ?').get(pet.uid);
   if (detail) {
-    detail.evolution_chain = JSON.parse(detail.evolution_chain || '[]');
-    // Enrich evolution chain with uid and thumb_url for frontend display
-    if (detail.evolution_chain.length) {
-      const evoLookup = db.prepare('SELECT uid, name, thumb_url, image_url FROM pets WHERE name = ? LIMIT 1');
-      detail.evolution_chain = detail.evolution_chain.map(stage => {
-        const name = typeof stage === 'string' ? stage : stage.name;
-        const evolve_level = typeof stage === 'string' ? null : (stage.evolve_level || null);
-        const evolve_condition = typeof stage === 'string' ? null : (stage.evolve_condition || null);
-        const match = evoLookup.get(name);
-        return {
-          name,
-          evolve_level,
-          evolve_condition,
-          uid: match ? match.uid : null,
-          thumb_url: match ? (match.thumb_url || match.image_url) : null,
-        };
-      });
-    }
+    detail.evolution_chain = normalizeEvolutionChain(db, JSON.parse(detail.evolution_chain || '[]'));
     detail.restrain_strong = JSON.parse(detail.restrain_strong || '[]');
     detail.restrain_weak = JSON.parse(detail.restrain_weak || '[]');
     detail.restrain_resist = JSON.parse(detail.restrain_resist || '[]');

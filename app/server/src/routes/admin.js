@@ -71,6 +71,7 @@ function syncVariantsMap(db, petId) {
 /**
  * Sync evolution_chain to all pets in the chain.
  * When one pet's evolution chain is saved, propagate the same chain to all other pets referenced in it.
+ * Supports both 1D (single route) and 2D (multi-route) formats.
  * @param {object} db - writable database connection
  * @param {string} currentPetUid - the pet_uid that triggered the save
  * @param {string|null} evoChainJson - the evolution_chain JSON string (or null to clear)
@@ -85,16 +86,32 @@ function syncEvolutionChain(db, currentPetUid, evoChainJson) {
 
   if (!Array.isArray(chain) || chain.length === 0) return;
 
-  // Find all pet uids in the chain (by name lookup)
+  // Normalize to 2D array
+  let routes;
+  if (Array.isArray(chain[0])) {
+    routes = chain; // Already 2D
+  } else {
+    routes = [chain]; // Wrap 1D as single route
+  }
+
+  // Collect all unique pet names across all routes
+  const allNames = new Set();
+  for (const route of routes) {
+    if (!Array.isArray(route)) continue;
+    for (const stage of route) {
+      const name = typeof stage === 'string' ? stage : stage.name;
+      if (name) allNames.add(name);
+    }
+  }
+
+  // Find all pet uids in the chain (by name lookup) and sync
   const findPet = db.prepare('SELECT uid FROM pets WHERE name = ? LIMIT 1');
   const upsertDetail = db.prepare(
     `INSERT INTO pet_details (pet_uid, evolution_chain, manual_edit) VALUES (?, ?, 1)
      ON CONFLICT(pet_uid) DO UPDATE SET evolution_chain = excluded.evolution_chain, manual_edit = 1`
   );
 
-  for (const stage of chain) {
-    const name = typeof stage === 'string' ? stage : stage.name;
-    if (!name) continue;
+  for (const name of allNames) {
     const match = findPet.get(name);
     if (!match || match.uid === currentPetUid) continue; // Skip self (already saved) and unknown pets
     upsertDetail.run(match.uid, evoChainJson);
@@ -2168,6 +2185,19 @@ router.get('/export-excel', (req, res) => {
       try {
         const arr = JSON.parse(val);
         if (!Array.isArray(arr)) return val;
+        // Handle 2D array (e.g. evolution_chain multi-route: [[{name, evolve_level},...], [...]])
+        if (arr.length > 0 && Array.isArray(arr[0])) {
+          return arr.map((route, i) => {
+            const routeStr = route.map(item => {
+              if (typeof item === 'string') return item;
+              if (item.name && 'evolve_level' in item) {
+                return item.evolve_level ? `${item.name}(Lv${item.evolve_level})` : item.name;
+              }
+              return item.name || JSON.stringify(item);
+            }).join('→');
+            return arr.length > 1 ? `路线${i + 1}: ${routeStr}` : routeStr;
+          }).join(' | ');
+        }
         // Handle array of objects (e.g. evolution_chain: [{name, evolve_level}])
         return arr.map(item => {
           if (typeof item === 'string') return item;

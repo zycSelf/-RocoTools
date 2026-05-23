@@ -187,60 +187,71 @@
 
     <!-- 进化链配置 -->
     <div class="card mb-4">
-      <h2 class="font-roco text-base text-primary-500 mb-3">进化链 <span class="text-xs text-muted font-normal">（选填）</span></h2>
-      <p class="text-xs text-muted mb-3">配置精灵的进化路线，按进化顺序排列。可通过精灵选取组件选择已有精灵，或手动输入名称。</p>
+      <h2 class="font-roco text-base text-primary-500 mb-3">进化链 <span class="text-xs text-muted font-normal">（选填，支持多条进化路线）</span></h2>
+      <p class="text-xs text-muted mb-3">配置精灵的进化路线。如果精灵有分支进化（如书魔虫→古卷匣魔像 / 书魔虫→另一形态），请添加多条路线。保存后会自动同步到所有路线中的精灵。</p>
 
-      <div v-if="evolutionChain.length === 0" class="text-xs text-muted py-3 text-center">暂未配置进化链</div>
+      <div v-if="evolutionRoutes.length === 0" class="text-xs text-muted py-3 text-center">暂未配置进化链</div>
 
-      <div v-else class="space-y-3 mb-3">
-        <div v-for="(stage, idx) in evolutionChain" :key="idx"
-          class="flex items-center gap-3 p-3 rounded-lg border transition-colors"
-          :class="isDark ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'">
-          <!-- Stage number + move arrows -->
-          <div class="flex flex-col items-center gap-0.5 flex-shrink-0 w-7">
-            <button v-if="idx > 0" @click="moveEvoStage(idx, -1)"
-              class="w-5 h-5 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-600 hover:bg-primary-500 hover:text-white text-gray-500 dark:text-gray-300 text-[10px] transition-colors" title="上移">▲</button>
-            <span v-else class="h-5"></span>
-            <span class="text-xs font-bold text-primary-500 leading-none">{{ idx + 1 }}</span>
-            <button v-if="idx < evolutionChain.length - 1" @click="moveEvoStage(idx, 1)"
-              class="w-5 h-5 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-600 hover:bg-primary-500 hover:text-white text-gray-500 dark:text-gray-300 text-[10px] transition-colors" title="下移">▼</button>
-            <span v-else class="h-5"></span>
+      <!-- Routes -->
+      <div v-else class="space-y-4 mb-3">
+        <div v-for="(route, rIdx) in evolutionRoutes" :key="rIdx"
+          class="rounded-xl border p-3"
+          :class="isDark ? 'border-gray-600 bg-gray-800/30' : 'border-gray-300 bg-white'">
+          <!-- Route header -->
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-primary-500">路线 {{ rIdx + 1 }}</span>
+            <button @click="removeEvoRoute(rIdx)" class="text-red-400 hover:text-red-600 text-xs" title="删除此路线">删除路线</button>
           </div>
 
-          <!-- Pet selection + level -->
-          <div class="flex-1 min-w-0 flex flex-col gap-2">
-            <div class="flex items-center gap-2">
-              <!-- Use PetPicker for selection -->
-              <div class="flex-1 min-w-0">
-                <PetPicker
-                  :model-value="stage.pet_uid || ''"
-                  @update:model-value="(uid) => onEvoStageSelect(idx, uid)"
-                  placeholder="选择精灵..."
-                />
+          <!-- Stages in this route -->
+          <div class="space-y-2 mb-2">
+            <div v-for="(stage, sIdx) in route" :key="sIdx"
+              class="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
+              :class="isDark ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50'">
+              <!-- Stage number + move arrows -->
+              <div class="flex flex-col items-center gap-0.5 flex-shrink-0 w-6">
+                <button v-if="sIdx > 0" @click="moveEvoStage(rIdx, sIdx, -1)"
+                  class="w-4 h-4 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-600 hover:bg-primary-500 hover:text-white text-gray-500 dark:text-gray-300 text-[9px] transition-colors" title="上移">▲</button>
+                <span v-else class="h-4"></span>
+                <span class="text-[10px] font-bold text-primary-500 leading-none">{{ sIdx + 1 }}</span>
+                <button v-if="sIdx < route.length - 1" @click="moveEvoStage(rIdx, sIdx, 1)"
+                  class="w-4 h-4 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-600 hover:bg-primary-500 hover:text-white text-gray-500 dark:text-gray-300 text-[9px] transition-colors" title="下移">▼</button>
+                <span v-else class="h-4"></span>
               </div>
-              <!-- Evolve level -->
-              <div class="w-20 flex-shrink-0">
-                <input v-model="stage.evolve_level" class="input w-full text-sm text-center" placeholder="等级" type="number" min="1" />
+
+              <!-- Pet selection + level + condition -->
+              <div class="flex-1 min-w-0 flex flex-col gap-1.5">
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 min-w-0">
+                    <PetPicker
+                      :model-value="stage.pet_uid || ''"
+                      @update:model-value="(uid) => onEvoStageSelect(rIdx, sIdx, uid)"
+                      placeholder="选择精灵..."
+                    />
+                  </div>
+                  <div class="w-16 flex-shrink-0">
+                    <input v-model="stage.evolve_level" class="input w-full text-xs text-center" placeholder="等级" type="number" min="1" />
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input v-model="stage.evolve_condition" class="input flex-1 text-xs" placeholder="进化条件（选填，如：使用火之石）" />
+                </div>
+                <div v-if="!stage.pet_uid" class="flex items-center gap-2">
+                  <span class="text-[10px] text-muted flex-shrink-0">手动：</span>
+                  <input v-model="stage.name" class="input flex-1 text-xs" placeholder="精灵名称（未入库时使用）" />
+                </div>
               </div>
-            </div>
-            <!-- Evolve condition (optional text) -->
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] text-muted flex-shrink-0">进化条件：</span>
-              <input v-model="stage.evolve_condition" class="input flex-1 text-xs" placeholder="特殊进化条件（选填，如：使用火之石）" />
-            </div>
-            <!-- Manual name input (fallback for pets not in DB) -->
-            <div v-if="!stage.pet_uid" class="flex items-center gap-2">
-              <span class="text-[10px] text-muted flex-shrink-0">或手动输入：</span>
-              <input v-model="stage.name" class="input flex-1 text-xs" placeholder="精灵名称（未入库时使用）" />
+
+              <!-- Delete stage -->
+              <button @click="removeEvoStage(rIdx, sIdx)" class="text-red-400 hover:text-red-600 text-sm flex-shrink-0 w-5 text-center" title="删除">✕</button>
             </div>
           </div>
 
-          <!-- Delete -->
-          <button @click="removeEvoStage(idx)" class="text-red-400 hover:text-red-600 text-lg flex-shrink-0 w-6 text-center" title="删除">✕</button>
+          <button @click="addEvoStage(rIdx)" class="text-[11px] text-primary-500 hover:underline">+ 添加阶段</button>
         </div>
       </div>
 
-      <button @click="addEvoStage" class="text-xs text-primary-500 hover:underline">+ 添加进化阶段</button>
+      <button @click="addEvoRoute" class="text-xs text-primary-500 hover:underline">+ 添加进化路线</button>
     </div>
 
     <!-- 蛋组配置 -->
@@ -520,27 +531,40 @@ const form = ref({
 
 const detailForm = ref({ height: '', weight: '', location: '' })
 
-// Evolution chain
-const evolutionChain = ref([])
+// Evolution chain - multi-route format: [[{name, evolve_level, evolve_condition, pet_uid, thumb_url}, ...], ...]
+const evolutionRoutes = ref([])
 
-function addEvoStage() {
-  evolutionChain.value.push({ name: '', evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' })
+function addEvoRoute() {
+  evolutionRoutes.value.push([])
 }
 
-function removeEvoStage(idx) {
-  evolutionChain.value.splice(idx, 1)
+function removeEvoRoute(routeIdx) {
+  evolutionRoutes.value.splice(routeIdx, 1)
 }
 
-function moveEvoStage(idx, dir) {
-  const target = idx + dir
-  if (target < 0 || target >= evolutionChain.value.length) return
-  const temp = evolutionChain.value[idx]
-  evolutionChain.value[idx] = evolutionChain.value[target]
-  evolutionChain.value[target] = temp
+function addEvoStage(routeIdx) {
+  evolutionRoutes.value[routeIdx].push({ name: '', evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' })
 }
 
-async function onEvoStageSelect(idx, petUid) {
-  const stage = evolutionChain.value[idx]
+function removeEvoStage(routeIdx, stageIdx) {
+  evolutionRoutes.value[routeIdx].splice(stageIdx, 1)
+  // Remove route if empty
+  if (evolutionRoutes.value[routeIdx].length === 0) {
+    evolutionRoutes.value.splice(routeIdx, 1)
+  }
+}
+
+function moveEvoStage(routeIdx, stageIdx, dir) {
+  const route = evolutionRoutes.value[routeIdx]
+  const target = stageIdx + dir
+  if (target < 0 || target >= route.length) return
+  const temp = route[stageIdx]
+  route[stageIdx] = route[target]
+  route[target] = temp
+}
+
+async function onEvoStageSelect(routeIdx, stageIdx, petUid) {
+  const stage = evolutionRoutes.value[routeIdx][stageIdx]
   if (!petUid) {
     stage.pet_uid = ''
     stage.name = ''
@@ -557,6 +581,21 @@ async function onEvoStageSelect(idx, petUid) {
     stage.name = petUid
     stage.thumb_url = ''
   }
+}
+
+/** Serialize evolution routes to JSON for saving (2D array format) */
+function serializeEvoChain() {
+  const validRoutes = evolutionRoutes.value
+    .map(route => route.filter(s => s.name?.trim()))
+    .filter(route => route.length > 0)
+  if (validRoutes.length === 0) return null
+  return JSON.stringify(validRoutes.map(route =>
+    route.map(s => ({
+      name: s.name.trim(),
+      evolve_level: s.evolve_level || null,
+      evolve_condition: s.evolve_condition?.trim() || null,
+    }))
+  ))
 }
 
 // Egg groups
@@ -744,17 +783,17 @@ async function loadData() {
       detailForm.value = {
         height: data.detail.height, weight: data.detail.weight, location: data.detail.location,
       }
-      // Load evolution chain (raw JSON from DB, already parsed by backend)
-      evolutionChain.value = (data.detail.evolution_chain || []).map(stage => {
-        if (typeof stage === 'string') return { name: stage, evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' }
-        return {
+      // Load evolution chain (backend now returns 2D array: [[{name, evolve_level, evolve_condition, uid, thumb_url},...], ...])
+      const rawChain = data.detail.evolution_chain || []
+      evolutionRoutes.value = rawChain.map(route =>
+        route.map(stage => ({
           name: stage.name || '',
           evolve_level: stage.evolve_level || '',
           evolve_condition: stage.evolve_condition || '',
           pet_uid: stage.uid || '',
           thumb_url: stage.thumb_url || '',
-        }
-      })
+        }))
+      )
     }
 
     // Load variants
@@ -828,9 +867,7 @@ async function save() {
       if (!newUid) { await modal.warning('提示', '编号无效'); saving.value = false; return }
       await adminApi.create('pets', { uid: newUid, ...form.value })
       // Create pet_details first so upload UPSERT can find the record
-      const evoChainJson = evolutionChain.value.filter(s => s.name?.trim()).length > 0
-        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null, evolve_condition: s.evolve_condition?.trim() || null })))
-        : null
+      const evoChainJson = serializeEvoChain()
       await adminApi.create('pet_details', { pet_uid: newUid, ...detailForm.value, evolution_chain: evoChainJson })
 
       // Upload all pending images now that the pet exists
@@ -882,9 +919,7 @@ async function save() {
       router.replace(`/admin/pets/${newUid}`)
     } else {
       await adminApi.update('pets', uid, form.value)
-      const evoChainJson = evolutionChain.value.filter(s => s.name?.trim()).length > 0
-        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null, evolve_condition: s.evolve_condition?.trim() || null })))
-        : null
+      const evoChainJson = serializeEvoChain()
       const detailPayload = { ...detailForm.value, evolution_chain: evoChainJson }
       if (detail.value) {
         await adminApi.update('pet_details', uid, detailPayload)
