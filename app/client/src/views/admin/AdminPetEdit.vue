@@ -7,6 +7,19 @@
       <span v-if="!isNew" class="text-xs text-muted">{{ pet.uid }}</span>
     </div>
 
+    <!-- 形态切换 -->
+    <div v-if="!isNew && variants.length > 1" class="flex items-center gap-1.5 mb-4 flex-wrap">
+      <span class="text-xs text-muted mr-1">形态：</span>
+      <router-link v-for="v in variants" :key="v.pet_uid"
+        :to="'/admin/pets/' + v.pet_uid"
+        class="px-2.5 py-1 rounded-lg text-xs transition-colors"
+        :class="v.pet_uid === route.params.uid
+          ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400 font-medium'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'">
+        {{ v.name }}
+      </router-link>
+    </div>
+
     <!-- 图片区域 -->
     <div class="card mb-4">
       <h2 class="font-roco text-base text-primary-500 mb-3">图片管理</h2>
@@ -413,13 +426,14 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { isDark } = useTheme()
-const uid = route.params.uid
+let uid = route.params.uid
 const isNew = uid === 'new'
 
 const pet = ref(null)
 const detail = ref(null)
 const elements = ref([])
 const abilities = ref([])
+const variants = ref([])
 const loaded = ref(false)
 const saving = ref(false)
 const msg = ref('')
@@ -633,6 +647,9 @@ async function loadData() {
         height: data.detail.height, weight: data.detail.weight, location: data.detail.location,
       }
     }
+
+    // Load variants
+    variants.value = data.variants || []
 
     // Load skills
     await loadSkills()
@@ -927,4 +944,17 @@ async function saveSkills() {
 }
 
 onMounted(loadData)
+
+// Watch route param changes for variant switching (same component reused)
+watch(() => route.params.uid, (newUid) => {
+  if (newUid && newUid !== uid && !isNew) {
+    uid = newUid
+    loaded.value = false
+    previewType.value = 'pet_default'
+    msg.value = ''
+    pendingImages.value = {}
+    pendingPreviews.value = {}
+    loadData()
+  }
+})
 </script>
