@@ -82,6 +82,11 @@ const highlightRules = [
   { pattern: '萌化', color: ELEMENT_COLORS['萌'] },
   { pattern: '寄生', color: ELEMENT_COLORS['草'] },
 
+  // Weather (天气)
+  { pattern: '雨天', color: ELEMENT_COLORS['水'] },
+  { pattern: '雪天', color: ELEMENT_COLORS['冰'] },
+  { pattern: '沙暴', color: ELEMENT_COLORS['地'] },
+
   // Special mechanics
   { pattern: '永久', color: INDEPENDENT['永久'] },
   { pattern: '驱散', color: INDEPENDENT['驱散'] },
