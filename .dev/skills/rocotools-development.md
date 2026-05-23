@@ -66,7 +66,7 @@
 
 7 层数据：**属性(18) → 技能(469+) → 蛋组(15) → 精灵(466+) → 性格(30) → 赛季 → 活动日历**
 
-附加数据：**皮卡月刊**（角色时装，多精灵绑定、男女概念图各一张）
+附加数据：**皮卡月刊**（角色时装，多精灵绑定、男女概念图各一张）、**特性管理**（聚合所有精灵特性）
 
 | 数据 | UID/PK | 存储 |
 |------|--------|------|
@@ -89,6 +89,7 @@
 - **暗色模式**：所有组件必须同时提供亮色和暗色样式
 - **组件规范**：卡片 rounded-xl、按钮 active:scale-95、Tab 金色激活态
 - **CSS 变量 Fallback**：必须使用项目实际的 primary 色值（如 `#D69F23`），禁止使用 `#6366f1`
+- **文本高亮**：技能/特性描述中关键词自动变色，详见 `.dev/skills/roco-text-highlight.md`
 
 ---
 
@@ -192,6 +193,20 @@ pm2 save && pm2 startup
 1. 修改 `crawler/scrapers/` 下的对应爬虫文件
 2. 运行 `python crawler/run.py --update` 进行增量更新
 3. 运行 `python crawler/run.py --full` 进行全量更新
+
+### 任务 6：修改进化链/进化条件
+
+1. 后端数据格式：参考 `.dev/skills/roco-evolution.md`
+2. 管理端 UI：`AdminPetEdit.vue` 中的进化链配置区域
+3. 用户端展示：`PetDetail.vue` 中的进化链展示
+4. 自动同步：`admin.js` 中的 `syncEvolutionChain()` 函数
+5. 批量修复：`app/server/scripts/sync-evolution-chains.js`
+
+### 任务 7：修改文本高亮关键词
+
+1. 在 `SkillDescription.vue` 的 `HIGHLIGHT_KEYWORDS` 数组中添加/修改
+2. 更新 `docs/TEXT_HIGHLIGHT_COLORS.md` 文档
+3. 参考 `.dev/skills/roco-text-highlight.md`
 
 ---
 
@@ -323,11 +338,15 @@ pm2 save && pm2 startup
 |------|------|
 | `.ai-memory.md` | 项目完整记忆（开发规范、数据模型、注意事项） |
 | `README.md` | 用户视角的项目介绍 |
+| `SCRIPTS.md` | 脚本执行手册（所有可手动执行的脚本） |
 | `app/README.md` | App 目录说明（架构、技术栈、快速启动） |
+| `app/ADMIN_RULES.md` | 管理端业务规则（缓存/命名/校验/图片/进化条件等） |
 | `data/FIELDS.md` | 数据字段对照表 |
 | `data/STRUCTURE_RULES.md` | 数据结构化规则 |
 | `app/client/RESPONSIVE.md` | 响应式适配规范 |
 | `app/client/DESIGN.md` | 视觉设计规范（色彩/组件/暗色模式/交互） |
+| `docs/ARCHITECTURE.md` | 工程架构设计图（Mermaid 12张图） |
+| `docs/TEXT_HIGHLIGHT_COLORS.md` | 文本高亮颜色规范（18属性+关键词映射） |
 | `docs/game-notes/*.md` | 游戏设定笔记 |
 
 ---
@@ -341,7 +360,13 @@ pm2 save && pm2 startup
 - [x] 皮卡月刊管理端 + 用户端展示页面 2026-05-22
 - [x] 视觉设计规范文档 (DESIGN.md) 2026-05-22
 - [x] 统一素材管理模块 (AdminMedia + 后端接口 + ImageUploader增强) 2026-05-23
+- [x] 进化链多路线格式（二维数组，支持分支进化） 2026-05-24
+- [x] 进化条件结构化配置（4种类型：文本/技能/属性/精灵） 2026-05-24
+- [x] 文本高亮颜色系统（18属性色+印记+状态+机制关键词） 2026-05-24
+- [x] 特性管理模块 (AdminAbilities) 2026-05-24
+- [x] 工程架构设计图 (docs/ARCHITECTURE.md) 2026-05-24
+- [x] AI Skills 整理（evolution/text-highlight/admin/data-spec/deploy） 2026-05-24
 
 ---
 
-**最后更新：2026-05-23**
+**最后更新：2026-05-24**

@@ -139,11 +139,32 @@ BWIKI → crawler(采集+清洗) → data/(JSON+图片) → sync_db.js → SQLit
 
 ---
 
-## 脚本执行手册
+## 文档索引
 
-所有可手动执行的脚本（爬虫、数据同步、图片处理、构建等）的用途、参数和执行顺序。
+| 文档 | 说明 |
+|------|------|
+| [SCRIPTS.md](./SCRIPTS.md) | 脚本执行手册（爬虫/同步/图片/构建的用途、参数和顺序） |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 工程架构设计图（12张 Mermaid 图：系统架构/数据流/ER图/路由/部署等） |
+| [docs/TEXT_HIGHLIGHT_COLORS.md](./docs/TEXT_HIGHLIGHT_COLORS.md) | 文本高亮颜色规范（18属性色号+关键词映射表） |
+| [app/ADMIN_RULES.md](./app/ADMIN_RULES.md) | 管理端业务规则（缓存/命名/校验/图片/进化条件/Nginx等） |
+| [app/client/DESIGN.md](./app/client/DESIGN.md) | 视觉设计规范（色彩体系/组件样式/暗色模式/交互） |
+| [app/client/RESPONSIVE.md](./app/client/RESPONSIVE.md) | 响应式适配规范（Mobile-first 三端断点） |
+| [data/FIELDS.md](./data/FIELDS.md) | 数据字段对照表 |
+| [data/STRUCTURE_RULES.md](./data/STRUCTURE_RULES.md) | 数据结构化规则 |
+| [docs/game-notes/](./docs/game-notes/) | 游戏设定笔记（战斗/属性/能量/活动/赛季/技能/精灵/皮卡月刊） |
 
-详见 [SCRIPTS.md](./SCRIPTS.md)
+### AI Skills（.dev/skills/）
+
+供 AI 助手开发时参考的技能文档：
+
+| Skill | 说明 |
+|-------|------|
+| [rocotools-development.md](./.dev/skills/rocotools-development.md) | 综合开发 Skill（架构/流程/任务/调试） |
+| [roco-admin.md](./.dev/skills/roco-admin.md) | 管理端开发规范 |
+| [roco-data-spec.md](./.dev/skills/roco-data-spec.md) | 数据结构与命名规范 |
+| [roco-deploy.md](./.dev/skills/roco-deploy.md) | 部署相关流程 |
+| [roco-evolution.md](./.dev/skills/roco-evolution.md) | 进化链与进化条件配置系统 |
+| [roco-text-highlight.md](./.dev/skills/roco-text-highlight.md) | 文本高亮颜色系统 |
 
 ---
 

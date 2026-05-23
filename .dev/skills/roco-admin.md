@@ -22,11 +22,12 @@ src/
 │   ├── Admin.vue          # 登录页
 │   ├── AdminDashboard.vue # 管理首页（概览 + 备份）
 │   ├── AdminPets.vue      # 精灵列表
-│   ├── AdminPetEdit.vue   # 精灵编辑
+│   ├── AdminPetEdit.vue   # 精灵编辑（含进化链多路线配置）
 │   ├── AdminSkills.vue    # 技能列表
 │   ├── AdminSkillEdit.vue # 技能编辑
 │   ├── AdminNatures.vue   # 性格管理
 │   ├── AdminEggs.vue      # 蛋组管理
+│   ├── AdminAbilities.vue # 特性管理（聚合所有精灵特性）
 │   ├── AdminSeasons.vue   # 赛季配置
 │   ├── AdminEvents.vue    # 活动日历管理
 │   ├── AdminPikaMonthlies.vue # 皮卡月刊管理
@@ -261,6 +262,26 @@ const modal = useModal()
 - 禁止使用 indigo/紫色作为主色
 - CSS 变量 fallback 必须使用项目实际的 primary 色值
 - 所有组件必须同时支持亮色和暗色模式
+
+---
+
+## 特性管理
+
+- 路由：`/admin/abilities`
+- 聚合所有精灵的特性（ability_name + ability_desc）
+- 功能：搜索、查看关联精灵、更名、修改描述、更换图标（ImageUploader）
+- 修改特性名称/描述时自动同步到所有关联精灵
+- 图标存储路径：`/public/pets/abilities/{uid}_ability.png`
+
+---
+
+## 进化链管理
+
+- 配置位置：精灵编辑页面（AdminPetEdit.vue）
+- 数据格式：二维数组（多路线），详见 `.dev/skills/roco-evolution.md`
+- 进化条件：结构化对象（4种类型：text/skill/element/pet）
+- 自动同步：保存后自动同步到链中所有精灵
+- 批量脚本：`app/server/scripts/sync-evolution-chains.js`
 
 ---
 
