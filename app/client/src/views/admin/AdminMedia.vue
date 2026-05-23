@@ -188,7 +188,7 @@
           >
             <div class="aspect-square bg-gray-100 dark:bg-gray-800">
               <img 
-                :src="file.url" 
+                :src="file.thumb_path || file.url" 
                 class="w-full h-full object-cover" 
                 loading="lazy" 
                 @error="handleImageError($event)"
@@ -246,7 +246,7 @@
             <div class="w-10 h-10 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0 cursor-pointer"
               @click="openPreview(file.url)">
               <img 
-                :src="file.url" 
+                :src="file.thumb_path || file.url" 
                 class="w-full h-full object-cover" 
                 loading="lazy" 
                 @error="handleImageError($event)"

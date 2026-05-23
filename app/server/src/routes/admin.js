@@ -1445,10 +1445,23 @@ router.get('/media', authAdmin, (req, res) => {
       } else if (IMAGE_EXT.test(entry.name)) {
         try {
           const stat = fs.statSync(fullPath);
+          
+          // For library images, check if thumbnail exists
+          let thumbPath = null;
+          if (urlPrefix.startsWith('/uploads/library')) {
+            const thumbFilename = entry.name.replace(/\.[^.]+$/, '.webp');
+            const relativePath = fullPath.replace(LIBRARY_DIR, '').replace(/^[\\\/]/, '');
+            const thumbFullPath = path.join(LIBRARY_DIR, '.thumbs', relativePath.replace(/\.[^.]+$/, '.webp'));
+            if (fs.existsSync(thumbFullPath)) {
+              thumbPath = `/uploads/library/.thumbs/${relativePath.replace(/\.[^.]+$/, '.webp')}`;
+            }
+          }
+          
           files.push({
             filename: entry.name,
             fullPath: urlPrefix + '/' + entry.name,
             url: urlPrefix + '/' + entry.name,
+            thumb_path: thumbPath || urlPrefix + '/' + entry.name,
             size: stat.size,
             mtime: stat.mtimeMs,
           });
