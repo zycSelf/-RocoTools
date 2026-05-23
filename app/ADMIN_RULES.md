@@ -277,6 +277,44 @@ router.use((req, res, next) => {
 - 切换分类/搜索/子分类时**自动清空已选状态**
 - 防止跨分类误删
 
+### 素材排序规则
+
+后端 `GET /api/admin/library` 和 `GET /api/admin/media` 接口支持 `sort` 查询参数，前端通过下拉选择器切换排序方式。
+
+#### 可选排序模式
+
+| 模式 | 参数值 | 说明 |
+|------|--------|------|
+| 名称升序 | `name_asc` | **默认**，按 displayName 自然排序（中文拼音序 + 数字自然序） |
+| 名称降序 | `name_desc` | 按 displayName 自然排序倒序 |
+| 最新优先 | `time_desc` | 按文件修改时间倒序 |
+| 最早优先 | `time_asc` | 按文件修改时间正序 |
+| 最大优先 | `size_desc` | 按文件大小倒序 |
+| 最小优先 | `size_asc` | 按文件大小正序 |
+
+#### 自然排序算法（Natural Sort）
+
+名称排序使用自然排序算法 `naturalCompare`，规则如下：
+
+1. **去除时间戳前缀**：文件名格式为 `{timestamp}_{原始名}.ext`，排序前先 strip `^\d+_` 前缀
+2. **分段比较**：将文件名拆分为文本段和数字段交替序列
+3. **数字段**：按数值大小比较（`2` < `10`，而非字典序 `"10"` < `"2"`）
+4. **文本段**：使用 `localeCompare('zh-CN')` 比较，中文按拼音排序
+5. **混合段**：数字段优先于文本段
+
+**效果示例**：
+```
+小丑兔.png → 小丑公爵.png → 小丑豆豆.png → 小丑豆豆的果实.png → 小丑豆豆的蛋.png
+概念-1.webp → 概念-2.webp
+九幽-1.webp → 九幽-2.webp → 嘟嘟-1.webp → 嘟嘟-2.webp
+```
+
+#### 排序触发时机
+
+- 切换排序模式时，自动重新请求后端（watch 监听 `sortMode`）
+- 排序在**后端执行**（分页前排序），确保分页结果一致性
+- 前端不做额外排序，直接展示后端返回的顺序
+
 ---
 
 ## 五、管理端页面入口规范
@@ -290,6 +328,26 @@ router.use((req, res, next) => {
 ---
 
 ## 六、Vue 前端代码规范
+
+### HTML 标签闭合
+
+- 每次编辑 `.vue` 文件的 `<template>` 部分后，**必须验证所有 HTML 标签正确闭合**
+- 特别注意 `<div>` / `</div>` 数量匹配（可用 `grep -c` 快速验证）
+- 嵌套结构修改时，确保新增的容器 `<div>` 有对应的 `</div>`
+- 编辑完成后应运行 `npx vite build` 验证无编译错误
+
+### Lint 与构建验证
+
+- 编辑 Vue 文件后，使用 `read_lints` 工具检查 lint 错误
+- 编辑后端 JS 文件后，确认正则表达式语法正确（如 `/pattern/flags` 中无多余空格）
+- 重大修改后运行 `npx vite build --mode development` 确认构建通过
+
+### 导入规范
+
+- Vue 组件中使用 Composition API 必须从 `vue` 完整导入所需函数
+- 示例：`import { ref, computed, onMounted, reactive, watch, nextTick, h } from 'vue'`
+- API 模块必须完整导入，不可使用解构缩写
+- 示例：`import { adminApi } from '@/api/admin'`
 
 ### API 导入
 

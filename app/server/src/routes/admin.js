@@ -36,7 +36,7 @@ router.use((req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = (data) => {
     if (res.statusCode < 400 && data && data.success !== false) {
-      clearCache();
+      try { clearCache(); } catch (e) { console.error('[WARN] clearCache failed:', e.message); }
     }
     return originalJson(data);
   };
@@ -1111,6 +1111,74 @@ router.delete('/backups/season/:name', (req, res) => {
 const LIBRARY_DIR = path.join(DATA_DIR, 'uploads', 'library');
 
 /**
+ * Natural sort comparator for filenames
+ * Handles: Chinese characters (pinyin order), numbers (natural order), suffixes like -1/-2
+ * Strips timestamp prefix (e.g. "1779548009183_") before comparing
+ */
+function naturalCompare(a, b) {
+  // Split into segments of text and numbers
+  const re = /(\d+)|(\D+)/g;
+  const aParts = a.match(re) || [];
+  const bParts = b.match(re) || [];
+  
+  for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+    if (i >= aParts.length) return -1;
+    if (i >= bParts.length) return 1;
+    
+    const aIsNum = /^\d+$/.test(aParts[i]);
+    const bIsNum = /^\d+$/.test(bParts[i]);
+    
+    if (aIsNum && bIsNum) {
+      const diff = parseInt(aParts[i]) - parseInt(bParts[i]);
+      if (diff !== 0) return diff;
+    } else if (aIsNum !== bIsNum) {
+      return aIsNum ? -1 : 1;
+    } else {
+      const cmp = aParts[i].localeCompare(bParts[i], 'zh-CN');
+      if (cmp !== 0) return cmp;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Get the display name from a file entry (strip path prefix and timestamp)
+ */
+function getDisplayName(file) {
+  const basename = (file.filename || '').split('/').pop() || file.filename || '';
+  return basename.replace(/^\d+_/, '');
+}
+
+/**
+ * Sort files array in-place based on sort mode
+ * Supported modes: name_asc, name_desc, time_desc, time_asc, size_desc, size_asc
+ */
+function sortFiles(files, mode) {
+  switch (mode) {
+    case 'name_asc':
+      files.sort((a, b) => naturalCompare(getDisplayName(a), getDisplayName(b)));
+      break;
+    case 'name_desc':
+      files.sort((a, b) => naturalCompare(getDisplayName(b), getDisplayName(a)));
+      break;
+    case 'time_desc':
+      files.sort((a, b) => b.mtime - a.mtime);
+      break;
+    case 'time_asc':
+      files.sort((a, b) => a.mtime - b.mtime);
+      break;
+    case 'size_desc':
+      files.sort((a, b) => (b.size || 0) - (a.size || 0));
+      break;
+    case 'size_asc':
+      files.sort((a, b) => (a.size || 0) - (b.size || 0));
+      break;
+    default:
+      files.sort((a, b) => naturalCompare(getDisplayName(a), getDisplayName(b)));
+  }
+}
+
+/**
  * POST /api/admin/library/upload
  * 上传图片到素材库，支持 folder 参数指定子目录
  */
@@ -1120,12 +1188,14 @@ router.post('/library/upload', authAdmin, handleUpload('file'), async (req, res)
   // Support optional sub-folder (sanitize to prevent path traversal)
   let folder = (req.body.folder || '').trim();
   if (folder) {
-    // Normalize slashes, allow unicode letters/digits/underscore/hyphen/slash (supports Chinese)
-    folder = folder.replace(/\\/g, '/').replace(/[^\p{L}\p{N}_\-\/]/gu, '_');
-    // Remove leading/trailing slashes and prevent path traversal
-    folder = folder.replace(/^\/+|\/+$/g, '').replace(/\.\./g, '');
+    // Normalize slashes, prevent path traversal, strip control characters
+    // Preserve original characters including Chinese punctuation, brackets, etc.
+    folder = folder.replace(/\\/g, '/')
+      .replace(/\.\./g, '')            // Prevent path traversal
+      .replace(/^\/+|\/+$/g, '')       // Strip leading/trailing slashes
+      .replace(/[\x00-\x1f\x7f]/g, '') // Remove control characters
+      .trim();
   }
-
   const targetDir = folder ? path.join(LIBRARY_DIR, folder) : LIBRARY_DIR;
   fs.mkdirSync(targetDir, { recursive: true });
 
@@ -1134,11 +1204,34 @@ router.post('/library/upload', authAdmin, handleUpload('file'), async (req, res)
     return res.status(400).json({ error: '目标目录非法' });
   }
 
-  // 用时间戳+原始文件名避免冲突
   // multer uses latin1 for originalname; decode to utf8 for Chinese filenames
   const rawName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const ext = path.extname(rawName) || '.png';
   const base = path.basename(rawName, ext).replace(/[^\p{L}\p{N}_\-]/gu, '_');
+  
+  // Server-side duplicate check: look for existing file with same base name (ignoring timestamp prefix)
+  const existingFiles = fs.readdirSync(targetDir).filter(f => /\.(png|jpe?g|webp|gif)$/i.test(f));
+  const duplicateFile = existingFiles.find(f => {
+    const existingBase = f.replace(/^\d+_/, ''); // Strip timestamp prefix
+    const newBase = `${base}${ext}`;
+    return existingBase === newBase;
+  });
+  
+  if (duplicateFile) {
+    // Return existing file info instead of uploading duplicate
+    const existingPath = folder 
+      ? `/uploads/library/${folder}/${duplicateFile}`
+      : `/uploads/library/${duplicateFile}`;
+    return res.json({ 
+      success: true, 
+      path: existingPath, 
+      filename: duplicateFile, 
+      skipped: true,
+      message: '文件已存在，跳过上传'
+    });
+  }
+
+  // 用时间戳+原始文件名避免冲突
   const filename = `${Date.now()}_${base}${ext}`;
   const filepath = path.join(targetDir, filename);
   fs.writeFileSync(filepath, req.file.buffer);
@@ -1174,6 +1267,7 @@ router.post('/library/upload', authAdmin, handleUpload('file'), async (req, res)
 router.get('/library', authAdmin, (req, res) => {
   fs.mkdirSync(LIBRARY_DIR, { recursive: true });
   const files = [];
+  const directory = (req.query.directory || '').trim();
 
   function scanLibrary(dir, prefix) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1202,8 +1296,67 @@ router.get('/library', authAdmin, (req, res) => {
     }
   }
 
-  scanLibrary(LIBRARY_DIR, '');
-  files.sort((a, b) => b.mtime - a.mtime);
+  // If directory filter is specified, only scan that directory (non-recursive for direct files)
+  // If no directory and not recursive, show root-level files only
+  const recursive = req.query.recursive === 'true';
+  
+  if (directory) {
+    const targetDir = path.join(LIBRARY_DIR, directory);
+    if (fs.existsSync(targetDir) && isPathWithin(targetDir, LIBRARY_DIR)) {
+      const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name === '.thumbs') continue;
+        if (!entry.isDirectory() && /\.(png|jpe?g|webp|gif)$/i.test(entry.name)) {
+          const fullPath = path.join(targetDir, entry.name);
+          const stat = fs.statSync(fullPath);
+          const prefix = directory + '/';
+          const thumbFilename = entry.name.replace(/\.[^.]+$/, '.webp');
+          const thumbDir = path.join(LIBRARY_DIR, '.thumbs', prefix);
+          const thumbFullPath = path.join(thumbDir, thumbFilename);
+          const thumbPath = fs.existsSync(thumbFullPath)
+            ? `/uploads/library/.thumbs/${prefix}${thumbFilename}`
+            : null;
+          files.push({
+            filename: prefix + entry.name,
+            path: `/uploads/library/${prefix}${entry.name}`,
+            thumb_path: thumbPath || `/uploads/library/${prefix}${entry.name}`,
+            size: stat.size,
+            mtime: stat.mtimeMs,
+          });
+        }
+      }
+    }
+  } else if (recursive) {
+    // Recursive scan all files (used for conflict detection)
+    scanLibrary(LIBRARY_DIR, '');
+  } else {
+    // Root-level files only (no recursion into subdirectories)
+    const entries = fs.readdirSync(LIBRARY_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === '.thumbs') continue;
+      if (!entry.isDirectory() && /\.(png|jpe?g|webp|gif)$/i.test(entry.name)) {
+        const fullPath = path.join(LIBRARY_DIR, entry.name);
+        const stat = fs.statSync(fullPath);
+        const thumbFilename = entry.name.replace(/\.[^.]+$/, '.webp');
+        const thumbDir = path.join(LIBRARY_DIR, '.thumbs');
+        const thumbFullPath = path.join(thumbDir, thumbFilename);
+        const thumbPath = fs.existsSync(thumbFullPath)
+          ? `/uploads/library/.thumbs/${thumbFilename}`
+          : null;
+        files.push({
+          filename: entry.name,
+          path: `/uploads/library/${entry.name}`,
+          thumb_path: thumbPath || `/uploads/library/${entry.name}`,
+          size: stat.size,
+          mtime: stat.mtimeMs,
+        });
+      }
+    }
+  }
+
+  // Sort files based on query parameter
+  const sortMode = (req.query.sort || 'name_asc').trim();
+  sortFiles(files, sortMode);
   
   // Apply pagination
   const page = parseInt(req.query.page) || 1;
@@ -1261,8 +1414,15 @@ router.post('/library/directories', authAdmin, (req, res) => {
   const { path: dirPath } = req.body;
   if (!dirPath) return res.status(400).json({ error: '缺少路径参数' });
   
-  // Sanitize path
-  const safePath = dirPath.replace(/\\/g, '/').replace(/[^\p{L}\p{N}_\-\/]/gu, '_').replace(/^\.\.\//g, '');
+  // Normalize path: fix slashes, prevent traversal, strip control characters
+  const safePath = dirPath.replace(/\\/g, '/')
+    .replace(/\.\./g, '')           // Prevent path traversal
+    .replace(/^\/+|\/+$/g, '')      // Strip leading/trailing slashes
+    .replace(/[\x00-\x1f\x7f]/g, '') // Remove control characters
+    .trim();
+  
+  if (!safePath) return res.status(400).json({ error: '路径非法' });
+  
   const targetDir = path.join(LIBRARY_DIR, safePath);
   
   if (!isPathWithin(targetDir, LIBRARY_DIR)) {
@@ -1285,11 +1445,14 @@ router.put('/library/directories', authAdmin, (req, res) => {
   const { oldPath, newName } = req.body;
   if (!oldPath || !newName) return res.status(400).json({ error: '缺少参数' });
   
-  // Sanitize inputs
-  const safeOldPath = oldPath.replace(/\\/g, '/').replace(/[^\p{L}\p{N}_\-\/]/gu, '_');
-  const safeNewName = newName.replace(/[^\p{L}\p{N}_\-]/gu, '_');
+  // Normalize oldPath: only fix slashes and prevent traversal, preserve original characters
+  const normalizedOldPath = oldPath.replace(/\\/g, '/').replace(/\.\./g, '').replace(/^\/+|\/+$/g, '');
+  // Sanitize newName: allow unicode letters, digits, common punctuation, but no slashes or traversal
+  const safeNewName = newName.replace(/[\/\\]/g, '_').replace(/\.\./g, '').trim();
   
-  const oldDir = path.join(LIBRARY_DIR, safeOldPath);
+  if (!normalizedOldPath || !safeNewName) return res.status(400).json({ error: '参数非法' });
+  
+  const oldDir = path.join(LIBRARY_DIR, normalizedOldPath);
   const parentDir = path.dirname(oldDir);
   const newDir = path.join(parentDir, safeNewName);
   
@@ -1308,48 +1471,84 @@ router.put('/library/directories', authAdmin, (req, res) => {
   fs.renameSync(oldDir, newDir);
   
   // Also rename corresponding thumbnail directory
-  const oldThumbDir = path.join(LIBRARY_DIR, '.thumbs', safeOldPath);
-  const newThumbDir = path.join(LIBRARY_DIR, '.thumbs', path.dirname(safeOldPath), safeNewName);
+  const oldThumbDir = path.join(LIBRARY_DIR, '.thumbs', normalizedOldPath);
+  const parentThumbPath = path.dirname(normalizedOldPath);
+  const newThumbDir = path.join(LIBRARY_DIR, '.thumbs', parentThumbPath === '.' ? '' : parentThumbPath, safeNewName);
   if (fs.existsSync(oldThumbDir)) {
+    fs.mkdirSync(path.dirname(newThumbDir), { recursive: true });
     fs.renameSync(oldThumbDir, newThumbDir);
   }
   
-  res.json({ success: true, newPath: path.join(path.dirname(safeOldPath), safeNewName) });
+  const newPath = parentThumbPath === '.' ? safeNewName : parentThumbPath + '/' + safeNewName;
+  res.json({ success: true, newPath });
 });
 
 /**
- * DELETE /api/admin/library/directories
+ * POST /api/admin/library/directories/delete
  * 删除目录
  */
-router.delete('/library/directories', authAdmin, (req, res) => {
-  const { path: dirPath } = req.body;
-  if (!dirPath) return res.status(400).json({ error: '缺少路径参数' });
-  
-  const safePath = dirPath.replace(/\\/g, '/').replace(/[^\p{L}\p{N}_\-\/]/gu, '_');
-  const targetDir = path.join(LIBRARY_DIR, safePath);
-  
-  if (!isPathWithin(targetDir, LIBRARY_DIR)) {
-    return res.status(400).json({ error: '路径非法' });
-  }
-  
-  if (!fs.existsSync(targetDir)) {
-    return res.status(404).json({ error: '目录不存在' });
-  }
-  
-  // Recursively delete directory and all its contents
+router.post('/library/directories/delete', authAdmin, async (req, res) => {
   try {
-    fs.rmSync(targetDir, { recursive: true, force: true });
+    const { path: dirPath } = req.body || {};
+    if (!dirPath) return res.status(400).json({ error: '缺少路径参数' });
     
-    // Also delete corresponding thumbnail directory recursively
-    const thumbDir = path.join(LIBRARY_DIR, '.thumbs', safePath);
+    // Normalize slashes and prevent path traversal, but preserve original characters
+    const normalizedPath = dirPath.replace(/\\/g, '/').replace(/\.\./g, '').replace(/^\/+|\/+$/g, '');
+    if (!normalizedPath) return res.status(400).json({ error: '路径非法' });
+    
+    // Build target path
+    let targetDir = path.join(LIBRARY_DIR, normalizedPath);
+    
+    if (!isPathWithin(targetDir, LIBRARY_DIR)) {
+      return res.status(400).json({ error: '路径非法' });
+    }
+    
+    // If exact path doesn't exist, try alternative matching
+    if (!fs.existsSync(targetDir)) {
+      const parts = normalizedPath.split('/');
+      const dirName = parts.pop();
+      const parentPath = parts.length > 0 ? path.join(LIBRARY_DIR, parts.join('/')) : LIBRARY_DIR;
+      
+      if (!fs.existsSync(parentPath)) {
+        return res.status(404).json({ error: '父目录不存在' });
+      }
+      
+      const entries = fs.readdirSync(parentPath, { withFileTypes: true });
+      const dirs = entries.filter(e => e.isDirectory() && e.name !== '.thumbs');
+      
+      // Try exact match, NFC/NFD normalization, trim match
+      const found = dirs.find(e => 
+        e.name === dirName ||
+        e.name.normalize('NFC') === dirName.normalize('NFC') ||
+        e.name.normalize('NFD') === dirName.normalize('NFD') ||
+        e.name.trim() === dirName.trim()
+      );
+      
+      if (found) {
+        targetDir = path.join(parentPath, found.name);
+      } else {
+        return res.status(404).json({ error: '目录不存在' });
+      }
+    }
+    
+    // Final security check
+    if (!isPathWithin(targetDir, LIBRARY_DIR)) {
+      return res.status(400).json({ error: '路径非法(安全检查)' });
+    }
+    
+    // Delete directory using async fs.rm to avoid stack overflow on Windows
+    await fs.promises.rm(targetDir, { recursive: true, force: true });
+    
+    // Also delete corresponding thumbnail directory
+    const thumbDir = path.join(LIBRARY_DIR, '.thumbs', normalizedPath);
     if (fs.existsSync(thumbDir)) {
-      fs.rmSync(thumbDir, { recursive: true, force: true });
+      await fs.promises.rm(thumbDir, { recursive: true, force: true });
     }
     
     res.json({ success: true });
   } catch (error) {
-    console.error('删除目录失败:', error);
-    res.status(500).json({ error: '删除目录失败：' + error.message });
+    const safeMsg = (error.code || '') + ' ' + (error.message || '').replace(/[^\x20-\x7E]/g, '?');
+    res.status(500).json({ error: '删除目录失败：' + safeMsg });
   }
 });
 
@@ -1523,15 +1722,102 @@ router.get('/media', authAdmin, (req, res) => {
     }
   }
 
-  // Scan uploads directory (library, pika, seasons, events)
+  // Determine which directories to scan based on category filter
+  const category = req.query.category || 'all';
   const uploadsDir = path.join(DATA_DIR, 'uploads');
-  scanDir(uploadsDir, '/uploads');
 
-  // Scan public directory (pets, skills, elements)
-  scanDir(PUBLIC_DIR, '/public');
+  if (category === 'all' || category === 'library' || category === 'pika' || category === 'seasons' || category === 'events') {
+    // Scan uploads directory (library, pika, seasons, events)
+    if (category === 'all') {
+      scanDir(uploadsDir, '/uploads');
+    } else if (category === 'library') {
+      const libDir = path.join(uploadsDir, 'library');
+      if (fs.existsSync(libDir)) scanDir(libDir, '/uploads/library');
+    } else if (category === 'pika') {
+      const pikaDir = path.join(uploadsDir, 'pika');
+      if (fs.existsSync(pikaDir)) scanDir(pikaDir, '/uploads/pika');
+    } else if (category === 'seasons') {
+      const seasonsDir = path.join(uploadsDir, 'seasons');
+      if (fs.existsSync(seasonsDir)) scanDir(seasonsDir, '/uploads/seasons');
+    } else if (category === 'events') {
+      const eventsDir = path.join(uploadsDir, 'events');
+      if (fs.existsSync(eventsDir)) scanDir(eventsDir, '/uploads/events');
+    }
+  }
 
-  // Sort by modification time (newest first)
-  files.sort((a, b) => b.mtime - a.mtime);
+  if (category === 'all' || category === 'pets' || category === 'skills' || category === 'elements') {
+    // Scan public directory (pets, skills, elements)
+    if (category === 'all') {
+      scanDir(PUBLIC_DIR, '/public');
+    } else if (category === 'pets') {
+      const petsDir = path.join(PUBLIC_DIR, 'pets');
+      const subCategory = req.query.subCategory || 'all';
+      if (subCategory === 'all') {
+        if (fs.existsSync(petsDir)) scanDir(petsDir, '/public/pets');
+      } else {
+        // Map sub-category to directory
+        const subDirMap = {
+          'default': 'default',
+          'thumb': 'thumbs',
+          'shiny': 'shiny',
+          'fruit': 'fruit',
+          'egg': 'egg',
+          'ability': 'abilities',
+        };
+        const subDir = subDirMap[subCategory];
+        if (subDir) {
+          const targetDir = path.join(petsDir, subDir);
+          if (fs.existsSync(targetDir)) scanDir(targetDir, '/public/pets/' + subDir);
+        } else {
+          // 'other' - scan all pet dirs except known ones
+          if (fs.existsSync(petsDir)) {
+            const knownDirs = new Set(['default', 'thumbs', 'shiny', 'fruit', 'egg', 'abilities']);
+            const entries = fs.readdirSync(petsDir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (entry.isDirectory() && !knownDirs.has(entry.name)) {
+                scanDir(path.join(petsDir, entry.name), '/public/pets/' + entry.name);
+              }
+            }
+            // Also scan root-level pet files
+            const rootFiles = fs.readdirSync(petsDir, { withFileTypes: true });
+            for (const entry of rootFiles) {
+              if (!entry.isDirectory() && /\.(png|jpe?g|webp|gif)$/i.test(entry.name)) {
+                try {
+                  const fullPath = path.join(petsDir, entry.name);
+                  const stat = fs.statSync(fullPath);
+                  files.push({
+                    filename: entry.name,
+                    fullPath: '/public/pets/' + entry.name,
+                    url: '/public/pets/' + entry.name,
+                    thumb_path: '/public/pets/' + entry.name,
+                    size: stat.size,
+                    mtime: stat.mtimeMs,
+                  });
+                } catch (e) { /* skip */ }
+              }
+            }
+          }
+        }
+      }
+    } else if (category === 'skills') {
+      const skillsDir = path.join(PUBLIC_DIR, 'skills');
+      if (fs.existsSync(skillsDir)) scanDir(skillsDir, '/public/skills');
+    } else if (category === 'elements') {
+      const elementsDir = path.join(PUBLIC_DIR, 'elements');
+      if (fs.existsSync(elementsDir)) scanDir(elementsDir, '/public/elements');
+    }
+  }
+
+  // Sort files based on query parameter
+  const sortMode = (req.query.sort || 'name_asc').trim();
+  sortFiles(files, sortMode);
+
+  // Calculate category counts (scan all dirs for counts when category is specified)
+  let categoryCounts = null;
+  if (category !== 'all') {
+    // Only return total for current category
+    categoryCounts = { [category]: files.length };
+  }
 
   // Apply pagination
   const page = parseInt(req.query.page) || 1;
@@ -1545,7 +1831,8 @@ router.get('/media', authAdmin, (req, res) => {
     total: files.length,
     page,
     pageSize,
-    totalPages: Math.ceil(files.length / pageSize)
+    totalPages: Math.ceil(files.length / pageSize),
+    categoryCounts
   });
 });
 

@@ -51,8 +51,8 @@
     <!-- Directory tree and main content -->
     <div class="media-container flex gap-4">
       <!-- Directory tree panel -->
-      <div v-if="currentCategory === 'library'" class="w-64 flex-shrink-0">
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+      <div v-if="currentCategory === 'library'" class="w-64 flex-shrink-0 overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 overflow-hidden">
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-medium">目录管理</h3>
             <button @click="showCreateDirDialog = true" class="text-xs text-primary-500 hover:text-primary-600">
@@ -62,8 +62,9 @@
           
           <!-- Directory management -->
           <div class="space-y-3">
-            <!-- Current directory path -->
-            <div class="text-xs text-muted">
+          <!-- Current directory path -->
+          <div class="text-xs text-muted overflow-hidden">
+            <div class="truncate">
               <span v-if="!currentDirectory">根目录</span>
               <span v-else>
                 <span class="cursor-pointer hover:text-primary-500" @click="selectDirectory('')">根目录</span>
@@ -78,6 +79,7 @@
                 </span>
               </span>
             </div>
+          </div>
             
             <!-- Directory tree -->
             <div class="space-y-1 max-h-96 overflow-y-auto">
@@ -96,33 +98,24 @@
           </div>
           
           <!-- Current directory path -->
-          <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-              <div class="text-xs text-muted">
+          <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="flex items-center justify-between gap-1">
+              <div class="text-xs text-muted min-w-0 flex-1 truncate">
                 <span class="font-medium">当前目录:</span>
                 <span 
                   class="cursor-pointer hover:text-primary-500 ml-1"
-                  :class="{ 'truncate': !showFullPath }"
                   :title="currentDirectory || '根目录'"
-                  @click="showFullPath = !showFullPath"
                 >
-                  {{ showFullPath ? (currentDirectory || '根目录') : ((currentDirectory && currentDirectory.length > 25) ? currentDirectory.substring(0, 25) + '...' : (currentDirectory || '根目录')) }}
+                  {{ currentDirectory || '根目录' }}
                 </span>
               </div>
-              <div v-if="currentDirectory" class="flex items-center gap-1">
+              <div v-if="currentDirectory" class="flex items-center gap-1 flex-shrink-0">
                 <button 
                   @click="copyToClipboard(currentDirectory)"
                   class="text-xs text-primary-500 hover:text-primary-600 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="复制完整路径"
                 >
                   📋
-                </button>
-                <button 
-                  @click="showFullPath = !showFullPath"
-                  class="text-xs text-primary-500 hover:text-primary-600 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                  :title="showFullPath ? '收起路径' : '展开完整路径'"
-                >
-                  {{ showFullPath ? '🔺' : '🔻' }}
                 </button>
               </div>
             </div>
@@ -141,12 +134,20 @@
       <div class="flex-1">
         <!-- Stats bar -->
         <div class="flex items-center justify-between text-xs text-muted mb-3">
-          <span>共 {{ filteredFiles.length }} 张图片{{ selectedFiles.size > 0 ? ' · 已选 ' + selectedFiles.size + ' 张' : '' }}</span>
+<span>共 {{ totalFiles }} 张图片{{ selectedFiles.size > 0 ? ' · 已选 ' + selectedFiles.size + ' 张' : '' }}</span>
           <div class="flex items-center gap-2">
             <button v-if="isLibraryCategory" @click="selectAllPage" class="text-primary-500 hover:underline">{{ isAllPageSelected ? '取消全选' : '全选本页' }}</button>
             <button v-if="selectedFiles.size > 0" @click="batchDelete" class="text-red-500 hover:underline">批量删除</button>
 <button v-if="selectedFiles.size > 0 && isLibraryCategory" @click="openBatchRenameDialog" class="text-primary-500 hover:underline">批量重命名</button>
             <button v-if="selectedFiles.size > 0" @click="selectedFiles.clear()" class="text-muted hover:underline">取消选择</button>
+            <select v-model="sortMode" class="input text-xs w-24">
+              <option value="name_asc">名称 A→Z</option>
+              <option value="name_desc">名称 Z→A</option>
+              <option value="time_desc">最新优先</option>
+              <option value="time_asc">最早优先</option>
+              <option value="size_desc">最大优先</option>
+              <option value="size_asc">最小优先</option>
+            </select>
             <select v-model="pageSize" class="input text-xs w-20" @change="currentPage = 1">
               <option :value="36">36/页</option>
               <option :value="72">72/页</option>
@@ -165,7 +166,7 @@
         </div>
 
         <!-- Empty -->
-        <div v-else-if="filteredFiles.length === 0" class="text-center py-10">
+<div v-else-if="currentPageFiles.length === 0" class="text-center py-10">
           <div class="text-3xl mb-2">🖼️</div>
           <p class="text-muted text-sm">{{ searchQuery ? '未找到匹配的图片' : '该分类下暂无图片' }}</p>
         </div>
@@ -455,6 +456,7 @@ const allFiles = ref([])
 const currentCategory = ref('all')
 const searchQuery = ref('')
 const viewMode = ref('grid')
+const sortMode = ref('name_asc') // name_asc, name_desc, time_desc, time_asc, size_desc, size_asc
 const selectedFiles = reactive(new Set())
 const currentPage = ref(1)
 const pageSize = ref(24) // 减少每页数量，减轻带宽压力
@@ -462,6 +464,8 @@ const uploadProgress = ref(null)
 const currentPageFiles = ref([]) // 当前页的实际图片数据
 const totalFiles = ref(0) // 后端分页的总文件数
 const totalPages = ref(1) // 后端分页的总页数
+const categoryCounts = ref({}) // 各分类的文件计数缓存
+const petSubCounts = ref({}) // 精灵子分类的文件计数缓存
 
 // Directory management
 const directories = ref([])
@@ -634,20 +638,33 @@ async function deleteDirectory() {
     }
     
     await adminApi.deleteLibraryDirectory(showDeleteDirDialog.value.path)
+    const deletedPath = showDeleteDirDialog.value.path
     showDeleteDirDialog.value = null
+    
+    // Reset currentDirectory if it was pointing to the deleted directory or its subdirectory
+    if (currentDirectory.value === deletedPath || currentDirectory.value.startsWith(deletedPath + '/')) {
+      skipDirectoryWatch = true
+      currentDirectory.value = ''
+      nextTick(() => { skipDirectoryWatch = false })
+    }
+    
+    // Refresh directory tree and file list
     await loadDirectories()
+    await loadAllMedia()
     await modal.success('删除成功', '目录及所有内容已删除')
   } catch (err) {
     let errorMessage = err.message
-    // 尝试从错误信息中提取更具体的错误描述
+    // 显示详细错误信息帮助调试
+    const requestPath = showDeleteDirDialog.value?.path || '(未知)'
+    const debugInfo = `\n\n[调试] 请求路径: "${requestPath}"`
     if (errorMessage.includes('目录不存在')) {
-      errorMessage = '目录不存在或已被删除'
+      errorMessage = '目录不存在或已被删除' + debugInfo
     } else if (errorMessage.includes('路径非法')) {
-      errorMessage = '目录路径不合法'
-    } else if (errorMessage.includes('删除目录失败')) {
-      // 保留后端返回的具体错误信息
-      errorMessage = err.message
+      errorMessage = '目录路径不合法' + debugInfo
+    } else {
+      errorMessage = err.message + debugInfo
     }
+    showDeleteDirDialog.value = null
     await modal.alert('删除失败', errorMessage)
   }
 }
@@ -700,16 +717,23 @@ function getPetSubCategory(filePath) {
 }
 
 function getPetSubCount(key) {
-  const petFiles = allFiles.value.filter(f => f.category === 'pets')
-  if (key === 'all') return petFiles.length
-  return petFiles.filter(f => f.petSub === key).length
+  if (key === currentPetSub.value) return totalFiles.value
+  return petSubCounts.value[key] ?? '...'
 }
+
+let skipDirectoryWatch = false
 
 function selectCategory(key) {
   currentCategory.value = key
   currentPetSub.value = 'all'
+  // Prevent watch from triggering duplicate loadAllMedia
+  skipDirectoryWatch = true
   currentDirectory.value = ''
+  currentPage.value = 1
   selectedFiles.clear()
+  loadAllMedia()
+  // Reset flag after next tick (watch fires asynchronously)
+  nextTick(() => { skipDirectoryWatch = false })
 }
 
 function getCategoryLabel(cat) {
@@ -718,77 +742,32 @@ function getCategoryLabel(cat) {
 }
 
 function getCategoryCount(key) {
-  if (key === 'all') return allFiles.value.length
-  return allFiles.value.filter(f => f.category === key).length
+  // For library category, always show total count (not current directory count)
+  if (key === 'library') return categoryCounts.value[key] ?? '...'
+  if (key === currentCategory.value) return totalFiles.value
+  // For non-active categories, show cached count or '...'
+  return categoryCounts.value[key] ?? '...'
 }
 
-const filteredFiles = computed(() => {
-  let files = allFiles.value
-  
-  // Filter by category
-  if (currentCategory.value !== 'all') {
-    files = files.filter(f => f.category === currentCategory.value)
-  }
-  
-  // Filter by pet sub-category
-  if (currentCategory.value === 'pets' && currentPetSub.value !== 'all') {
-    files = files.filter(f => f.petSub === currentPetSub.value)
-  }
-  
-  // Filter by directory (library category only)
-  if (currentCategory.value === 'library' && currentDirectory.value) {
-    files = files.filter(f => {
-      // 精确匹配当前目录下的文件，不包括子目录
-      const filePath = f.fullPath.replace('/uploads/library/', '')
-      const dirPath = currentDirectory.value
-      
-      // 文件路径应该以当前目录开头，且下一级就是文件名（没有更深层目录）
-      if (filePath.startsWith(dirPath + '/')) {
-        const remainingPath = filePath.substring(dirPath.length + 1)
-        // 如果剩余路径中不包含斜杠，说明是当前目录的直接文件
-        return !remainingPath.includes('/')
-      }
-      return false
-    })
-  }
-  
-  // Filter by search query
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    files = files.filter(f => f.displayName.toLowerCase().includes(q) || f.fullPath.toLowerCase().includes(q))
-  }
-  
-  return files
+// 监听分页变化，重新加载数据
+watch([currentPage, pageSize, sortMode], () => {
+  loadAllMedia()
 })
 
-// 使用后端分页数据，不再需要前端计算
-// const totalPages = computed(() => {
-//   if (pageSize.value === 0) return 1
-//   return Math.max(1, Math.ceil(filteredFiles.value.length / pageSize.value))
-// })
-
-
-
-// 监听分页变化，重新加载数据
-watch([currentPage, pageSize], () => {
-  loadAllMedia()
-}, { immediate: true })
-
 // 预加载下一页图片
+// Preload original images for current page (since we display thumbnails first)
 function preloadNextPage() {
-  if (currentPage.value >= totalPages.value) return
+  if (!currentPageFiles.value.length) return
   
-  const nextPageStart = currentPage.value * pageSize.value
-  const nextPageEnd = nextPageStart + pageSize.value
-  const nextPageFiles = filteredFiles.value.slice(nextPageStart, nextPageEnd)
-  
-  // 异步预加载图片
+  // Preload original images for files that have separate thumbnails
   setTimeout(() => {
-    nextPageFiles.forEach(file => {
-      const img = new Image()
-      img.src = file.url
+    currentPageFiles.value.forEach(file => {
+      if (file.thumb_path && file.thumb_path !== file.url) {
+        const img = new Image()
+        img.src = file.url
+      }
     })
-  }, 100) // 延迟100ms，避免阻塞当前页加载
+  }, 500) // Delay 500ms to let thumbnails load first
 }
 
 // 滚动监听，当接近底部时预加载下一页
@@ -828,11 +807,21 @@ const visiblePages = computed(() => {
   return pages
 })
 
-// Watch for category changes to load directories
-watch(currentCategory, () => {
-  if (currentCategory.value === 'library') {
-    loadDirectories()
-  }
+// Watch for pet sub-category and directory changes to reload data
+watch([currentPetSub, currentDirectory], () => {
+  if (skipDirectoryWatch) return
+  currentPage.value = 1
+  loadAllMedia()
+})
+
+// Watch for search query changes (debounced)
+let searchTimer = null
+watch(searchQuery, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    loadAllMedia()
+  }, 300)
 })
 
 // Existing methods...
@@ -862,48 +851,92 @@ function toggleSelect(file) {
 async function loadAllMedia() {
   loading.value = true
   try {
+    // Always use the unified media API with pagination
+    const params = {
+      page: currentPage.value,
+      pageSize: pageSize.value === 0 ? 9999 : pageSize.value,
+      sort: sortMode.value
+    }
+    
+    // Pass category filter to backend (library uses its own API)
     let res
-    
-    // 如果是素材库分类，使用素材库API的分页
     if (currentCategory.value === 'library') {
-      res = await adminApi.libraryList({
-        page: currentPage.value,
-        pageSize: pageSize.value
-      })
+      // Pass directory filter to backend for accurate pagination
+      if (currentDirectory.value) {
+        params.directory = currentDirectory.value
+      }
+      res = await adminApi.libraryList(params)
     } else {
-      // 其他分类使用主媒体API的分页
-      res = await adminApi.mediaList({
-        page: currentPage.value,
-        pageSize: pageSize.value
-      })
+      // Pass category to backend for targeted directory scanning
+      if (currentCategory.value !== 'all') {
+        params.category = currentCategory.value
+      }
+      // Pass pet sub-category to backend
+      if (currentCategory.value === 'pets' && currentPetSub.value !== 'all') {
+        params.subCategory = currentPetSub.value
+      }
+      res = await adminApi.mediaList(params)
     }
     
-    // 如果是第一页，初始化文件列表
-    if (currentPage.value === 1) {
-      allFiles.value = []
-    }
-    
-    // 添加新加载的文件
+    // Process files
     const newFiles = (res.files || []).map(f => {
-      const category = getFileCategory(f.fullPath || f.path)
+      const filePath = f.fullPath || f.path
+      const category = getFileCategory(filePath)
       return {
         ...f,
         category,
         categoryLabel: getCategoryLabel(category),
-        petSub: category === 'pets' ? getPetSubCategory(f.fullPath || f.path) : null,
-        displayName: f.filename.replace(/^\d+_/, ''),
-        fullPath: f.fullPath || f.path // 兼容两种API返回格式
+        petSub: category === 'pets' ? getPetSubCategory(filePath) : null,
+        displayName: (f.filename.split('/').pop() || f.filename).replace(/^\d+_/, ''),
+        fullPath: filePath,
+        url: f.url || filePath
       }
     })
     
-    allFiles.value = [...allFiles.value, ...newFiles]
+    // Store all files for category counts (only on first load or category switch)
+    if (currentCategory.value === 'library') {
+      // Library uses its own API, allFiles only contains library files for count
+      allFiles.value = newFiles
+    } else {
+      // For media API, store all returned files
+      allFiles.value = newFiles
+    }
     
-    // 更新分页信息
+    // Apply frontend filtering (search only, category/directory/subCategory handled by backend)
+    let displayFiles = newFiles
+    
+    // Filter by search query
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.toLowerCase()
+      displayFiles = displayFiles.filter(f => f.displayName.toLowerCase().includes(q) || f.fullPath.toLowerCase().includes(q))
+    }
+    
+    // Update pagination info from backend
     totalFiles.value = res.total || 0
     totalPages.value = res.totalPages || 1
     
-    // 更新当前页文件
-    currentPageFiles.value = newFiles
+    // Cache category count (for library, only cache when showing all files without directory filter)
+    if (currentCategory.value === 'library') {
+      if (!currentDirectory.value && categoryCounts.value['library'] === undefined) {
+        // First load without directory filter - fetch total count recursively
+        try {
+          const totalRes = await adminApi.libraryList({ page: 1, pageSize: 1, recursive: 'true' })
+          categoryCounts.value['library'] = totalRes.total || 0
+        } catch { 
+          categoryCounts.value['library'] = res.total || 0
+        }
+      }
+    } else {
+      categoryCounts.value[currentCategory.value] = res.total || 0
+    }
+    
+    // Cache pet sub-category count
+    if (currentCategory.value === 'pets') {
+      petSubCounts.value[currentPetSub.value] = res.total || 0
+    }
+    
+    // Update current page files for display
+    currentPageFiles.value = displayFiles
     
     if (currentCategory.value === 'library') {
       await loadDirectories()
@@ -917,6 +950,54 @@ async function loadAllMedia() {
 
 // 后端分页已处理，不再需要前端分页函数
 
+// Concurrent upload helper with retry and timeout
+const UPLOAD_CONCURRENCY = 3
+const UPLOAD_TIMEOUT = 60000 // 60s per file
+const UPLOAD_MAX_RETRIES = 2
+
+async function uploadWithRetry(fn, retries = UPLOAD_MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT)
+      const result = await fn(controller.signal)
+      clearTimeout(timer)
+      return result
+    } catch (err) {
+      if (attempt === retries) throw err
+      // Wait before retry (exponential backoff)
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+    }
+  }
+}
+
+async function concurrentUpload(tasks, onProgress) {
+  let completed = 0
+  let errors = []
+  let serverSkipped = 0
+  const results = new Array(tasks.length)
+  
+  // Process tasks in batches of UPLOAD_CONCURRENCY
+  for (let i = 0; i < tasks.length; i += UPLOAD_CONCURRENCY) {
+    const batch = tasks.slice(i, i + UPLOAD_CONCURRENCY)
+    const batchResults = await Promise.allSettled(
+      batch.map((task, idx) => task().then(r => { results[i + idx] = r; return r }))
+    )
+    
+    for (const result of batchResults) {
+      completed++
+      if (result.status === 'rejected') {
+        errors.push(result.reason)
+      } else if (result.value && result.value.skipped) {
+        serverSkipped++
+      }
+      if (onProgress) onProgress(completed)
+    }
+  }
+  
+  return { results, errors, completed, serverSkipped }
+}
+
 // Upload methods...
 async function handleUpload(e) {
   const files = Array.from(e.target.files || [])
@@ -926,42 +1007,63 @@ async function handleUpload(e) {
   uploadProgress.value = { current: 0, total: files.length }
   
   try {
-    // 先加载现有文件列表，用于冲突检测
-    const existingFiles = await adminApi.mediaList()
-    const existingPaths = new Set(existingFiles.files.map(f => f.fullPath))
+    // 先加载现有文件列表，用于冲突检测（递归获取素材库全部文件）
+    const existingFiles = await adminApi.libraryList({ page: 1, pageSize: 9999, recursive: 'true' })
+    // Build a set of base filenames in current directory (strip timestamp prefix)
+    const currentDir = currentDirectory.value || ''
+    const existingBaseNames = new Set(
+      existingFiles.files.filter(f => {
+        // Only check files in the same directory
+        const parts = f.filename.split('/')
+        const fileDir = parts.slice(0, -1).join('/')
+        return fileDir === currentDir
+      }).map(f => {
+        const name = f.filename.split('/').pop()
+        return name.replace(/^\d+_/, '') // Strip timestamp prefix
+      })
+    )
     
     let uploadedCount = 0
     let skippedFiles = []
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const fileName = file.name
-      const targetPath = currentDirectory.value ? currentDirectory.value + '/' + fileName : fileName
-      const fullTargetPath = '/uploads/library/' + targetPath
-      
-      // 检查文件是否已存在
-      if (existingPaths.has(fullTargetPath)) {
-        skippedFiles.push(targetPath)
-        uploadProgress.value.current = i + 1
-        continue
-      }
-      
-      await adminApi.libraryUpload(file, currentDirectory.value || undefined)
-      uploadedCount++
-      uploadProgress.value.current = i + 1
-    }
-    
-    let message = `上传完成！成功上传 ${uploadedCount} 张图片`
-    if (skippedFiles.length > 0) {
-      message += `，跳过 ${skippedFiles.length} 个已存在的文件`
-      if (skippedFiles.length <= 5) {
-        message += `：${skippedFiles.join('、')}`
+    // Build upload tasks (skip duplicates)
+    const uploadTasks = []
+    for (const file of files) {
+      if (existingBaseNames.has(file.name)) {
+        skippedFiles.push(file.name)
       } else {
-        message += `（前5个：${skippedFiles.slice(0, 5).join('、')}...）`
+uploadTasks.push(() => uploadWithRetry((signal) => adminApi.libraryUpload(file, currentDirectory.value || undefined, signal)))
       }
     }
     
-    await modal.success('上传完成', message)
+    uploadProgress.value.current = skippedFiles.length
+    
+    // Execute uploads concurrently with progress
+    const { errors, serverSkipped } = await concurrentUpload(uploadTasks, (done) => {
+      uploadProgress.value.current = skippedFiles.length + done
+    })
+    
+    uploadedCount = uploadTasks.length - errors.length - serverSkipped
+    const totalSkipped = skippedFiles.length + serverSkipped
+    
+    let message = '上传完成！成功上传 ' + uploadedCount + ' 张图片'
+    if (errors.length > 0) {
+      message += '，' + errors.length + ' 个文件上传失败'
+    }
+    if (totalSkipped > 0) {
+      message += '，跳过 ' + totalSkipped + ' 个已存在的文件'
+      if (skippedFiles.length > 0 && skippedFiles.length <= 5) {
+        message += '：' + skippedFiles.join('、')
+      } else if (skippedFiles.length > 5) {
+        message += '（前5个：' + skippedFiles.slice(0, 5).join('、') + '...）'
+      }
+    }
+    
+    if (errors.length > 0) {
+      await modal.alert('部分上传失败', message)
+    } else {
+      await modal.success('上传完成', message)
+    }
     await loadAllMedia()
   } catch (err) {
     await modal.alert('上传失败', '已上传 ' + uploadProgress.value.current + '/' + files.length + '，错误: ' + err.message)
@@ -989,26 +1091,33 @@ async function handleFolderUpload(e) {
     let skippedFiles = []
     let uploadedCount = 0
     
-    // 先加载现有文件列表，用于冲突检测
-    const existingFiles = await adminApi.mediaList()
-    const existingPaths = new Set(existingFiles.files.map(f => f.fullPath))
+    // 先加载现有文件列表，用于冲突检测（递归获取素材库全部文件）
+    const existingFiles = await adminApi.libraryList({ page: 1, pageSize: 9999, recursive: 'true' })
+    // Build a map: directory -> set of base filenames (strip timestamp prefix)
+    const existingFilesByDir = new Map()
+    existingFiles.files.forEach(f => {
+      const parts = f.filename.split('/')
+      const name = parts.pop()
+      const dir = parts.join('/')
+      const baseName = name.replace(/^\d+_/, '') // Strip timestamp prefix
+      if (!existingFilesByDir.has(dir)) existingFilesByDir.set(dir, new Set())
+      existingFilesByDir.get(dir).add(baseName)
+    })
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
+    // Build upload tasks (skip duplicates)
+    const uploadTasks = []
+    for (const file of files) {
       const relativePath = file.webkitRelativePath || ''
       const parts = relativePath.split('/')
       const subDirs = parts.slice(1, -1).join('/')
       const targetFolder = currentDirectory.value ? (subDirs ? currentDirectory.value + '/' + subDirs : currentDirectory.value) : subDirs
       const fileName = parts[parts.length - 1]
       
-      // 构建目标文件路径
-      const targetPath = targetFolder ? targetFolder + '/' + fileName : fileName
-      const fullTargetPath = '/uploads/library/' + targetPath
-      
-      // 检查文件是否已存在
-      if (existingPaths.has(fullTargetPath)) {
-        skippedFiles.push(targetPath)
-        uploadProgress.value.current = i + 1
+      // Check if file with same base name already exists in target directory
+      const dirFiles = existingFilesByDir.get(targetFolder) || new Set()
+      if (dirFiles.has(fileName)) {
+        const displayPath = targetFolder ? targetFolder + '/' + fileName : fileName
+        skippedFiles.push(displayPath)
         continue
       }
       
@@ -1017,22 +1126,37 @@ async function handleFolderUpload(e) {
         createdDirectories.add(targetFolder)
       }
       
-      await adminApi.libraryUpload(file, targetFolder || undefined)
-      uploadedCount++
-      uploadProgress.value.current = i + 1
+uploadTasks.push(() => uploadWithRetry((signal) => adminApi.libraryUpload(file, targetFolder || undefined, signal)))
     }
     
-    let message = `上传完成！成功上传 ${uploadedCount} 张图片`
-    if (skippedFiles.length > 0) {
-      message += `，跳过 ${skippedFiles.length} 个已存在的文件`
-      if (skippedFiles.length <= 5) {
-        message += `：${skippedFiles.join('、')}`
-      } else {
-        message += `（前5个：${skippedFiles.slice(0, 5).join('、')}...）`
+    uploadProgress.value.current = skippedFiles.length
+    
+    // Execute uploads concurrently with progress
+    const { errors, serverSkipped } = await concurrentUpload(uploadTasks, (done) => {
+      uploadProgress.value.current = skippedFiles.length + done
+    })
+    
+    uploadedCount = uploadTasks.length - errors.length - serverSkipped
+    const totalSkipped = skippedFiles.length + serverSkipped
+    
+    let message = '上传完成！成功上传 ' + uploadedCount + ' 张图片'
+    if (errors.length > 0) {
+      message += '，' + errors.length + ' 个文件上传失败'
+    }
+    if (totalSkipped > 0) {
+      message += '，跳过 ' + totalSkipped + ' 个已存在的文件'
+      if (skippedFiles.length > 0 && skippedFiles.length <= 5) {
+        message += '：' + skippedFiles.join('、')
+      } else if (skippedFiles.length > 5) {
+        message += '（前5个：' + skippedFiles.slice(0, 5).join('、') + '...）'
       }
     }
     
-    await modal.success('上传完成', message)
+    if (errors.length > 0) {
+      await modal.alert('部分上传失败', message)
+    } else {
+      await modal.success('上传完成', message)
+    }
     
     // 上传完成后刷新目录树
     await loadDirectories()
@@ -1067,13 +1191,22 @@ async function handleFileUpload(e) {
   uploadProgress.value = { current: 0, total: files.length }
   
   try {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      await adminApi.libraryUpload(file, currentDirectory.value || undefined)
-      uploadProgress.value.current = i + 1
-    }
+const uploadTasks = files.map(file => () => uploadWithRetry((signal) => adminApi.libraryUpload(file, currentDirectory.value || undefined, signal)))
     
-    await modal.success('上传成功', files.length + ' 张图片已上传到素材库' + (currentDirectory.value ? '/' + currentDirectory.value : ''))
+    const { errors, serverSkipped } = await concurrentUpload(uploadTasks, (done) => {
+      uploadProgress.value.current = done
+    })
+    
+    const successCount = files.length - errors.length - serverSkipped
+    if (errors.length > 0) {
+      let msg = '成功 ' + successCount + ' 张，失败 ' + errors.length + ' 张'
+      if (serverSkipped > 0) msg += '，跳过 ' + serverSkipped + ' 个已存在的文件'
+      await modal.alert('部分上传失败', msg)
+    } else if (serverSkipped > 0) {
+      await modal.success('上传完成', '成功上传 ' + successCount + ' 张图片，跳过 ' + serverSkipped + ' 个已存在的文件')
+    } else {
+      await modal.success('上传成功', files.length + ' 张图片已上传到素材库' + (currentDirectory.value ? '/' + currentDirectory.value : ''))
+    }
     await loadAllMedia()
   } catch (err) {
     await modal.alert('上传失败', '已上传 ' + uploadProgress.value.current + '/' + files.length + '，错误: ' + err.message)
@@ -1225,11 +1358,11 @@ const DirectoryTree = {
         key: dir.path,
         class: 'directory-item',
         style: { marginLeft: level * 12 + 'px' }
-      }, [
-        // 目录项
-        h('div', {
-          class: [
-            'group flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer transition-colors',
+        }, [
+          // 目录项
+          h('div', {
+            class: [
+              'group flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer transition-colors overflow-hidden',
             currentDirectory === dir.path 
               ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400'
               : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'
@@ -1246,7 +1379,7 @@ const DirectoryTree = {
           }, isExpanded ? '▼' : '▶') : h('span', { class: 'w-3' }),
           
           h('span', '📁'),
-          h('span', { class: 'truncate flex-1' }, dir.name),
+          h('span', { class: 'truncate flex-1 min-w-0' }, dir.name),
           
           // 操作按钮
           h('div', { class: 'opacity-0 group-hover:opacity-100 flex gap-1' }, [

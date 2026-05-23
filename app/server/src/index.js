@@ -6,6 +6,14 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 
+// Prevent process crash on uncaught errors (Windows Unicode path issues etc.)
+process.on('uncaughtException', (err) => {
+  try { process.stderr.write('[FATAL] Uncaught: ' + (err.code || '') + ' ' + (err.message || '').replace(/[^\x20-\x7E]/g, '?') + '\n'); } catch (e) { /* ignore */ }
+});
+process.on('unhandledRejection', (reason) => {
+  try { process.stderr.write('[FATAL] Unhandled rejection: ' + String(reason).replace(/[^\x20-\x7E]/g, '?') + '\n'); } catch (e) { /* ignore */ }
+});
+
 const elementsRouter = require('./routes/elements');
 const skillsRouter = require('./routes/skills');
 const eggsRouter = require('./routes/eggs');
@@ -103,7 +111,8 @@ if (fs.existsSync(DIST_DIR)) {
 
 // 全局错误处理（防止堆栈信息泄露）
 app.use((err, req, res, next) => {
-  console.error(`[ERROR] ${req.method} ${req.originalUrl}:`, err.message);
+  const safeUrl = (req.originalUrl || '').replace(/[^\x20-\x7E]/g, '?');
+  try { process.stderr.write(`[ERROR] ${req.method} ${safeUrl}: ${(err.message || '').replace(/[^\x20-\x7E]/g, '?')}\n`); } catch (e) { /* ignore */ }
   const status = err.status || 500;
   res.status(status).json({ error: status === 500 ? '服务器内部错误' : err.message });
 });

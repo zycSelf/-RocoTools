@@ -145,17 +145,23 @@ export const adminApi = {
   }),
 
   // 素材库
-  libraryList: (params) => adminRequest('/library', { params }),
-  libraryUpload: (file, folder) => {
+  libraryList: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return adminRequest('/library' + (query ? '?' + query : ''))
+  },
+  libraryUpload: (file, folder, signal) => {
     const form = new FormData()
     form.append('file', file)
     if (folder) form.append('folder', folder)
-    return adminRequest('/library/upload', { method: 'POST', body: form })
+    return adminRequest('/library/upload', { method: 'POST', body: form, signal })
   },
   libraryDelete: (filename) => adminRequest(`/library/${filename}`, { method: 'DELETE' }),
 
   // 统一素材管理
-  mediaList: () => adminRequest('/media'),
+  mediaList: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return adminRequest('/media' + (query ? '?' + query : ''))
+  },
   mediaDelete: (filePath) => adminRequest('/media', {
     method: 'DELETE',
     body: JSON.stringify({ path: filePath }),
@@ -229,8 +235,8 @@ export const adminApi = {
     method: 'PUT',
     body: JSON.stringify({ oldPath, newName }),
   }),
-  deleteLibraryDirectory: (dirPath) => adminRequest('/library/directories', {
-    method: 'DELETE',
+  deleteLibraryDirectory: (dirPath) => adminRequest('/library/directories/delete', {
+    method: 'POST',
     body: JSON.stringify({ path: dirPath }),
   }),
 
