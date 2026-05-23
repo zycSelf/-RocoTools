@@ -139,6 +139,14 @@ BWIKI → crawler(采集+清洗) → data/(JSON+图片) → sync_db.js → SQLit
 
 ---
 
+## 脚本执行手册
+
+所有可手动执行的脚本（爬虫、数据同步、图片处理、构建等）的用途、参数和执行顺序。
+
+详见 [SCRIPTS.md](./SCRIPTS.md)
+
+---
+
 ## 响应式适配
 
 支持手机、平板、桌面三端，采用 Mobile-first 渐进增强：

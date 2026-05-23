@@ -22,6 +22,7 @@ const THUMB_SCRIPT = path.join(SERVER_DIR, 'gen_thumbnails.js');
 const WEBP_SCRIPT = path.join(SERVER_DIR, 'gen_webp.js');
 const INIT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'init.js');
 const IMPORT_SCRIPT = path.join(SERVER_DIR, 'src', 'db', 'import.js');
+const EVOLUTION_SCRIPT = path.join(SERVER_DIR, 'scripts', 'sync-evolution-chains.js');
 
 console.log('============================================================');
 console.log('[SYNC] 数据同步（缩略图 + SQLite）');
@@ -50,6 +51,7 @@ if (hasSharp) {
 steps.push(
   { label: '初始化数据库（建表）', script: INIT_SCRIPT },
   { label: '导入数据', script: IMPORT_SCRIPT },
+  { label: '同步进化链（多路线合并）', script: EVOLUTION_SCRIPT },
 );
 
 for (const { label, script } of steps) {
