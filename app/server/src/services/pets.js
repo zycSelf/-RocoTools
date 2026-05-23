@@ -86,10 +86,12 @@ function getByUid(uid) {
       detail.evolution_chain = detail.evolution_chain.map(stage => {
         const name = typeof stage === 'string' ? stage : stage.name;
         const evolve_level = typeof stage === 'string' ? null : (stage.evolve_level || null);
+        const evolve_condition = typeof stage === 'string' ? null : (stage.evolve_condition || null);
         const match = evoLookup.get(name);
         return {
           name,
           evolve_level,
+          evolve_condition,
           uid: match ? match.uid : null,
           thumb_url: match ? (match.thumb_url || match.image_url) : null,
         };

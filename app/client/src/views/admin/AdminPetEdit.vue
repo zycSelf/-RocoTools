@@ -223,6 +223,11 @@
                 <input v-model="stage.evolve_level" class="input w-full text-sm text-center" placeholder="等级" type="number" min="1" />
               </div>
             </div>
+            <!-- Evolve condition (optional text) -->
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] text-muted flex-shrink-0">进化条件：</span>
+              <input v-model="stage.evolve_condition" class="input flex-1 text-xs" placeholder="特殊进化条件（选填，如：使用火之石）" />
+            </div>
             <!-- Manual name input (fallback for pets not in DB) -->
             <div v-if="!stage.pet_uid" class="flex items-center gap-2">
               <span class="text-[10px] text-muted flex-shrink-0">或手动输入：</span>
@@ -519,7 +524,7 @@ const detailForm = ref({ height: '', weight: '', location: '' })
 const evolutionChain = ref([])
 
 function addEvoStage() {
-  evolutionChain.value.push({ name: '', evolve_level: '', pet_uid: '', thumb_url: '' })
+  evolutionChain.value.push({ name: '', evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' })
 }
 
 function removeEvoStage(idx) {
@@ -741,10 +746,11 @@ async function loadData() {
       }
       // Load evolution chain (raw JSON from DB, already parsed by backend)
       evolutionChain.value = (data.detail.evolution_chain || []).map(stage => {
-        if (typeof stage === 'string') return { name: stage, evolve_level: '', pet_uid: '', thumb_url: '' }
+        if (typeof stage === 'string') return { name: stage, evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' }
         return {
           name: stage.name || '',
           evolve_level: stage.evolve_level || '',
+          evolve_condition: stage.evolve_condition || '',
           pet_uid: stage.uid || '',
           thumb_url: stage.thumb_url || '',
         }
@@ -823,7 +829,7 @@ async function save() {
       await adminApi.create('pets', { uid: newUid, ...form.value })
       // Create pet_details first so upload UPSERT can find the record
       const evoChainJson = evolutionChain.value.filter(s => s.name?.trim()).length > 0
-        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null })))
+        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null, evolve_condition: s.evolve_condition?.trim() || null })))
         : null
       await adminApi.create('pet_details', { pet_uid: newUid, ...detailForm.value, evolution_chain: evoChainJson })
 
@@ -877,7 +883,7 @@ async function save() {
     } else {
       await adminApi.update('pets', uid, form.value)
       const evoChainJson = evolutionChain.value.filter(s => s.name?.trim()).length > 0
-        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null })))
+        ? JSON.stringify(evolutionChain.value.filter(s => s.name?.trim()).map(s => ({ name: s.name.trim(), evolve_level: s.evolve_level || null, evolve_condition: s.evolve_condition?.trim() || null })))
         : null
       const detailPayload = { ...detailForm.value, evolution_chain: evoChainJson }
       if (detail.value) {
