@@ -10,12 +10,15 @@ const props = defineProps({
 })
 
 // 只高亮有实际意义的核心机制词，分4大色系
+// 注意：长词优先匹配（排序按长度降序），短词"应对"放最后不会影响长词匹配
 const highlightRules = [
   // 红色系 - 应对触发（最重要的战斗机制）
   { pattern: '应对状态', color: '#E65100' },
   { pattern: '应对防御', color: '#E65100' },
   { pattern: '应对攻击', color: '#E65100' },
   { pattern: '应对成功', color: '#E65100' },
+  { pattern: '应对失败', color: '#E65100' },
+  { pattern: '应对', color: '#E65100' },
   // 青色系 - 控制/位移
   { pattern: '打断', color: '#0097A7' },
   { pattern: '脱离', color: '#0097A7' },

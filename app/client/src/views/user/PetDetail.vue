@@ -82,7 +82,7 @@
               class="w-7 h-7 sm:w-9 sm:h-9 rounded object-contain flex-shrink-0" loading="lazy" />
             <div class="text-left">
               <div class="font-medium text-xs sm:text-sm">{{ pet.ability_name }}</div>
-              <div class="text-xs text-muted">{{ pet.ability_desc }}</div>
+              <SkillDescription :text="pet.ability_desc" class="text-xs text-muted" />
             </div>
           </div>
 
@@ -231,6 +231,7 @@ import ElementMatchup from '@/components/shared/ElementMatchup.vue'
 import CoverageAnalysis from '@/components/user/CoverageAnalysis.vue'
 import StatsRadar from '@/components/shared/StatsRadar.vue'
 import EvoConditionTag from '@/components/user/EvoConditionTag.vue'
+import SkillDescription from '@/components/user/SkillDescription.vue'
 import { getEggGroupColor } from '@/constants/eggGroupColors'
 
 const route = useRoute()
