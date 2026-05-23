@@ -233,8 +233,49 @@
                     <input v-model="stage.evolve_level" class="input w-full text-xs text-center" placeholder="等级" type="number" min="1" />
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <input v-model="stage.evolve_condition" class="input flex-1 text-xs" placeholder="进化条件（选填，如：使用火之石）" />
+                <!-- Evolve condition (structured) -->
+                <div class="flex items-start gap-2">
+                  <select class="input w-20 text-xs flex-shrink-0"
+                    :value="stage.evolve_condition?.type || ''"
+                    @change="onConditionTypeChange(rIdx, sIdx, $event.target.value)">
+                    <option value="">无条件</option>
+                    <option value="text">文本</option>
+                    <option value="skill">技能</option>
+                    <option value="element">属性</option>
+                    <option value="pet">精灵</option>
+                  </select>
+                  <!-- Text condition -->
+                  <input v-if="stage.evolve_condition?.type === 'text'"
+                    v-model="stage.evolve_condition.text" class="input flex-1 text-xs" placeholder="进化条件描述（如：使用火之石）" />
+                  <!-- Skill condition -->
+                  <div v-else-if="stage.evolve_condition?.type === 'skill'" class="flex-1 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted">使用</span>
+                    <input v-model="stage.evolve_condition.skill_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <span class="text-[10px] text-muted">次</span>
+                    <input v-model="stage.evolve_condition.skill_name" class="input flex-1 min-w-[80px] text-xs" placeholder="技能名称" />
+                    <label class="flex items-center gap-1 text-[10px] text-muted cursor-pointer">
+                      <input type="checkbox" v-model="stage.evolve_condition.need_win" class="w-3 h-3" />
+                      需战胜
+                    </label>
+                  </div>
+                  <!-- Element condition -->
+                  <div v-else-if="stage.evolve_condition?.type === 'element'" class="flex-1 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted">击败</span>
+                    <input v-model="stage.evolve_condition.element_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <span class="text-[10px] text-muted">只</span>
+                    <select v-model="stage.evolve_condition.element_name" class="input flex-1 min-w-[60px] text-xs">
+                      <option value="">选择属性</option>
+                      <option v-for="elem in elements" :key="elem.id" :value="elem.name">{{ elem.name }}</option>
+                    </select>
+                    <span class="text-[10px] text-muted">属性精灵</span>
+                  </div>
+                  <!-- Pet condition -->
+                  <div v-else-if="stage.evolve_condition?.type === 'pet'" class="flex-1 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-muted">击败</span>
+                    <input v-model="stage.evolve_condition.pet_count" type="number" min="1" class="input w-12 text-xs text-center" placeholder="次" />
+                    <span class="text-[10px] text-muted">次</span>
+                    <input v-model="stage.evolve_condition.pet_name" class="input flex-1 min-w-[80px] text-xs" placeholder="精灵名称" />
+                  </div>
                 </div>
                 <div v-if="!stage.pet_uid" class="flex items-center gap-2">
                   <span class="text-[10px] text-muted flex-shrink-0">手动：</span>
@@ -543,7 +584,7 @@ function removeEvoRoute(routeIdx) {
 }
 
 function addEvoStage(routeIdx) {
-  evolutionRoutes.value[routeIdx].push({ name: '', evolve_level: '', evolve_condition: '', pet_uid: '', thumb_url: '' })
+  evolutionRoutes.value[routeIdx].push({ name: '', evolve_level: '', evolve_condition: null, pet_uid: '', thumb_url: '' })
 }
 
 function removeEvoStage(routeIdx, stageIdx) {
@@ -583,6 +624,45 @@ async function onEvoStageSelect(routeIdx, stageIdx, petUid) {
   }
 }
 
+/** Handle evolve_condition type change - initialize the appropriate structure */
+function onConditionTypeChange(routeIdx, stageIdx, type) {
+  const stage = evolutionRoutes.value[routeIdx][stageIdx]
+  if (!type) {
+    stage.evolve_condition = null
+    return
+  }
+  if (type === 'text') {
+    stage.evolve_condition = { type: 'text', text: '' }
+  } else if (type === 'skill') {
+    stage.evolve_condition = { type: 'skill', skill_name: '', skill_count: 1, need_win: false }
+  } else if (type === 'element') {
+    stage.evolve_condition = { type: 'element', element_name: '', element_count: 1 }
+  } else if (type === 'pet') {
+    stage.evolve_condition = { type: 'pet', pet_name: '', pet_count: 1 }
+  }
+}
+
+/** Serialize a single evolve_condition object, stripping empty values */
+function serializeCondition(cond) {
+  if (!cond || !cond.type) return null
+  if (cond.type === 'text') {
+    return cond.text?.trim() ? { type: 'text', text: cond.text.trim() } : null
+  }
+  if (cond.type === 'skill') {
+    if (!cond.skill_name?.trim()) return null
+    return { type: 'skill', skill_name: cond.skill_name.trim(), skill_count: cond.skill_count || 1, need_win: !!cond.need_win }
+  }
+  if (cond.type === 'element') {
+    if (!cond.element_name?.trim()) return null
+    return { type: 'element', element_name: cond.element_name.trim(), element_count: cond.element_count || 1 }
+  }
+  if (cond.type === 'pet') {
+    if (!cond.pet_name?.trim()) return null
+    return { type: 'pet', pet_name: cond.pet_name.trim(), pet_count: cond.pet_count || 1 }
+  }
+  return null
+}
+
 /** Serialize evolution routes to JSON for saving (2D array format) */
 function serializeEvoChain() {
   const validRoutes = evolutionRoutes.value
@@ -593,7 +673,7 @@ function serializeEvoChain() {
     route.map(s => ({
       name: s.name.trim(),
       evolve_level: s.evolve_level || null,
-      evolve_condition: s.evolve_condition?.trim() || null,
+      evolve_condition: serializeCondition(s.evolve_condition),
     }))
   ))
 }
@@ -789,7 +869,7 @@ async function loadData() {
         route.map(stage => ({
           name: stage.name || '',
           evolve_level: stage.evolve_level || '',
-          evolve_condition: stage.evolve_condition || '',
+          evolve_condition: stage.evolve_condition || null, // structured object or null
           pet_uid: stage.uid || '',
           thumb_url: stage.thumb_url || '',
         }))

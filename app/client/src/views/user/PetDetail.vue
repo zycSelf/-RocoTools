@@ -106,11 +106,11 @@
             <template v-for="(stage, idx) in route" :key="idx">
               <!-- Evolution level arrow -->
               <div v-if="idx > 0" class="flex flex-col items-center mx-1 sm:mx-2">
-                <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap font-medium">{{ stage.evolve_level ? 'Lv.' + stage.evolve_level : (stage.evolve_condition || '特殊') }}</span>
+                <span class="text-xs sm:text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap font-medium">{{ stage.evolve_level ? 'Lv.' + stage.evolve_level : (formatEvoCondition(stage.evolve_condition) || '特殊') }}</span>
                 <svg class="w-5 h-5 sm:w-6 sm:h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                <span v-if="stage.evolve_level && stage.evolve_condition" class="text-[10px] text-muted whitespace-nowrap max-w-[80px] truncate" :title="stage.evolve_condition">{{ stage.evolve_condition }}</span>
+                <span v-if="stage.evolve_level && stage.evolve_condition" class="text-[10px] text-muted whitespace-nowrap max-w-[100px] truncate" :title="formatEvoCondition(stage.evolve_condition)">{{ formatEvoCondition(stage.evolve_condition) }}</span>
               </div>
               <!-- Pet stage card -->
               <router-link v-if="stage.uid && stage.uid !== pet.uid"
@@ -232,6 +232,21 @@ import { getEggGroupColor } from '@/constants/eggGroupColors'
 const route = useRoute()
 const router = useRouter()
 const pet = ref(null)
+
+/** Format evolve_condition object to display text */
+function formatEvoCondition(cond) {
+  if (!cond) return ''
+  if (typeof cond === 'string') return cond // legacy string format
+  if (cond.type === 'text') return cond.text || ''
+  if (cond.type === 'skill') {
+    let s = `使用${cond.skill_count || 1}次${cond.skill_name || '?'}`
+    if (cond.need_win) s += '(需战胜)'
+    return s
+  }
+  if (cond.type === 'element') return `击败${cond.element_count || 1}只${cond.element_name || '?'}属性精灵`
+  if (cond.type === 'pet') return `击败${cond.pet_count || 1}次${cond.pet_name || '?'}`
+  return ''
+}
 const elemMap = ref({})
 const elemList = ref([])
 const multipliers = ref({})

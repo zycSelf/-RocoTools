@@ -42,7 +42,11 @@ function normalizeEvolutionChain(database, raw) {
     return route.map(stage => {
       const name = typeof stage === 'string' ? stage : stage.name;
       const evolve_level = typeof stage === 'string' ? null : (stage.evolve_level || null);
-      const evolve_condition = typeof stage === 'string' ? null : (stage.evolve_condition || null);
+      // Normalize evolve_condition: string → {type:'text', text:...}, object → pass through, null → null
+      let evolve_condition = typeof stage === 'string' ? null : (stage.evolve_condition || null);
+      if (typeof evolve_condition === 'string') {
+        evolve_condition = { type: 'text', text: evolve_condition };
+      }
       const match = evoLookup.get(name);
       return {
         name,
