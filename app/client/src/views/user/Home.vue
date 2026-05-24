@@ -18,7 +18,7 @@
       <Transition name="modal">
         <div v-if="showAnnouncement" class="fixed inset-0 z-[300] flex items-center justify-center p-4" @click.self="showAnnouncement = false">
           <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-          <div class="relative w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          <div class="relative w-full max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
             :class="isDark ? 'bg-gray-800' : 'bg-white'">
             <!-- 顶部 -->
             <div class="flex items-center justify-between px-5 py-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
@@ -26,7 +26,7 @@
               <button @click="showAnnouncement = false" class="text-muted hover:text-primary-500 text-xl leading-none">&times;</button>
             </div>
             <!-- 正文 -->
-            <div class="flex-1 overflow-y-auto px-5 py-4 prose-announcement" v-html="announcementHtml"></div>
+            <div class="flex-1 overflow-y-auto px-5 py-4 prose-announcement" :class="isDark ? 'prose-dark' : 'prose-light'" v-html="announcementHtml"></div>
             <!-- 底部 -->
             <div class="px-5 py-3 border-t flex justify-end gap-3" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
               <a v-if="announcement.url" :href="announcement.url" target="_blank" rel="noopener noreferrer"
@@ -194,18 +194,18 @@ function parseMarkdown(md) {
     // Table
     if (line.includes('|') && line.trim().startsWith('|')) {
       const cells = line.split('|').slice(1, -1).map(c => c.trim())
-      // Separator row
+    // Separator row
       if (cells.every(c => /^[-:]+$/.test(c))) continue
       if (!inTable) {
         if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
         inTable = true
-        html += '<table><thead><tr>' + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+        html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
         continue
       }
       html += '<tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'
       continue
     } else if (inTable) {
-      html += '</tbody></table>'
+      html += '</tbody></table></div>'
       inTable = false
     }
 
@@ -244,7 +244,7 @@ function parseMarkdown(md) {
   }
 
   if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'
-  if (inTable) html += '</tbody></table>'
+  if (inTable) html += '</tbody></table></div>'
   return html
 }
 
@@ -308,47 +308,88 @@ onMounted(async () => {
   transform: scale(0.95) translateY(8px);
 }
 
-/* Markdown prose styles for announcement */
+/* ===== Markdown Prose — Light Mode ===== */
 :deep(.prose-announcement) {
-  font-size: 0.875rem;
-  line-height: 1.7;
-  color: var(--color-text, inherit);
+  font-size: 0.85rem;
+  line-height: 1.65;
 }
+:deep(.prose-light) {
+  color: #374151;
+}
+:deep(.prose-dark) {
+  color: #e5e7eb;
+}
+
+/* H1 — Main title */
 :deep(.prose-announcement h1) {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  margin: 0 0 0.75rem;
-  color: var(--color-primary, #D69F23);
+  margin: 0 0 0.5rem;
+  color: #D69F23;
+  font-family: 'MIANFEIZITI', 'PingFang SC', sans-serif;
 }
+
+/* H2 — Section title with gold accent */
 :deep(.prose-announcement h2) {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 1.25rem 0 0.5rem;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid rgba(0,0,0,0.08);
-}
-:deep(.prose-announcement h3) {
   font-size: 1rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.6rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border-left: 3px solid #D69F23;
+}
+:deep(.prose-light h2) {
+  background: rgba(214, 159, 35, 0.08);
+  color: #92700C;
+}
+:deep(.prose-dark h2) {
+  background: rgba(255, 202, 40, 0.1);
+  color: #FFCA28;
+}
+
+/* H3 — Sub-section (skill names, pet names) */
+:deep(.prose-announcement h3) {
+  font-size: 0.9rem;
   font-weight: 600;
-  margin: 1rem 0 0.25rem;
+  margin: 0.9rem 0 0.2rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid #D69F23;
 }
+:deep(.prose-dark h3) {
+  color: #fde68a;
+}
+
+/* Paragraphs */
 :deep(.prose-announcement p) {
-  margin: 0.4rem 0;
+  margin: 0.3rem 0;
 }
+
+/* Blockquote — meta info */
 :deep(.prose-announcement blockquote) {
-  margin: 0.5rem 0;
-  padding: 0.25rem 0.75rem;
-  border-left: 3px solid var(--color-primary, #D69F23);
-  opacity: 0.8;
-  font-size: 0.8rem;
+  margin: 0.5rem 0 1rem;
+  padding: 0.4rem 0.75rem;
+  border-left: 3px solid #D69F23;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.78rem;
 }
+:deep(.prose-light blockquote) {
+  background: rgba(214, 159, 35, 0.06);
+  color: #6b7280;
+}
+:deep(.prose-dark blockquote) {
+  background: rgba(255, 202, 40, 0.06);
+  color: #9ca3af;
+}
+
+/* Lists */
 :deep(.prose-announcement ul),
 :deep(.prose-announcement ol) {
-  margin: 0.4rem 0;
-  padding-left: 1.25rem;
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
 }
 :deep(.prose-announcement li) {
-  margin: 0.2rem 0;
+  margin: 0.15rem 0;
+  line-height: 1.6;
 }
 :deep(.prose-announcement ul li) {
   list-style: disc;
@@ -356,38 +397,127 @@ onMounted(async () => {
 :deep(.prose-announcement ol li) {
   list-style: decimal;
 }
+:deep(.prose-light li::marker) {
+  color: #D69F23;
+}
+:deep(.prose-dark li::marker) {
+  color: #FFCA28;
+}
+
+/* Bold / Strong */
 :deep(.prose-announcement strong) {
   font-weight: 600;
 }
-:deep(.prose-announcement code) {
-  background: rgba(0,0,0,0.05);
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  font-size: 0.8rem;
+:deep(.prose-light strong) {
+  color: #1f2937;
 }
+:deep(.prose-dark strong) {
+  color: #f9fafb;
+}
+
+/* Inline code */
+:deep(.prose-announcement code) {
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+:deep(.prose-light code) {
+  background: rgba(214, 159, 35, 0.1);
+  color: #92700C;
+}
+:deep(.prose-dark code) {
+  background: rgba(255, 202, 40, 0.12);
+  color: #fde68a;
+}
+
+/* Table wrapper — horizontal scroll */
+:deep(.prose-announcement .table-wrap) {
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  border-radius: 8px;
+  border: 1px solid;
+}
+:deep(.prose-light .table-wrap) {
+  border-color: #e5e7eb;
+}
+:deep(.prose-dark .table-wrap) {
+  border-color: #2d3548;
+}
+
+/* Table */
 :deep(.prose-announcement table) {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.75rem 0;
-  font-size: 0.8rem;
-}
-:deep(.prose-announcement th),
-:deep(.prose-announcement td) {
-  border: 1px solid rgba(0,0,0,0.1);
-  padding: 0.35rem 0.5rem;
-  text-align: left;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 :deep(.prose-announcement th) {
-  background: rgba(0,0,0,0.03);
   font-weight: 600;
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  position: sticky;
+  top: 0;
 }
+:deep(.prose-light th) {
+  background: rgba(214, 159, 35, 0.1);
+  color: #92700C;
+  border-bottom: 2px solid rgba(214, 159, 35, 0.3);
+}
+:deep(.prose-dark th) {
+  background: rgba(255, 202, 40, 0.1);
+  color: #FFCA28;
+  border-bottom: 2px solid rgba(255, 202, 40, 0.2);
+}
+:deep(.prose-announcement td) {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+:deep(.prose-light td) {
+  border-bottom: 1px solid #f3f4f6;
+}
+:deep(.prose-dark td) {
+  border-bottom: 1px solid #1e2433;
+}
+/* Zebra striping */
+:deep(.prose-light tr:nth-child(even) td) {
+  background: #fafafa;
+}
+:deep(.prose-dark tr:nth-child(even) td) {
+  background: rgba(255, 255, 255, 0.02);
+}
+:deep(.prose-light tr:hover td) {
+  background: rgba(214, 159, 35, 0.05);
+}
+:deep(.prose-dark tr:hover td) {
+  background: rgba(255, 202, 40, 0.05);
+}
+
+/* Horizontal rule */
 :deep(.prose-announcement hr) {
-  margin: 1rem 0;
+  margin: 1.25rem 0;
   border: none;
-  border-top: 1px solid rgba(0,0,0,0.1);
 }
+:deep(.prose-light hr) {
+  border-top: 1px solid #e5e7eb;
+}
+:deep(.prose-dark hr) {
+  border-top: 1px solid #2d3548;
+}
+
+/* Links */
 :deep(.prose-announcement a) {
-  color: var(--color-primary, #D69F23);
+  color: #D69F23;
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:deep(.prose-announcement a:hover) {
+  color: #B8860B;
+}
+:deep(.prose-dark a) {
+  color: #FFCA28;
+}
+:deep(.prose-dark a:hover) {
+  color: #FFD54F;
 }
 </style>
