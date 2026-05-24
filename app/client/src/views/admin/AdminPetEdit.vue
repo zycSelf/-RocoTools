@@ -555,9 +555,9 @@
       <!-- Achievement list -->
       <div class="space-y-2 mb-3">
         <div v-for="(ach, idx) in achievements" :key="idx"
-          class="flex items-start gap-2 p-3 rounded-lg bg-gray-50 dark:bg-white/5">
+          class="flex items-center gap-2 p-3 rounded-lg bg-gray-50 dark:bg-white/5">
           <!-- Type badge -->
-          <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5"
+          <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
             :class="ach.type === 'skill' ? 'bg-primary-500/15 text-primary-500' : 'bg-gray-200 dark:bg-white/10 text-muted'">
             {{ ach.type === 'skill' ? '技能' : '文本' }}
           </span>
