@@ -184,7 +184,7 @@ function getByUid(uid) {
 
   // Achievements (图鉴课题) - exclude hidden ones
   pet.achievements = db.prepare(`
-    SELECT title, reward_desc, is_default FROM pet_achievements
+    SELECT type, title, skill_ref_uid, skill_name, use_count, reward_desc, is_default FROM pet_achievements
     WHERE pet_uid = ? AND (hidden IS NULL OR hidden = 0)
     ORDER BY sort_order, id
   `).all(pet.uid);

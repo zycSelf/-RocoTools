@@ -179,7 +179,14 @@
         <div v-for="(ach, idx) in pet.achievements" :key="idx"
           class="flex items-center gap-2 sm:gap-3 px-3 py-2 sm:py-2.5 rounded-lg bg-gray-50 dark:bg-white/[0.03]">
           <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400">{{ idx + 1 }}</span>
-          <span class="text-xs sm:text-sm flex-1">{{ ach.title }}</span>
+          <span class="text-xs sm:text-sm flex-1">
+            <span v-if="ach.type === 'skill' && ach.skill_name">
+              使用{{ ach.use_count || 10 }}次{{ ach.skill_name }}
+            </span>
+            <span v-else>
+              {{ ach.title }}
+            </span>
+          </span>
           <span v-if="ach.reward_desc" class="text-[10px] sm:text-xs text-muted flex-shrink-0">{{ ach.reward_desc }}</span>
         </div>
       </div>
