@@ -148,7 +148,9 @@ CREATE TABLE IF NOT EXISTS seasons (
   shiny_pets  TEXT,                 -- 常态异色精灵 JSON array (8 uid)
   start_date  TEXT,                 -- 赛季开始日期
   end_date    TEXT,                 -- 赛季结束日期
-  note        TEXT                  -- 备注
+  note        TEXT,                -- 备注
+  announcement_url  TEXT,          -- 赛季更新公告链接
+  announcement_text TEXT           -- 赛季更新公告文案
 );
 
 -- 赛季活动日历

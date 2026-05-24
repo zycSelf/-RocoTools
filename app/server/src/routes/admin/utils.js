@@ -377,7 +377,7 @@ const EDITABLE_TABLES = {
   seasons: {
     label: '赛季',
     primaryKey: 'id',
-    editableFields: ['name', 'is_current', 'image', 'pass_pets', 'legend_pet', 'season_pets', 'shiny_pets', 'start_date', 'end_date', 'note'],
+    editableFields: ['name', 'is_current', 'image', 'pass_pets', 'legend_pet', 'season_pets', 'shiny_pets', 'start_date', 'end_date', 'note', 'announcement_url', 'announcement_text'],
   },
 };
 

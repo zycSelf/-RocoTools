@@ -3,6 +3,16 @@
     <!-- 标题 -->
     <h1 class="page-title">洛克王国世界 数据工具</h1>
 
+    <!-- 赛季更新公告 -->
+    <a v-if="announcement.url" :href="announcement.url" target="_blank" rel="noopener noreferrer"
+      class="block mb-4 sm:mb-5 lg:mb-6 card !py-3 !px-4 border-l-4 border-l-primary-500 hover:border-primary-500/50 transition-colors group">
+      <div class="flex items-center gap-2">
+        <span class="text-base">📢</span>
+        <span class="text-sm sm:text-base font-medium group-hover:text-primary-500 transition-colors">{{ announcement.text }}</span>
+        <span class="text-xs text-muted ml-auto flex-shrink-0">查看详情 →</span>
+      </div>
+    </a>
+
     <!-- 官方链接 -->
     <div class="flex flex-wrap gap-3 sm:gap-4 section-gap">
       <a href="https://rocom.qq.com/" target="_blank" rel="noopener noreferrer"
@@ -109,10 +119,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { statsApi } from '@/api'
+import { ref, reactive, onMounted } from 'vue'
+import { statsApi, seasonsApi } from '@/api'
 
 const stats = ref([])
+const announcement = reactive({ url: '', text: '' })
 const navCards = [
   { path: '/events', title: '活动日历', desc: '当前赛季活动、大量出没、常驻课题' },
   { path: '/pets', title: '精灵图鉴', desc: '查看所有精灵数据、种族值、技能、蛋组' },
@@ -125,7 +136,10 @@ const navCards = [
 
 onMounted(async () => {
   try {
-    const data = await statsApi.get()
+    const [data, seasonRes] = await Promise.all([
+      statsApi.get(),
+      seasonsApi.current(),
+    ])
     stats.value = [
       { label: '精灵', value: data.pets ?? 0 },
       { label: '技能', value: data.skills ?? 0 },
@@ -133,8 +147,12 @@ onMounted(async () => {
       { label: '蛋组', value: data.eggs ?? 0 },
       { label: '性格', value: data.natures ?? 0 },
     ]
+    if (seasonRes.season?.announcement_url) {
+      announcement.url = seasonRes.season.announcement_url
+      announcement.text = seasonRes.season.announcement_text || '赛季更新公告'
+    }
   } catch (e) {
-    console.error('加载统计数据失败', e)
+    console.error('加载数据失败', e)
   }
 })
 </script>

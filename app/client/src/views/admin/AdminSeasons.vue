@@ -191,6 +191,22 @@
         </div>
       </div>
 
+      <!-- 赛季公告配置 -->
+      <div class="card">
+        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">首页公告 <span class="text-xs text-muted font-normal">（可选）</span></h2>
+        <p class="text-xs text-muted mb-3">配置后将在用户端首页顶部显示公告横幅，留空则不显示</p>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-muted block mb-1">公告文案</label>
+            <input v-model="form.announcement_text" class="input w-full" placeholder="如：本赛季有精灵个体值、特性、技能学习面等调整" />
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">跳转链接</label>
+            <input v-model="form.announcement_url" class="input w-full" placeholder="https://..." />
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -228,6 +244,7 @@ const { openPreview } = useImagePreview()
 
 const form = reactive({
   name: '', is_current: 0, image: '', start_date: '', end_date: '', note: '',
+  announcement_url: '', announcement_text: '',
   legend_pet: '',
   pass_pets: [],
   season_pets: [],
@@ -267,6 +284,8 @@ function loadSeason() {
   form.start_date = s.start_date || ''
   form.end_date = s.end_date || ''
   form.note = s.note || ''
+  form.announcement_url = s.announcement_url || ''
+  form.announcement_text = s.announcement_text || ''
   form.legend_pet = s.legend_pet || ''
   form.pass_pets = safeParseJSON(s.pass_pets)
   form.season_pets = safeParseJSON(s.season_pets)
@@ -329,6 +348,8 @@ async function save() {
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       note: form.note || null,
+      announcement_url: form.announcement_url || null,
+      announcement_text: form.announcement_text || null,
       legend_pet: form.legend_pet || null,
       pass_pets: JSON.stringify(form.pass_pets.filter(Boolean)),
       season_pets: JSON.stringify(form.season_pets.filter(Boolean)),
