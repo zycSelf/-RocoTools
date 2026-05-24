@@ -17,12 +17,12 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 # Defaults (override via scripts/.env or environment variables)
-REMOTE_USER="${REMOTE_USER:-eachzhang}"
+REMOTE_USER="${REMOTE_USER:-}"
 REMOTE_HOST="${REMOTE_HOST:-}"
-REMOTE_PROJECT="${REMOTE_PROJECT:-/var/www/roco}"
+REMOTE_PROJECT="${REMOTE_PROJECT:-}"
 
-if [ -z "$REMOTE_HOST" ]; then
-  error "REMOTE_HOST is not set. Please create scripts/.env with:\n  REMOTE_USER=youruser\n  REMOTE_HOST=your.server.ip\n  REMOTE_PROJECT=/var/www/roco"
+if [ -z "$REMOTE_HOST" ] || [ -z "$REMOTE_USER" ] || [ -z "$REMOTE_PROJECT" ]; then
+  error "Server config not set. Please create scripts/.env with:\n  REMOTE_USER=youruser\n  REMOTE_HOST=your.server.ip\n  REMOTE_PROJECT=/path/to/project\n\nSee scripts/.env.example for reference."
 fi
 
 REMOTE_DB="${REMOTE_PROJECT}/app/server/data/roco.db"
