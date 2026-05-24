@@ -552,6 +552,25 @@ onMounted(async () => {
   border-top: 1px solid #2d3548;
 }
 
+/* Footer disclaimer (paragraph after hr) */
+:deep(.prose-announcement hr + p) {
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+:deep(.prose-light hr + p) {
+  background: rgba(214, 159, 35, 0.06);
+  color: #92700C;
+  border: 1px dashed rgba(214, 159, 35, 0.3);
+}
+:deep(.prose-dark hr + p) {
+  background: rgba(255, 202, 40, 0.06);
+  color: #FFCA28;
+  border: 1px dashed rgba(255, 202, 40, 0.25);
+}
+
 /* Links */
 :deep(.prose-announcement a) {
   color: #D69F23;

@@ -340,7 +340,7 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
 // --- Footer ---
 w(`---`);
 w();
-w(`*本公告数据来源于 BWIKI 及游戏官网，通过赛季数据比对脚本自动生成。如有内容与游戏实际不符，一切以游戏内为准。*`);
+w(`**本公告数据来源于 BWIKI 及游戏官网，通过赛季数据比对脚本自动生成。如有内容与游戏实际不符，一切以游戏内为准。**`);
 
 // ============ Output ============
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
