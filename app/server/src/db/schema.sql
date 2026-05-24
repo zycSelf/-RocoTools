@@ -150,7 +150,8 @@ CREATE TABLE IF NOT EXISTS seasons (
   end_date    TEXT,                 -- 赛季结束日期
   note        TEXT,                -- 备注
   announcement_url  TEXT,          -- 赛季更新公告链接
-  announcement_text TEXT           -- 赛季更新公告文案
+  announcement_text TEXT,          -- 赛季更新公告文案
+  announcement_content TEXT        -- 赛季更新公告正文（Markdown）
 );
 
 -- 赛季活动日历

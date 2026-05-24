@@ -4,14 +4,39 @@
     <h1 class="page-title">洛克王国世界 数据工具</h1>
 
     <!-- 赛季更新公告 -->
-    <a v-if="announcement.url" :href="announcement.url" target="_blank" rel="noopener noreferrer"
-      class="block mb-4 sm:mb-5 lg:mb-6 card !py-3 !px-4 border-l-4 border-l-primary-500 hover:border-primary-500/50 transition-colors group">
+    <div v-if="announcement.text" @click="showAnnouncement = true"
+      class="block mb-4 sm:mb-5 lg:mb-6 card !py-3 !px-4 border-l-4 border-l-primary-500 hover:border-primary-500/50 transition-colors group cursor-pointer">
       <div class="flex items-center gap-2">
         <span class="text-base">📢</span>
         <span class="text-sm sm:text-base font-medium group-hover:text-primary-500 transition-colors">{{ announcement.text }}</span>
         <span class="text-xs text-muted ml-auto flex-shrink-0">查看详情 →</span>
       </div>
-    </a>
+    </div>
+
+    <!-- 公告弹窗 -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showAnnouncement" class="fixed inset-0 z-[300] flex items-center justify-center p-4" @click.self="showAnnouncement = false">
+          <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+          <div class="relative w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            :class="isDark ? 'bg-gray-800' : 'bg-white'">
+            <!-- 顶部 -->
+            <div class="flex items-center justify-between px-5 py-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+              <h3 class="font-roco text-base text-primary-500">📢 赛季更新公告</h3>
+              <button @click="showAnnouncement = false" class="text-muted hover:text-primary-500 text-xl leading-none">&times;</button>
+            </div>
+            <!-- 正文 -->
+            <div class="flex-1 overflow-y-auto px-5 py-4 prose-announcement" v-html="announcementHtml"></div>
+            <!-- 底部 -->
+            <div class="px-5 py-3 border-t flex justify-end gap-3" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+              <a v-if="announcement.url" :href="announcement.url" target="_blank" rel="noopener noreferrer"
+                class="text-xs text-primary-500 hover:underline">查看外部链接 ↗</a>
+              <button @click="showAnnouncement = false" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors">关闭</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 官方链接 -->
     <div class="flex flex-wrap gap-3 sm:gap-4 section-gap">
@@ -119,11 +144,121 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { statsApi, seasonsApi } from '@/api'
+import { useTheme } from '@/composables/useTheme'
 
+const { isDark } = useTheme()
 const stats = ref([])
-const announcement = reactive({ url: '', text: '' })
+const announcement = reactive({ url: '', text: '', content: '' })
+const showAnnouncement = ref(false)
+
+// Lightweight Markdown → HTML parser (supports headings, tables, lists, bold, italic, hr, blockquote)
+function parseMarkdown(md) {
+  if (!md) return ''
+  const lines = md.split('\n')
+  let html = ''
+  let inTable = false
+  let inList = false
+  let listType = ''
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i]
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      html += '<hr/>'
+      continue
+    }
+
+    // Headings
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
+    if (headingMatch) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      const level = headingMatch[1].length
+      html += `<h${level}>${inline(headingMatch[2])}</h${level}>`
+      continue
+    }
+
+    // Blockquote
+    if (line.startsWith('> ')) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      html += `<blockquote>${inline(line.slice(2))}</blockquote>`
+      continue
+    }
+
+    // Table
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      const cells = line.split('|').slice(1, -1).map(c => c.trim())
+      // Separator row
+      if (cells.every(c => /^[-:]+$/.test(c))) continue
+      if (!inTable) {
+        if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+        inTable = true
+        html += '<table><thead><tr>' + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+        continue
+      }
+      html += '<tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'
+      continue
+    } else if (inTable) {
+      html += '</tbody></table>'
+      inTable = false
+    }
+
+    // Unordered list
+    if (/^[-*]\s+/.test(line.trim())) {
+      if (!inList || listType !== 'ul') {
+        if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'
+        html += '<ul>'; inList = true; listType = 'ul'
+      }
+      html += `<li>${inline(line.trim().replace(/^[-*]\s+/, ''))}</li>`
+      continue
+    }
+
+    // Ordered list
+    if (/^\d+\.\s+/.test(line.trim())) {
+      if (!inList || listType !== 'ol') {
+        if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'
+        html += '<ol>'; inList = true; listType = 'ol'
+      }
+      html += `<li>${inline(line.trim().replace(/^\d+\.\s+/, ''))}</li>`
+      continue
+    }
+
+    // Close list if not continuing
+    if (inList && line.trim() === '') {
+      html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false
+      continue
+    }
+
+    // Empty line
+    if (line.trim() === '') continue
+
+    // Paragraph
+    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+    html += `<p>${inline(line)}</p>`
+  }
+
+  if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'
+  if (inTable) html += '</tbody></table>'
+  return html
+}
+
+// Inline formatting: bold, italic, code, links
+function inline(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/→/g, '→')
+}
+
+const announcementHtml = computed(() => parseMarkdown(announcement.content))
 const navCards = [
   { path: '/events', title: '活动日历', desc: '当前赛季活动、大量出没、常驻课题' },
   { path: '/pets', title: '精灵图鉴', desc: '查看所有精灵数据、种族值、技能、蛋组' },
@@ -147,12 +282,112 @@ onMounted(async () => {
       { label: '蛋组', value: data.eggs ?? 0 },
       { label: '性格', value: data.natures ?? 0 },
     ]
-    if (seasonRes.season?.announcement_url) {
-      announcement.url = seasonRes.season.announcement_url
-      announcement.text = seasonRes.season.announcement_text || '赛季更新公告'
+    if (seasonRes.season?.announcement_text) {
+      announcement.url = seasonRes.season.announcement_url || ''
+      announcement.text = seasonRes.season.announcement_text || ''
+      announcement.content = seasonRes.season.announcement_content || ''
     }
   } catch (e) {
     console.error('加载数据失败', e)
   }
 })
 </script>
+
+<style scoped>
+/* Modal transition */
+.modal-enter-active, .modal-leave-active {
+  transition: all 0.2s ease;
+}
+.modal-enter-from, .modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from > div:last-child {
+  transform: scale(0.95) translateY(8px);
+}
+.modal-leave-to > div:last-child {
+  transform: scale(0.95) translateY(8px);
+}
+
+/* Markdown prose styles for announcement */
+:deep(.prose-announcement) {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--color-text, inherit);
+}
+:deep(.prose-announcement h1) {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--color-primary, #D69F23);
+}
+:deep(.prose-announcement h2) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+:deep(.prose-announcement h3) {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.25rem;
+}
+:deep(.prose-announcement p) {
+  margin: 0.4rem 0;
+}
+:deep(.prose-announcement blockquote) {
+  margin: 0.5rem 0;
+  padding: 0.25rem 0.75rem;
+  border-left: 3px solid var(--color-primary, #D69F23);
+  opacity: 0.8;
+  font-size: 0.8rem;
+}
+:deep(.prose-announcement ul),
+:deep(.prose-announcement ol) {
+  margin: 0.4rem 0;
+  padding-left: 1.25rem;
+}
+:deep(.prose-announcement li) {
+  margin: 0.2rem 0;
+}
+:deep(.prose-announcement ul li) {
+  list-style: disc;
+}
+:deep(.prose-announcement ol li) {
+  list-style: decimal;
+}
+:deep(.prose-announcement strong) {
+  font-weight: 600;
+}
+:deep(.prose-announcement code) {
+  background: rgba(0,0,0,0.05);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+:deep(.prose-announcement table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.8rem;
+}
+:deep(.prose-announcement th),
+:deep(.prose-announcement td) {
+  border: 1px solid rgba(0,0,0,0.1);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+}
+:deep(.prose-announcement th) {
+  background: rgba(0,0,0,0.03);
+  font-weight: 600;
+}
+:deep(.prose-announcement hr) {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid rgba(0,0,0,0.1);
+}
+:deep(.prose-announcement a) {
+  color: var(--color-primary, #D69F23);
+  text-decoration: underline;
+}
+</style>

@@ -194,15 +194,21 @@
       <!-- 赛季公告配置 -->
       <div class="card">
         <h2 class="font-roco text-base text-primary-500 font-bold mb-1">首页公告 <span class="text-xs text-muted font-normal">（可选）</span></h2>
-        <p class="text-xs text-muted mb-3">配置后将在用户端首页顶部显示公告横幅，留空则不显示</p>
+        <p class="text-xs text-muted mb-3">配置后将在用户端首页顶部显示公告横幅，点击弹窗展示公告正文；留空则不显示</p>
         <div class="space-y-3">
           <div>
-            <label class="text-xs text-muted block mb-1">公告文案</label>
+            <label class="text-xs text-muted block mb-1">公告文案（横幅显示文字）</label>
             <input v-model="form.announcement_text" class="input w-full" placeholder="如：本赛季有精灵个体值、特性、技能学习面等调整" />
           </div>
           <div>
-            <label class="text-xs text-muted block mb-1">跳转链接</label>
+            <label class="text-xs text-muted block mb-1">外链地址（可选，有正文时优先弹窗）</label>
             <input v-model="form.announcement_url" class="input w-full" placeholder="https://..." />
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">公告正文（Markdown 格式，粘贴即可）</label>
+            <textarea v-model="form.announcement_content" class="input w-full font-mono text-xs" rows="12"
+              placeholder="# 标题&#10;&#10;正文内容，支持 Markdown 格式..."></textarea>
+            <p class="text-xs text-muted mt-1">支持标题、表格、列表、加粗等 Markdown 语法，用户端点击公告横幅后弹窗展示</p>
           </div>
         </div>
       </div>
@@ -244,7 +250,7 @@ const { openPreview } = useImagePreview()
 
 const form = reactive({
   name: '', is_current: 0, image: '', start_date: '', end_date: '', note: '',
-  announcement_url: '', announcement_text: '',
+  announcement_url: '', announcement_text: '', announcement_content: '',
   legend_pet: '',
   pass_pets: [],
   season_pets: [],
@@ -286,6 +292,7 @@ function loadSeason() {
   form.note = s.note || ''
   form.announcement_url = s.announcement_url || ''
   form.announcement_text = s.announcement_text || ''
+  form.announcement_content = s.announcement_content || ''
   form.legend_pet = s.legend_pet || ''
   form.pass_pets = safeParseJSON(s.pass_pets)
   form.season_pets = safeParseJSON(s.season_pets)
@@ -350,6 +357,7 @@ async function save() {
       note: form.note || null,
       announcement_url: form.announcement_url || null,
       announcement_text: form.announcement_text || null,
+      announcement_content: form.announcement_content || null,
       legend_pet: form.legend_pet || null,
       pass_pets: JSON.stringify(form.pass_pets.filter(Boolean)),
       season_pets: JSON.stringify(form.season_pets.filter(Boolean)),
