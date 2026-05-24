@@ -492,6 +492,9 @@ onMounted(async () => {
   z-index: 2;
   font-weight: 600;
 }
+:deep(.prose-announcement th:first-child) {
+  z-index: 5;
+}
 :deep(.prose-light th:first-child),
 :deep(.prose-light td:first-child) {
   background: #fff;
