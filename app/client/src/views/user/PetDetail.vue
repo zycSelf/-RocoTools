@@ -199,6 +199,7 @@
                    class="w-6 h-6 sm:w-8 sm:h-8 object-contain rounded flex-shrink-0" loading="lazy" />
               <img v-else-if="skillElements[ach.skill_ref_uid]?.icon" :src="skillElements[ach.skill_ref_uid].icon" 
                    class="w-6 h-6 sm:w-8 sm:h-8 object-contain rounded flex-shrink-0" loading="lazy" />
+              <div v-else class="w-6 h-6 sm:w-8 sm:h-8 rounded bg-gray-200 dark:bg-white/10 flex-shrink-0"></div>
               
               <!-- 技能名称和属性 -->
               <div class="flex-1 min-w-0">
@@ -396,9 +397,17 @@ async function loadSkillDetails(achievements) {
   if (skillRefs.length === 0) return
   
   try {
-    for (const uid of skillRefs) {
-      const skill = await skillsApi.get(uid)
+    // 并行加载所有技能详情以提高性能
+    const skillPromises = skillRefs.map(uid => skillsApi.get(uid).catch(err => {
+      console.warn(`Failed to load skill ${uid}:`, err)
+      return null
+    }))
+    
+    const skills = await Promise.all(skillPromises)
+    
+    skills.forEach((skill, index) => {
       if (skill) {
+        const uid = skillRefs[index]
         skillIcons.value[uid] = skill.icon_url
         skillElements.value[uid] = {
           name: skill.element_name,
@@ -409,7 +418,7 @@ async function loadSkillDetails(achievements) {
         skillCosts.value[uid] = skill.cost
         skillPowers.value[uid] = skill.power
       }
-    }
+    })
   } catch (err) {
     console.warn('Failed to load skill details:', err)
   }
