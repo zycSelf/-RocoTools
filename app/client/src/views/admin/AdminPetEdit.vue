@@ -123,6 +123,54 @@
           </button>
         </div>
       </div>
+      <!-- 精灵标记 -->
+      <div class="flex flex-wrap gap-x-4 gap-y-2 mt-3 pt-3 border-t border-gray-100 dark:border-white/5">
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">传说精灵</label>
+          <button @click="form.is_legendary = form.is_legendary ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.is_legendary ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.is_legendary ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">赛季精灵</label>
+          <button @click="form.is_season = form.is_season ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.is_season ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.is_season ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">通行证精灵</label>
+          <button @click="form.is_pass = form.is_pass ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.is_pass ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.is_pass ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">首领形态</label>
+          <button @click="form.is_boss_form = form.is_boss_form ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.is_boss_form ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.is_boss_form ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">拥有首领形态</label>
+          <button @click="form.has_boss_form = form.has_boss_form ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.has_boss_form ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.has_boss_form ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 特性 -->
@@ -701,6 +749,7 @@ const form = ref({
   ability_name: '', ability_desc: '', version: '',
   hp: 0, atk: 0, def: 0, matk: 0, mdef: 0, speed: 0, total: 0,
   is_final_form: 0,
+  is_legendary: 0, is_season: 0, is_pass: 0, is_boss_form: 0, has_boss_form: 0,
 })
 
 const detailForm = ref({ height: '', weight: '', location: '' })
@@ -1044,6 +1093,11 @@ async function loadData() {
       hp: data.hp, atk: data.atk, def: data.def,
       matk: data.matk, mdef: data.mdef, speed: data.speed, total: data.total,
       is_final_form: data.is_final_form || 0,
+      is_legendary: data.is_legendary || 0,
+      is_season: data.is_season || 0,
+      is_pass: data.is_pass || 0,
+      is_boss_form: data.is_boss_form || 0,
+      has_boss_form: data.has_boss_form || 0,
     }
 
     if (data.detail) {

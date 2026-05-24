@@ -76,6 +76,15 @@
             </router-link>
           </div>
 
+          <!-- 精灵标记 -->
+          <div v-if="petTags.length" class="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3 justify-center sm:justify-start">
+            <span v-for="tag in petTags" :key="tag.key"
+              class="badge text-xs md:text-sm"
+              :style="{ background: tag.color + '18', color: tag.color }">
+              {{ tag.label }}
+            </span>
+          </div>
+
           <!-- 特性 -->
           <div class="flex items-start gap-2.5 sm:gap-3 mb-3 sm:mb-4 justify-center sm:justify-start p-2.5 sm:p-3 rounded-xl bg-gray-50 dark:bg-white/[0.03]">
             <img v-if="pet.detail?.ability_icon" :src="pet.detail.ability_icon"
@@ -250,6 +259,19 @@ import { getEggGroupColor } from '@/constants/eggGroupColors'
 const route = useRoute()
 const router = useRouter()
 const pet = ref(null)
+
+// Pet special tags (displayed as badges)
+const petTags = computed(() => {
+  if (!pet.value) return []
+  const tags = []
+  if (pet.value.is_final_form) tags.push({ key: 'final', label: '最终形态', color: '#D69F23' })
+  if (pet.value.is_legendary) tags.push({ key: 'legendary', label: '传说精灵', color: '#E6A817' })
+  if (pet.value.is_season) tags.push({ key: 'season', label: '赛季精灵', color: '#3B82F6' })
+  if (pet.value.is_pass) tags.push({ key: 'pass', label: '通行证精灵', color: '#8B5CF6' })
+  if (pet.value.is_boss_form) tags.push({ key: 'boss_form', label: '首领形态', color: '#EF4444' })
+  if (pet.value.has_boss_form) tags.push({ key: 'has_boss', label: '拥有首领形态', color: '#F97316' })
+  return tags
+})
 
 /** Navigate back: if previous route was pets list, go back to preserve state; otherwise navigate to /pets */
 function goBack() {

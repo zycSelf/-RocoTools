@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS pets (
   image_url     TEXT,
   thumb_url     TEXT,
   is_final_form INTEGER DEFAULT 0,  -- 是否为最终形态（1=是，0=否）
+  is_legendary  INTEGER DEFAULT 0,  -- 是否为传说精灵（1=是，0=否）
+  is_season     INTEGER DEFAULT 0,  -- 是否为赛季精灵（1=是，0=否）
+  is_pass       INTEGER DEFAULT 0,  -- 是否为通行证精灵（1=是，0=否）
+  is_boss_form  INTEGER DEFAULT 0,  -- 是否为首领形态（1=是，0=否）
+  has_boss_form INTEGER DEFAULT 0,  -- 是否拥有首领形态（1=是，0=否）
   manual_edit   INTEGER DEFAULT 0,
   FOREIGN KEY (element_id) REFERENCES elements(id),
   FOREIGN KEY (sub_element_id) REFERENCES elements(id)
