@@ -177,17 +177,58 @@
       <h3 class="font-roco text-sm sm:text-base mb-2 sm:mb-3">图鉴课题</h3>
       <div class="space-y-1.5">
         <div v-for="(ach, idx) in pet.achievements" :key="idx"
-          class="flex items-center gap-2 sm:gap-3 px-3 py-2 sm:py-2.5 rounded-lg bg-gray-50 dark:bg-white/[0.03]">
-          <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400">{{ idx + 1 }}</span>
-          <span class="text-xs sm:text-sm flex-1">
-            <span v-if="ach.type === 'skill' && ach.skill_name">
-              使用{{ ach.use_count || 10 }}次{{ ach.skill_name }}
+          class="px-3 py-2 sm:py-2.5 rounded-lg bg-gray-50 dark:bg-white/[0.03]">
+          <div class="flex items-center gap-2 sm:gap-3 mb-1">
+            <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium bg-primary-100 text-primary-600 dark:bg-primary-500/20 dark:text-primary-400">{{ idx + 1 }}</span>
+            <span class="text-xs sm:text-sm flex-1">
+              <span v-if="ach.type === 'skill' && ach.skill_name">
+                使用{{ ach.use_count || 10 }}次{{ ach.skill_name }}
+              </span>
+              <span v-else>
+                {{ ach.title }}
+              </span>
             </span>
-            <span v-else>
-              {{ ach.title }}
-            </span>
-          </span>
-          <span v-if="ach.reward_desc" class="text-[10px] sm:text-xs text-muted flex-shrink-0">{{ ach.reward_desc }}</span>
+            <span v-if="ach.reward_desc" class="text-[10px] sm:text-xs text-muted flex-shrink-0">{{ ach.reward_desc }}</span>
+          </div>
+          
+          <!-- 技能类型课题的详细展示 -->
+          <div v-if="ach.type === 'skill' && ach.skill_ref_uid" class="ml-7 sm:ml-9">
+            <div class="flex items-center gap-2 sm:gap-3 p-2 bg-white/50 dark:bg-white/5 rounded">
+              <!-- 技能图标 -->
+              <img v-if="skillIcons[ach.skill_ref_uid]" :src="skillIcons[ach.skill_ref_uid]" 
+                   class="w-6 h-6 sm:w-8 sm:h-8 object-contain rounded flex-shrink-0" loading="lazy" />
+              <img v-else-if="skillElements[ach.skill_ref_uid]?.icon" :src="skillElements[ach.skill_ref_uid].icon" 
+                   class="w-6 h-6 sm:w-8 sm:h-8 object-contain rounded flex-shrink-0" loading="lazy" />
+              
+              <!-- 技能名称和属性 -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-medium text-xs sm:text-sm">{{ ach.skill_name }}</span>
+                  <span v-if="skillElements[ach.skill_ref_uid]" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] sm:text-xs"
+                        :style="{ background: skillElements[ach.skill_ref_uid].color + '18', color: skillElements[ach.skill_ref_uid].color }">
+                    <img :src="skillElements[ach.skill_ref_uid].icon" class="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>{{ skillElements[ach.skill_ref_uid].name }}</span>
+                  </span>
+                </div>
+              </div>
+              
+              <!-- 技能数据 -->
+              <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0 text-[10px] sm:text-xs text-center">
+                <div v-if="skillCategories[ach.skill_ref_uid]" class="w-8 sm:w-10">
+                  <div class="text-muted text-[8px] sm:text-[10px]">类型</div>
+                  <div class="font-medium" :style="{ color: categoryColor(skillCategories[ach.skill_ref_uid]) }">{{ skillCategories[ach.skill_ref_uid] }}</div>
+                </div>
+                <div class="w-8 sm:w-10">
+                  <div class="text-muted text-[8px] sm:text-[10px]">能耗</div>
+                  <div class="font-medium">{{ skillCosts[ach.skill_ref_uid] || '-' }}</div>
+                </div>
+                <div class="w-8 sm:w-10">
+                  <div class="text-muted text-[8px] sm:text-[10px]">威力</div>
+                  <div class="font-medium">{{ skillPowers[ach.skill_ref_uid] || '-' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -254,7 +295,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { petsApi, elementsApi } from '@/api'
+import { petsApi, elementsApi, skillsApi } from '@/api'
 import SkillTable from '@/components/user/SkillTable.vue'
 import ElementMatchup from '@/components/shared/ElementMatchup.vue'
 import CoverageAnalysis from '@/components/user/CoverageAnalysis.vue'
@@ -262,6 +303,7 @@ import StatsRadar from '@/components/shared/StatsRadar.vue'
 import EvoConditionTag from '@/components/user/EvoConditionTag.vue'
 import SkillDescription from '@/components/user/SkillDescription.vue'
 import { getEggGroupColor } from '@/constants/eggGroupColors'
+import { categoryColor } from '@/constants/categoryColors'
 
 const route = useRoute()
 const router = useRouter()
@@ -328,12 +370,50 @@ const skillKeyword = ref('')
 const skillElement = ref('')
 const imageTab = ref('default')
 
+// 技能详情相关数据
+const skillIcons = ref({})
+const skillElements = ref({})
+const skillCategories = ref({})
+const skillCosts = ref({})
+const skillPowers = ref({})
+
 // 响应式雷达图尺寸
 const windowWidth = ref(window.innerWidth)
 const onResize = () => { windowWidth.value = window.innerWidth }
 onMounted(() => window.addEventListener('resize', onResize))
 onUnmounted(() => window.removeEventListener('resize', onResize))
 const radarSize = computed(() => windowWidth.value < 768 ? 160 : 200)
+
+// 加载技能详情
+async function loadSkillDetails(achievements) {
+  if (!achievements) return
+  
+  const skillRefs = achievements
+    .filter(ach => ach.type === 'skill' && ach.skill_ref_uid)
+    .map(ach => ach.skill_ref_uid)
+    .filter((uid, index, array) => array.indexOf(uid) === index) // 去重
+  
+  if (skillRefs.length === 0) return
+  
+  try {
+    for (const uid of skillRefs) {
+      const skill = await skillsApi.get(uid)
+      if (skill) {
+        skillIcons.value[uid] = skill.icon_url
+        skillElements.value[uid] = {
+          name: skill.element_name,
+          icon: skill.element_icon,
+          color: skill.element_color
+        }
+        skillCategories.value[uid] = skill.category
+        skillCosts.value[uid] = skill.cost
+        skillPowers.value[uid] = skill.power
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load skill details:', err)
+  }
+}
 
 const currentImage = computed(() => {
   if (!pet.value) return ''
@@ -459,6 +539,9 @@ async function loadPet(uid) {
   }
   elemMap.value = map
   activeSkillTab.value = 'skills'
+  
+  // 加载技能详情
+  await loadSkillDetails(petData.achievements)
 }
 
 function switchVariant(uid) {
