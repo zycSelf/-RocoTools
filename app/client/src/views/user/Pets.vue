@@ -14,6 +14,10 @@
           <option value="atk">物攻</option>
           <option value="matk">魔攻</option>
         </select>
+        <label class="flex items-center gap-1 text-xs sm:text-sm text-muted cursor-pointer select-none">
+          <input type="checkbox" v-model="bossOnly" @change="filterChanged" class="accent-primary-500" />
+          首领形态
+        </label>
         <span class="text-muted text-xs sm:text-sm self-center">共 {{ total }} 只</span>
       </div>
       <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap">
@@ -65,6 +69,7 @@ const page = ref(Number(route.query.page) || 1)
 const search = ref(route.query.search || '')
 const elementId = ref(route.query.element_id || '')
 const sortBy = ref(route.query.sort_by || 'pet_id')
+const bossOnly = ref(route.query.boss === '1')
 
 /** Sync current filter state to URL query (replace, not push) */
 function syncQuery() {
@@ -73,6 +78,7 @@ function syncQuery() {
   if (search.value) query.search = search.value
   if (elementId.value) query.element_id = elementId.value
   if (sortBy.value && sortBy.value !== 'pet_id') query.sort_by = sortBy.value
+  if (bossOnly.value) query.boss = '1'
   router.replace({ query })
 }
 
@@ -89,11 +95,13 @@ function filterChanged() {
 
 async function fetchData() {
   syncQuery()
-  const res = await petsApi.list({
+  const params = {
     page: page.value, limit: limit.value,
     search: search.value, element_id: elementId.value,
     sort_by: sortBy.value, order: sortBy.value === 'pet_id' ? 'asc' : 'desc',
-  })
+  }
+  if (bossOnly.value) params.is_boss_form = '1'
+  const res = await petsApi.list(params)
   pets.value = res.pets
   total.value = res.total
 }

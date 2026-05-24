@@ -13,6 +13,10 @@
           placeholder="筛选属性"
         />
       </div>
+      <label class="flex items-center gap-1 text-xs text-muted cursor-pointer select-none">
+        <input type="checkbox" v-model="bossFilter" @change="filterChanged" class="accent-primary-500" />
+        首领形态
+      </label>
       <router-link to="/admin/pets/new" class="btn text-xs">+ 新增精灵</router-link>
       <span class="text-muted text-xs ml-auto">共 {{ total }} 只</span>
     </div>
@@ -56,6 +60,7 @@ const page = ref(1)
 const limit = ref(30)
 const search = ref('')
 const elementFilter = ref('')
+const bossFilter = ref(false)
 const elements = ref([])
 
 let timer = null
@@ -64,11 +69,17 @@ function debouncedFetch() {
   timer = setTimeout(() => { page.value = 1; fetchData() }, 300)
 }
 
+function filterChanged() {
+  page.value = 1
+  fetchData()
+}
+
 watch(elementFilter, () => { page.value = 1; fetchData() })
 
 async function fetchData() {
   const params = { page: page.value, limit: limit.value, search: search.value }
   if (elementFilter.value) params.element_id = elementFilter.value
+  if (bossFilter.value) params.is_boss_form = '1'
   const res = await petsApi.list(params)
   pets.value = res.pets
   total.value = res.total

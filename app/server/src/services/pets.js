@@ -59,7 +59,7 @@ function normalizeEvolutionChain(database, raw) {
   }).filter(route => route.length > 0);
 }
 
-function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc', all_variants } = {}) {
+function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc', all_variants, is_boss_form } = {}) {
   const safeLimit = Math.min(Math.max(1, +limit), 200);
   const offset = (Math.max(1, +page) - 1) * safeLimit;
 
@@ -78,6 +78,7 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
 
   if (element_id) { where.push('(p.element_id = ? OR p.sub_element_id = ?)'); params.push(+element_id, +element_id); }
   if (search) { where.push('p.name LIKE ?'); params.push(`%${search}%`); }
+  if (is_boss_form === '1' || is_boss_form === 1) { where.push('p.is_boss_form = 1'); }
   if (egg_group) {
     joins += ' JOIN pet_egg_groups peg ON p.uid = peg.pet_uid';
     where.push('peg.egg_group_id = ?');
