@@ -8,10 +8,22 @@
 set -e
 
 # ---- Configuration ----
-REMOTE_USER="eachzhang"
-REMOTE_HOST="43.138.230.96"
-REMOTE_PROJECT="/var/www/roco"
 LOCAL_PROJECT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Load .env if exists (for REMOTE_USER, REMOTE_HOST, REMOTE_PROJECT)
+ENV_FILE="${LOCAL_PROJECT}/scripts/.env"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
+fi
+
+# Defaults (override via scripts/.env or environment variables)
+REMOTE_USER="${REMOTE_USER:-eachzhang}"
+REMOTE_HOST="${REMOTE_HOST:-}"
+REMOTE_PROJECT="${REMOTE_PROJECT:-/var/www/roco}"
+
+if [ -z "$REMOTE_HOST" ]; then
+  error "REMOTE_HOST is not set. Please create scripts/.env with:\n  REMOTE_USER=youruser\n  REMOTE_HOST=your.server.ip\n  REMOTE_PROJECT=/var/www/roco"
+fi
 
 REMOTE_DB="${REMOTE_PROJECT}/app/server/data/roco.db"
 LOCAL_DB="${LOCAL_PROJECT}/app/server/data/roco.db"

@@ -31,7 +31,12 @@ bash scripts/sync_from_server.sh --all
 
 ### 前置条件
 
-- 本机已配置 SSH 免密登录到服务器（`ssh-copy-id eachzhang@43.138.230.96`）
+- 创建配置文件 `scripts/.env`（已被 gitignore 忽略）：
+  ```bash
+  cp scripts/.env.example scripts/.env
+  # 编辑 scripts/.env 填入你的服务器信息
+  ```
+- 本机已配置 SSH 免密登录到服务器（`ssh-copy-id user@your.server.ip`）
 - 本机已安装 `rsync`（Git Bash 自带）
 
 ### 管理端下载
@@ -55,9 +60,9 @@ bash scripts/sync_from_server.sh --all
    # 方式一：使用同步脚本
    bash scripts/sync_from_server.sh --seasons
 
-   # 方式二：手动 scp
-   scp eachzhang@43.138.230.96:/var/www/roco/app/server/data/backups/seasons/season_S1_*.db temp/seasons/
-   scp eachzhang@43.138.230.96:/var/www/roco/app/server/data/backups/seasons/season_S2_*.db temp/seasons/
+   # 方式二：手动 scp（替换为你的服务器信息）
+   scp user@server:/var/www/roco/app/server/data/backups/seasons/season_S1_*.db temp/seasons/
+   scp user@server:/var/www/roco/app/server/data/backups/seasons/season_S2_*.db temp/seasons/
    ```
 
 2. 确保 `app/server/node_modules/better-sqlite3` 已安装。
