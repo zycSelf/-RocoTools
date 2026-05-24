@@ -21,6 +21,7 @@
         <option value="is_pass">通行证精灵</option>
         <option value="is_boss_form">首领形态</option>
         <option value="has_boss_form">拥有首领形态</option>
+        <option value="has_shiny">异色精灵</option>
       </select>
       <router-link to="/admin/pets/new" class="btn text-xs">+ 新增精灵</router-link>
       <span class="text-muted text-xs ml-auto">共 {{ total }} 只</span>
@@ -99,7 +100,7 @@ watch(elementFilter, () => { page.value = 1; fetchData() })
 
 async function fetchData() {
   syncQuery()
-  const params = { page: page.value, limit: limit.value, search: search.value }
+  const params = { page: page.value, limit: limit.value, search: search.value, admin: 1 }
   if (elementFilter.value) params.element_id = elementFilter.value
   if (tagFilter.value) params.tag = tagFilter.value
   const res = await petsApi.list(params)

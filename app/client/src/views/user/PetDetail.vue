@@ -30,7 +30,7 @@
               <img :src="pet.detail?.image_default || pet.image_url" class="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 object-contain" loading="lazy" />
               <span class="text-[10px] text-muted">精灵</span>
             </button>
-            <button v-if="pet.detail?.image_shiny" @click="imageTab = 'shiny'"
+            <button v-if="pet.detail?.image_shiny && pet.show_shiny" @click="imageTab = 'shiny'"
               class="flex flex-col items-center gap-0.5 md:gap-1 transition-opacity"
               :class="imageTab === 'shiny' ? 'opacity-100' : 'opacity-40 hover:opacity-70'">
               <img :src="pet.detail.image_shiny" class="w-8 h-8 md:w-10 md:h-10 object-contain" loading="lazy" />
@@ -284,7 +284,7 @@ const petTags = computed(() => {
   if (pet.value.is_pass) tags.push({ key: 'pass', label: '通行证精灵', color: '#8B5CF6' })
   if (pet.value.is_boss_form) tags.push({ key: 'boss_form', label: '首领形态', color: '#EF4444' })
   if (pet.value.has_boss_form) tags.push({ key: 'has_boss', label: '拥有首领形态', color: '#F97316' })
-  if (pet.value.detail?.image_shiny && imageTab.value === 'shiny') tags.push({ key: 'shiny', label: '异色精灵', color: '#EC4899' })
+  if (pet.value.detail?.image_shiny && pet.value.show_shiny && imageTab.value === 'shiny') tags.push({ key: 'shiny', label: '异色精灵', color: '#EC4899' })
   return tags
 })
 

@@ -22,6 +22,7 @@
           <option value="is_pass">通行证精灵</option>
           <option value="is_boss_form">首领形态</option>
           <option value="has_boss_form">拥有首领形态</option>
+          <option value="has_shiny">异色精灵</option>
         </select>
         <span class="text-muted text-xs sm:text-sm self-center">共 {{ total }} 只</span>
       </div>

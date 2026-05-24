@@ -8,7 +8,8 @@ router.get('/', (req, res) => {
 });
 
 router.get('/shiny', (req, res) => {
-  res.json(petsService.getShinyList());
+  const includeHidden = req.query.all === '1';
+  res.json(petsService.getShinyList({ includeHidden }));
 });
 
 router.get('/coverage', (req, res) => {

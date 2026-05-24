@@ -170,6 +170,15 @@
               :class="form.has_boss_form ? 'translate-x-5' : ''"></span>
           </button>
         </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted">显示异色</label>
+          <button @click="form.show_shiny = form.show_shiny ? 0 : 1"
+            class="relative w-10 h-5 rounded-full transition-colors"
+            :class="form.show_shiny ? 'bg-pink-500' : 'bg-gray-300 dark:bg-gray-600'">
+            <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+              :class="form.show_shiny ? 'translate-x-5' : ''"></span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -796,7 +805,7 @@ const form = ref({
   ability_name: '', ability_desc: '', version: '',
   hp: 0, atk: 0, def: 0, matk: 0, mdef: 0, speed: 0, total: 0,
   is_final_form: 0,
-  is_legendary: 0, is_season: 0, is_pass: 0, is_boss_form: 0, has_boss_form: 0,
+  is_legendary: 0, is_season: 0, is_pass: 0, is_boss_form: 0, has_boss_form: 0, show_shiny: 1,
 })
 
 const detailForm = ref({ heightMin: '', heightMax: '', weightMin: '', weightMax: '', location: '' })
@@ -1182,6 +1191,7 @@ async function loadData() {
       is_pass: data.is_pass || 0,
       is_boss_form: data.is_boss_form || 0,
       has_boss_form: data.has_boss_form || 0,
+      show_shiny: data.show_shiny != null ? data.show_shiny : 1,
     }
 
     if (data.detail) {

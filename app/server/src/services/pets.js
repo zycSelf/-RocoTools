@@ -7,10 +7,16 @@ const eggStmt = db.prepare(`
   WHERE peg.pet_uid = ?
 `);
 
-function getShinyList() {
-  const rows = db.prepare(`
-    SELECT pet_uid, image_shiny FROM pet_details WHERE image_shiny IS NOT NULL
-  `).all();
+function getShinyList({ includeHidden } = {}) {
+  let sql = `
+    SELECT pd.pet_uid, pd.image_shiny FROM pet_details pd
+    JOIN pets p ON pd.pet_uid = p.uid
+    WHERE pd.image_shiny IS NOT NULL
+  `;
+  if (!includeHidden) {
+    sql += ` AND p.show_shiny = 1`;
+  }
+  const rows = db.prepare(sql).all();
   return rows.map(r => ({ uid: r.pet_uid, image_shiny: r.image_shiny }));
 }
 
@@ -59,7 +65,7 @@ function normalizeEvolutionChain(database, raw) {
   }).filter(route => route.length > 0);
 }
 
-function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc', all_variants, tag } = {}) {
+function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = 'pet_id', order = 'asc', all_variants, tag, admin } = {}) {
   const safeLimit = Math.min(Math.max(1, +limit), 200);
   const offset = (Math.max(1, +page) - 1) * safeLimit;
 
@@ -80,9 +86,14 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
   if (element_id) { where.push('(p.element_id = ? OR p.sub_element_id = ?)'); params.push(+element_id, +element_id); }
   if (search) { where.push('p.name LIKE ?'); params.push(`%${search}%`); }
 
-  // Tag filter: support is_final_form, is_legendary, is_season, is_pass, is_boss_form, has_boss_form
+  // Tag filter: support is_final_form, is_legendary, is_season, is_pass, is_boss_form, has_boss_form, has_shiny
   const allowedTags = ['is_final_form', 'is_legendary', 'is_season', 'is_pass', 'is_boss_form', 'has_boss_form'];
   if (tag && allowedTags.includes(tag)) { where.push(`p.${tag} = 1`); }
+  if (tag === 'has_shiny') {
+    joins += ' JOIN pet_details pd_shiny ON p.uid = pd_shiny.pet_uid';
+    where.push('pd_shiny.image_shiny IS NOT NULL');
+    if (!admin) where.push('p.show_shiny = 1');
+  }
 
   if (egg_group) {
     joins += ' JOIN pet_egg_groups peg ON p.uid = peg.pet_uid';
