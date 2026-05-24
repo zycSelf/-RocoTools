@@ -1,13 +1,13 @@
 <template>
   <!-- 紧凑模式：大量出没网格卡片 -->
-  <div v-if="compact" class="group bg-white dark:bg-gray-800 rounded-lg border border-surface-light-border dark:border-surface-dark-border p-2 sm:p-3 text-center hover:shadow-md transition-shadow">
+  <router-link v-if="compact" :to="petDetailLink" class="group block bg-white dark:bg-gray-800 rounded-lg border border-surface-light-border dark:border-surface-dark-border p-2 sm:p-3 text-center hover:shadow-md hover:border-primary-400 transition-all cursor-pointer">
     <div v-if="pet" class="relative w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-1">
       <img v-lazy-src="petImage" :alt="pet.name || event.pet_name" class="w-full h-full object-contain transition-opacity duration-300" :class="{ 'group-hover:opacity-0': shinyUrl }" />
       <img v-if="shinyUrl" v-lazy-src="shinyUrl" :alt="`${pet.name || event.pet_name}(异色)`" class="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
     </div>
     <div class="text-xs font-medium truncate">{{ event.pet_name || event.name }}</div>
     <div class="text-[10px] text-muted">{{ formatRange(event.start_date, event.end_date) }}</div>
-  </div>
+  </router-link>
 
   <!-- 标准模式 -->
   <div v-else class="bg-white dark:bg-gray-800 rounded-lg border border-surface-light-border dark:border-surface-dark-border overflow-hidden hover:shadow-md transition-shadow">
@@ -74,5 +74,10 @@ function formatRange(start, end) {
 const petImage = computed(() => {
   if (!props.pet) return ''
   return props.pet.thumb_url || props.pet.image_url || ''
+})
+
+const petDetailLink = computed(() => {
+  if (props.event.pet_uid) return '/pets/' + props.event.pet_uid
+  return '/pets'
 })
 </script>
