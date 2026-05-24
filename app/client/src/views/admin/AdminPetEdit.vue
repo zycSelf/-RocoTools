@@ -572,21 +572,28 @@
 
             <!-- Skill type -->
             <template v-else-if="ach.type === 'skill'">
-              <div class="flex items-center gap-2">
-                <select v-model="ach.skill_ref_uid" @change="onAchievementSkillSelect(idx, $event.target.value)"
-                  class="select text-xs flex-1">
-                  <option value="">选择升级技能...</option>
-                  <option v-for="s in levelUpSkills" :key="s.skill_ref_uid" :value="s.skill_ref_uid">
-                    {{ s.name }} ({{ s.element || '无属性' }})
-                  </option>
-                </select>
-                <div class="flex items-center gap-1 flex-shrink-0">
-                  <span class="text-[10px] text-muted">使用</span>
-                  <input v-model.number="ach.use_count" type="number" min="1" class="input w-14 text-xs text-center" />
-                  <span class="text-[10px] text-muted">次</span>
+              <div class="relative">
+                <!-- Selected skill display -->
+                <div v-if="ach.skill_ref_uid" class="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-700">
+                  <img v-if="getSkillIcon(ach.skill_ref_uid)" :src="getSkillIcon(ach.skill_ref_uid)" class="w-7 h-7 object-contain flex-shrink-0 rounded" />
+                  <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium truncate">{{ ach.skill_name }}</div>
+                    <div class="text-[10px] text-muted">{{ getSkillElement(ach.skill_ref_uid) }} · {{ getSkillCategory(ach.skill_ref_uid) }} · 威力 {{ getSkillPower(ach.skill_ref_uid) || '-' }}</div>
+                  </div>
+                  <span class="text-[10px] text-primary-500 font-medium flex-shrink-0">「{{ ach.skill_name }}」技能石</span>
+                  <button @click="onAchievementSkillSelect(idx, '')" class="text-[10px] text-muted hover:text-red-500 flex-shrink-0">✕</button>
+                </div>
+                <!-- Skill selector dropdown -->
+                <div v-else>
+                  <select @change="onAchievementSkillSelect(idx, $event.target.value); $event.target.value = ''"
+                    class="select text-xs w-full">
+                    <option value="">选择升级技能...</option>
+                    <option v-for="s in levelUpSkills" :key="s.skill_ref_uid" :value="s.skill_ref_uid">
+                      {{ s.name }}　{{ s.element || '无属性' }} · {{ s.type || '-' }} · 威力 {{ s.power || '-' }}
+                    </option>
+                  </select>
                 </div>
               </div>
-              <input v-model="ach.reward_desc" class="input w-full text-xs" placeholder="奖励描述（如：获得「火焰冲击」技能石）" />
             </template>
           </div>
 
@@ -1369,6 +1376,27 @@ function moveAchievement(idx, dir) {
   achievements.value[target] = temp
 }
 
+// Helper functions for skill achievement display
+function getSkillIcon(skillRefUid) {
+  const skill = skillForms.skills.find(s => s.skill_ref_uid === skillRefUid)
+  return skill?.skill_icon || getElementIcon(skill?.element) || ''
+}
+
+function getSkillElement(skillRefUid) {
+  const skill = skillForms.skills.find(s => s.skill_ref_uid === skillRefUid)
+  return skill?.element || '无属性'
+}
+
+function getSkillCategory(skillRefUid) {
+  const skill = skillForms.skills.find(s => s.skill_ref_uid === skillRefUid)
+  return skill?.type || '-'
+}
+
+function getSkillPower(skillRefUid) {
+  const skill = skillForms.skills.find(s => s.skill_ref_uid === skillRefUid)
+  return skill?.power || 0
+}
+
 function onAchievementSkillSelect(idx, skillRefUid) {
   const a = achievements.value[idx]
   if (!skillRefUid) {
@@ -1381,7 +1409,7 @@ function onAchievementSkillSelect(idx, skillRefUid) {
   const skill = skillForms.skills.find(s => s.skill_ref_uid === skillRefUid)
   if (skill) {
     a.skill_name = skill.name
-    a.reward_desc = `获得「${skill.name}」技能石`
+    a.reward_desc = `「${skill.name}」技能石`
   }
 }
 
