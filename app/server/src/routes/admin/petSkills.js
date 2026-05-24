@@ -7,6 +7,21 @@ const { getDb, getWriteDb, DATA_DIR } = require('../../db/connection');
 const { handleUpload } = require('./utils');
 
 /**
+ * Normalize level field: extract pure number from "LV15", "Lv.20" etc.
+ */
+function normalizeLevel(raw) {
+  if (!raw) return null;
+  const str = String(raw).trim();
+  if (/^\d+$/.test(str)) return str;
+  const match = str.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num > 0 && num <= 100) return String(num);
+  }
+  return null;
+}
+
+/**
  * GET /api/admin/abilities
  * Aggregate abilities from pets table for autocomplete
  */
@@ -202,13 +217,13 @@ router.put('/pet-skills/:uid', authAdmin, (req, res) => {
       deleteAll.run(uid);
 
       for (const s of skills) {
-        insert.run(uid, 'skills', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+        insert.run(uid, 'skills', normalizeLevel(s.level), s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
       }
       for (const s of bloodline_skills) {
-        insert.run(uid, 'bloodline_skills', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+        insert.run(uid, 'bloodline_skills', normalizeLevel(s.level), s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
       }
       for (const s of learnable_stones) {
-        insert.run(uid, 'learnable_stones', s.level || null, s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
+        insert.run(uid, 'learnable_stones', normalizeLevel(s.level), s.name || null, s.element || null, s.type || null, s.cost || 0, s.power || 0, s.description || null, s.skill_ref_uid || null);
       }
     });
 

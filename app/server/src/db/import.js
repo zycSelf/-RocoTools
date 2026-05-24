@@ -26,6 +26,22 @@ function loadJSON(relativePath) {
   return JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
 }
 
+/**
+ * Normalize level field: extract pure number from "LV15", "Lv.20" etc.
+ * Returns numeric string or null if invalid.
+ */
+function normalizeLevel(raw) {
+  if (!raw) return null;
+  const str = String(raw).trim();
+  if (/^\d+$/.test(str)) return str;
+  const match = str.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num > 0 && num <= 100) return String(num);
+  }
+  return null;
+}
+
 // ============================================================
 // 1. 导入属性
 // ============================================================
@@ -351,7 +367,7 @@ function importPetDetails() {
           for (const skill of (d[skillType] || [])) {
             insertSkill.run(
               uid, skillType,
-              skill.level || null, skill.name || null,
+              normalizeLevel(skill.level), skill.name || null,
               skill.element || null, skill.type || null,
               skill.cost || 0, skill.power || 0,
               skill.description || null,
