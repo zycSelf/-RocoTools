@@ -52,7 +52,7 @@ if (!hasHidden) {
 // ============================================================
 // Step 1: Load all pets and their details (shiny info)
 // ============================================================
-const allPets = db.prepare('SELECT uid, name, is_final_form FROM pets').all();
+const allPets = db.prepare('SELECT uid, name, is_final_form, is_boss_form FROM pets').all();
 console.log(`Total pets: ${allPets.length}`);
 
 // Load shiny info from pet_details
@@ -122,11 +122,22 @@ let removed = 0;
 
 const tx = db.transaction(() => {
   for (const pet of allPets) {
+    const isBossForm = pet.is_boss_form === 1;
     const isFinalForm = pet.is_final_form === 1;
     const hasShiny = shinyPets.has(pet.uid);
+    const existing = existingMap.get(pet.uid) || new Map();
+
+    // Boss form pets should have no default achievements
+    if (isBossForm) {
+      for (const [, id] of existing) {
+        if (!dryRun) deleteStmt.run(id);
+        removed++;
+      }
+      continue;
+    }
+
     const expected = getDefaultAchievements(pet.name, isFinalForm, hasShiny);
     const expectedTitles = new Set(expected.map(a => a.title));
-    const existing = existingMap.get(pet.uid) || new Map();
 
     // Insert missing defaults
     for (const ach of expected) {

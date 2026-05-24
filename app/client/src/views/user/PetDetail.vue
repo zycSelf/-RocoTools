@@ -173,7 +173,7 @@
     <ElementMatchup v-if="petElementIds.length" :element-ids="petElementIds" :elements="elemList" :multipliers="multipliers" />
 
     <!-- 图鉴课题 -->
-    <div class="card mb-4 sm:mb-6" v-if="pet.achievements?.length">
+    <div class="card mb-4 sm:mb-6" v-if="pet.achievements?.length && !pet.is_boss_form">
       <h3 class="font-roco text-sm sm:text-base mb-2 sm:mb-3">图鉴课题</h3>
       <div class="space-y-1.5">
         <div v-for="(ach, idx) in pet.achievements" :key="idx"
