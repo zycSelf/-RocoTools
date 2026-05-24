@@ -1559,7 +1559,7 @@ function addAchievement(type) {
   if (type === 'text') {
     achievements.value.push({ type: 'text', title: '', reward_desc: '' })
   } else if (type === 'skill') {
-    achievements.value.push({ type: 'skill', skill_ref_uid: '', skill_name: '', use_count: 10, reward_desc: '' })
+            achievements.value.push({ type: 'skill', skill_ref_uid: '', skill_name: '', use_count: 2, reward_desc: '' })
   }
 }
 
