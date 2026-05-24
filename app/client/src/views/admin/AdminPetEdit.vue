@@ -1,6 +1,6 @@
 <template>
   <div v-if="loaded">
-    <router-link to="/admin/pets" class="text-sm text-muted hover:text-primary-500 mb-3 inline-block">← 返回精灵列表</router-link>
+    <button @click="goBack" class="text-sm text-muted hover:text-primary-500 mb-3 inline-block cursor-pointer">← 返回精灵列表</button>
 
     <div class="flex items-center gap-3 mb-4">
       <h1 class="font-roco text-xl md:text-2xl text-primary-500">{{ isNew ? '新增精灵' : pet.name }}</h1>
@@ -754,6 +754,16 @@ const route = useRoute()
 const router = useRouter()
 const modal = useModal()
 const { isDark } = useTheme()
+
+/** Navigate back: prefer history back to preserve list state; fallback to admin pets list */
+function goBack() {
+  if (window.history.length > 1) {
+    router.back()
+  } else {
+    router.push('/admin/pets')
+  }
+}
+
 let uid = route.params.uid
 const isNew = uid === 'new'
 
