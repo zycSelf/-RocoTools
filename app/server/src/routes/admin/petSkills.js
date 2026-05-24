@@ -373,7 +373,8 @@ router.put('/pet-achievements/:uid', authAdmin, (req, res) => {
 
     const tx = db.transaction(() => {
       deleteNonDefaults.run(uid);
-      achievements.forEach((a, idx) => {
+      // Only insert non-default achievements; defaults are managed by syncDefaultAchievements
+      achievements.filter(a => !a.is_default).forEach((a, idx) => {
         insert.run(
           uid,
           a.type || 'text',
