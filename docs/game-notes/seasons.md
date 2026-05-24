@@ -44,3 +44,6 @@
 | legend_pet | 传说精灵（1只 uid） |
 | season_pets | 赛季限定精灵（8只 uid，拥有异色） |
 | shiny_pets | 赛季异色精灵（8只 uid，当赛季野外可获取异色） |
+| announcement_url | 赛季更新公告链接（官方公告地址） |
+| announcement_text | 公告横幅文案（首页展示） |
+| announcement_content | 公告正文（Markdown格式，弹窗展示） |

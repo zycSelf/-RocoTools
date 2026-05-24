@@ -588,7 +588,14 @@ router.use((req, res, next) => {
 | `search` | string | — | 名称模糊搜索 |
 | `sort_by` | string | `pet_id` | 排序字段（pet_id/name/total/hp/speed/atk/matk/def/mdef） |
 | `order` | string | `asc` | 排序方向（asc/desc） |
+| `tag` | string | — | 标签筛选（is_final_form/is_legendary/is_season/is_pass/is_boss_form/has_boss_form/has_shiny） |
 | `all_variants` | any | — | **传入任意值时返回所有形态**，不传则只返回每个 pet_id 的第一形态 |
+
+**`tag` 筛选规则**：
+- `has_shiny`：筛选拥有异色立绘的精灵，自动展示所有形态（绕过"只取第一形态"限制）
+- `is_boss_form`：筛选首领形态精灵，同样展示所有形态
+- 其他标签：只展示每个 pet_id 的第一形态
+- 非管理端请求时，`has_shiny` 额外要求 `show_shiny = 1`
 
 **`all_variants` 使用场景**：
 - 进化条件中的精灵选择器需要选择所有形态（如异色形态）
@@ -758,6 +765,24 @@ router.use((req, res, next) => {
 - 爬虫导入时只更新爬虫提供的字段，不触碰标签字段
 - `sync-final-forms.js` 脚本可自动检测并设置 `is_final_form`
 
+### 异色显示控制（show_shiny）
+
+`pets` 表的 `show_shiny` 字段控制用户端是否展示该精灵的异色内容：
+
+| 值 | 含义 |
+|----|------|
+| 1（默认） | 用户端可见异色立绘、异色筛选可命中 |
+| 0 | 用户端隐藏异色，筛选时不返回该精灵 |
+
+**管理端配置**：精灵编辑页面提供开关按钮（粉色），控制是否在用户端展示异色。
+
+**影响范围**：
+- `GET /api/pets?tag=has_shiny`：非管理端请求时额外要求 `show_shiny = 1`
+- `GET /api/pets/shiny`：异色列表接口同样受 `show_shiny` 控制
+- 管理端不受此限制，始终可见所有异色精灵
+
+**迁移脚本**：`scripts/migrate-show-shiny.js`（已集成到 sync_db 流程）
+
 ---
 
 ## 十三、图鉴课题管理
@@ -916,16 +941,18 @@ node app/server/sync_db.js
 | 2 | 生成 WebP 副本 | 需要 sharp |
 | 3 | `init-db.js` | 初始化数据库（建表） |
 | 4 | `import.js` | 导入数据（JSON → SQLite） |
-| 5 | `migrate-height-weight.js` | 规范化身高体重数据 |
-| 6 | `normalize-skill-levels.js` | 清洗技能等级字段 |
-| 7 | `sync-evolution-chains.js` | 同步进化链（多路线合并） |
-| 8 | `sync-final-forms.js` | 同步最终形态标记 |
-| 9 | `sync-default-achievements.js` | 同步默认图鉴课题 |
+| 5 | `migrate-show-shiny.js` | 迁移 show_shiny 列（默认值1） |
+| 6 | `migrate-height-weight.js` | 规范化身高体重数据 |
+| 7 | `normalize-skill-levels.js` | 清洗技能等级字段 |
+| 8 | `sync-evolution-chains.js` | 同步进化链（多路线合并） |
+| 9 | `sync-final-forms.js` | 同步最终形态标记 |
+| 10 | `sync-default-achievements.js` | 同步默认图鉴课题 |
 
 ### 脚本依赖关系
 
 ```
-导入数据 → 规范化身高体重（清洗爬虫数据）
+导入数据 → 迁移 show_shiny 列（确保列存在）
+         → 规范化身高体重（清洗爬虫数据）
          → 清洗技能等级（清洗爬虫数据）
          → 同步进化链（需要完整的精灵数据）
                 → 同步最终形态（依赖进化链数据）
@@ -937,5 +964,6 @@ node app/server/sync_db.js
 | 脚本 | 用途 | 使用场景 |
 |------|------|----------|
 | `migrate-pet-tags.js` | 添加标签列到 pets 表 | 首次部署时执行一次 |
+| `migrate-show-shiny.js` | 添加 show_shiny 列到 pets 表 | 已集成到 sync_db 流程 |
 | `sync-final-forms.js --dry-run` | 预览最终形态检测结果 | 调试 |
 | `sync-default-achievements.js --dry-run` | 预览课题同步结果 | 调试 |

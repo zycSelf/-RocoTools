@@ -2,7 +2,7 @@
 # ============================================================
 # sync_from_server.sh
 # Sync database and images from remote server to local dev env
-# Usage: bash scripts/sync_from_server.sh [--db] [--images] [--all]
+# Usage: bash scripts/sync_from_server.sh [--db] [--images] [--all] [--since N]
 # ============================================================
 
 set -e
@@ -28,13 +28,21 @@ fi
 REMOTE_DB="${REMOTE_PROJECT}/app/server/data/roco.db"
 LOCAL_DB="${LOCAL_PROJECT}/app/server/data/roco.db"
 
-REMOTE_PUBLIC="${REMOTE_PROJECT}/app/server/public/"
-LOCAL_PUBLIC="${LOCAL_PROJECT}/app/server/public/"
+REMOTE_DATA="${REMOTE_PROJECT}/data"
+REMOTE_PUBLIC="${REMOTE_DATA}/public/"
+LOCAL_PUBLIC="${LOCAL_PROJECT}/data/public/"
 
-REMOTE_UPLOADS="${REMOTE_PROJECT}/app/server/uploads/"
-LOCAL_UPLOADS="${LOCAL_PROJECT}/app/server/uploads/"
+REMOTE_UPLOADS="${REMOTE_DATA}/uploads/"
+LOCAL_UPLOADS="${LOCAL_PROJECT}/data/uploads/"
 
 REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
+
+# Incremental sync: days to look back (0 = full sync)
+SINCE_DAYS=0
+FORCE_FULL=false
+
+# Timestamp file for tracking last sync
+SYNC_TIMESTAMP_FILE="${LOCAL_PROJECT}/scripts/.last_image_sync"
 
 # ---- Colors ----
 GREEN='\033[0;32m'
@@ -49,39 +57,203 @@ ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# Check if rsync is available AND functional (on Windows, rsync.exe may exist but lack DLLs)
+HAS_RSYNC=false
+if command -v rsync &>/dev/null && rsync --version &>/dev/null; then
+  HAS_RSYNC=true
+else
+  warn "rsync not available or broken, will use scp fallback."
+fi
+
 sync_db() {
   info "Syncing database..."
   
   # Backup local DB before overwriting
+  BACKUP_NAME=""
   if [ -f "$LOCAL_DB" ]; then
     BACKUP_NAME="roco_local_backup_$(date +%Y%m%d_%H%M%S).db"
     cp "$LOCAL_DB" "${LOCAL_PROJECT}/app/server/data/${BACKUP_NAME}"
     ok "Local DB backed up as: ${BACKUP_NAME}"
   fi
 
-  # Download remote DB
+  # Download DB directly via scp (simple & reliable)
   mkdir -p "$(dirname "$LOCAL_DB")"
+  info "Downloading database from server..."
   scp "${REMOTE}:${REMOTE_DB}" "$LOCAL_DB"
-  ok "Database synced successfully! ($(du -h "$LOCAL_DB" | cut -f1))"
+  ok "Downloaded: $(du -h "$LOCAL_DB" | cut -f1)"
+
+  # Verify integrity after download
+  info "Verifying database integrity..."
+  VERIFY_RESULT=$(cd "${LOCAL_PROJECT}/app/server" && node -e "
+    try {
+      const db = require('better-sqlite3')('data/roco.db', {readonly:true});
+      const r = db.pragma('integrity_check');
+      if (r[0].integrity_check === 'ok') {
+        const pets = db.prepare('SELECT COUNT(*) as c FROM pets').get();
+        console.log('OK:' + pets.c + ' pets');
+      } else {
+        console.log('CORRUPT:' + r[0].integrity_check);
+      }
+      db.close();
+    } catch(e) {
+      console.log('ERROR:' + e.message);
+    }
+  " 2>&1)
+
+  if [[ "$VERIFY_RESULT" == OK:* ]]; then
+    ok "Database verified! (${VERIFY_RESULT})"
+  else
+    warn "Downloaded DB is corrupt: ${VERIFY_RESULT}"
+    # Restore from backup
+    if [ -n "$BACKUP_NAME" ] && [ -f "${LOCAL_PROJECT}/app/server/data/${BACKUP_NAME}" ]; then
+      cp "${LOCAL_PROJECT}/app/server/data/${BACKUP_NAME}" "$LOCAL_DB"
+      warn "Restored local backup: ${BACKUP_NAME}"
+    fi
+    error "Database sync failed. The server DB may be locked or corrupt. Try again later."
+  fi
+
+  ok "Database synced successfully!"
+}
+
+# Determine how many days to sync (auto-detect from last sync timestamp)
+get_sync_days() {
+  if $FORCE_FULL; then
+    echo "0"
+    return
+  fi
+  if [ "$SINCE_DAYS" -gt 0 ]; then
+    echo "$SINCE_DAYS"
+    return
+  fi
+  # Auto-detect from last sync timestamp
+  if [ -f "$SYNC_TIMESTAMP_FILE" ]; then
+    LAST_SYNC=$(cat "$SYNC_TIMESTAMP_FILE")
+    NOW=$(date +%s)
+    DIFF=$(( (NOW - LAST_SYNC) / 86400 + 1 ))
+    echo "$DIFF"
+  else
+    echo "0"  # No previous sync, do full
+  fi
+}
+
+# Save current timestamp after successful sync
+save_sync_timestamp() {
+  date +%s > "$SYNC_TIMESTAMP_FILE"
 }
 
 sync_images() {
-  info "Syncing images (rsync incremental)..."
-  
-  # Sync /public/ (pet images, skill icons, etc.)
-  info "  -> public/ (pets, skills, elements...)"
-  mkdir -p "$LOCAL_PUBLIC"
-  rsync -avz --progress --exclude='.thumbs/' \
-    "${REMOTE}:${REMOTE_PUBLIC}" "$LOCAL_PUBLIC"
-  ok "  public/ synced"
+  if $HAS_RSYNC; then
+    info "Syncing images (rsync incremental)..."
+    
+    # Sync /public/ (pet images, skill icons, etc.)
+    info "  -> public/ (pets, skills, elements...)"
+    mkdir -p "$LOCAL_PUBLIC"
+    rsync -avz --progress --exclude='.thumbs/' \
+      "${REMOTE}:${REMOTE_PUBLIC}" "$LOCAL_PUBLIC"
+    ok "  public/ synced"
 
-  # Sync /uploads/ (user uploads, library, announcements)
-  info "  -> uploads/ (library, announcements...)"
-  mkdir -p "$LOCAL_UPLOADS"
-  rsync -avz --progress \
-    "${REMOTE}:${REMOTE_UPLOADS}" "$LOCAL_UPLOADS"
-  ok "  uploads/ synced"
+    # Sync /uploads/ (user uploads, library, announcements)
+    info "  -> uploads/ (library, announcements...)"
+    mkdir -p "$LOCAL_UPLOADS"
+    rsync -avz --progress \
+      "${REMOTE}:${REMOTE_UPLOADS}" "$LOCAL_UPLOADS"
+    ok "  uploads/ synced"
+  else
+    # No rsync: diff-based incremental sync
+    # 1. Generate local file list
+    # 2. Upload to server, compare with remote files
+    # 3. Server packs only missing/changed files
+    # 4. Download and extract
 
+    LOCAL_DATA="${LOCAL_PROJECT}/data"
+    REMOTE_TAR="/tmp/roco_sync_images_$$.tar.gz"
+    LOCAL_TAR="${LOCAL_PROJECT}/temp/roco_sync_images.tar.gz"
+    LOCAL_LIST="${LOCAL_PROJECT}/temp/.local_files.txt"
+    REMOTE_LIST_PATH="/tmp/roco_local_files_$$.txt"
+    mkdir -p "${LOCAL_PROJECT}/temp"
+    mkdir -p "$LOCAL_PUBLIC"
+    mkdir -p "$LOCAL_UPLOADS"
+
+    if $FORCE_FULL; then
+      # Full sync: skip diff, download everything
+      info "Syncing images (full tar+scp)..."
+      info "  Creating full archive on server..."
+      SSH_OUTPUT=$(ssh "${REMOTE}" << REMOTE_SCRIPT
+        cd ${REMOTE_DATA}
+        tar czf ${REMOTE_TAR} --exclude=.thumbs public/ uploads/ 2>/dev/null
+        echo "DONE:\$(du -h ${REMOTE_TAR} | cut -f1)"
+REMOTE_SCRIPT
+      )
+      info "  Server: ${SSH_OUTPUT}"
+    else
+      # Incremental: compare file lists
+      info "Syncing images (diff-based incremental)..."
+
+      # Step 1: Generate local file list (relative paths from data/)
+      info "  Generating local file list..."
+      (cd "$LOCAL_DATA" && find public/ uploads/ -type f ! -path '*/.thumbs/*' 2>/dev/null | sort) > "$LOCAL_LIST"
+      LOCAL_COUNT=$(wc -l < "$LOCAL_LIST" | tr -d ' ')
+      info "  Local files: ${LOCAL_COUNT}"
+
+      # Step 2: Upload local list to server and diff
+      info "  Comparing with server..."
+      scp "$LOCAL_LIST" "${REMOTE}:${REMOTE_LIST_PATH}"
+
+      SSH_OUTPUT=$(ssh "${REMOTE}" << REMOTE_SCRIPT
+        cd ${REMOTE_DATA}
+        # Generate server file list
+        REMOTE_LIST=\$(find public/ uploads/ -type f ! -path '*/.thumbs/*' 2>/dev/null | sort)
+        REMOTE_COUNT=\$(echo "\$REMOTE_LIST" | wc -l)
+        echo "REMOTE_COUNT:\$REMOTE_COUNT"
+
+        # Find files on server that are NOT in local list
+        DIFF_FILES=\$(comm -23 <(echo "\$REMOTE_LIST") ${REMOTE_LIST_PATH})
+
+        if [ -z "\$DIFF_FILES" ]; then
+          echo "NO_CHANGES"
+          rm -f ${REMOTE_LIST_PATH}
+          exit 0
+        fi
+
+        DIFF_COUNT=\$(echo "\$DIFF_FILES" | wc -l)
+        echo "DIFF_COUNT:\$DIFF_COUNT"
+
+        # Pack only the diff files
+        echo "\$DIFF_FILES" | tar czf ${REMOTE_TAR} -T - 2>/dev/null
+        echo "DONE:\$(du -h ${REMOTE_TAR} | cut -f1)"
+        rm -f ${REMOTE_LIST_PATH}
+REMOTE_SCRIPT
+      )
+
+      # Check if there were changes
+      if [[ "$SSH_OUTPUT" == *"NO_CHANGES"* ]]; then
+        ok "No new files on server. Already up to date!"
+        save_sync_timestamp
+        rm -f "$LOCAL_LIST"
+        return
+      fi
+
+      info "  Server: ${SSH_OUTPUT}"
+      rm -f "$LOCAL_LIST"
+    fi
+
+    # Download the archive
+    info "  Downloading archive..."
+    scp "${REMOTE}:${REMOTE_TAR}" "$LOCAL_TAR"
+    ok "  Downloaded: $(du -h "$LOCAL_TAR" | cut -f1)"
+
+    # Extract locally
+    info "  Extracting to local..."
+    tar xzf "$LOCAL_TAR" -C "${LOCAL_PROJECT}/data/"
+    ok "  Extracted successfully"
+
+    # Cleanup
+    rm -f "$LOCAL_TAR"
+    ssh "${REMOTE}" "rm -f ${REMOTE_TAR}"
+    info "  Cleaned up temp files"
+  fi
+
+  save_sync_timestamp
   ok "All images synced successfully!"
 }
 
@@ -90,8 +262,12 @@ sync_seasons() {
   REMOTE_SEASONS="${REMOTE_PROJECT}/app/server/data/backups/seasons/"
   LOCAL_SEASONS="${LOCAL_PROJECT}/temp/seasons/"
   mkdir -p "$LOCAL_SEASONS"
-  rsync -avz --progress \
-    "${REMOTE}:${REMOTE_SEASONS}" "$LOCAL_SEASONS"
+  if $HAS_RSYNC; then
+    rsync -avz --progress \
+      "${REMOTE}:${REMOTE_SEASONS}" "$LOCAL_SEASONS"
+  else
+    scp -r "${REMOTE}:${REMOTE_SEASONS}." "$LOCAL_SEASONS"
+  fi
   ok "Season backups synced to temp/seasons/"
 }
 
@@ -104,11 +280,15 @@ show_help() {
   echo "  --images    Sync images only (public/ + uploads/)"
   echo "  --seasons   Sync season backup files to temp/seasons/"
   echo "  --all       Sync everything (db + images + seasons)"
+  echo "  --full      Force full sync (ignore last sync timestamp)"
+  echo "  --since N   Only sync files modified in last N days (use with --images)"
   echo "  --help      Show this help message"
   echo ""
   echo "Examples:"
   echo "  bash scripts/sync_from_server.sh --db"
   echo "  bash scripts/sync_from_server.sh --images"
+  echo "  bash scripts/sync_from_server.sh --images --since 7"
+  echo "  bash scripts/sync_from_server.sh --images --full"
   echo "  bash scripts/sync_from_server.sh --all"
   echo ""
   echo "Server: ${REMOTE}"
@@ -127,15 +307,18 @@ DO_DB=false
 DO_IMAGES=false
 DO_SEASONS=false
 
-for arg in "$@"; do
-  case $arg in
+while [ $# -gt 0 ]; do
+  case $1 in
     --db)      DO_DB=true ;;
     --images)  DO_IMAGES=true ;;
     --seasons) DO_SEASONS=true ;;
     --all)     DO_DB=true; DO_IMAGES=true; DO_SEASONS=true ;;
+    --since)   shift; SINCE_DAYS="${1:-7}" ;;
+    --full)    FORCE_FULL=true ;;
     --help)    show_help; exit 0 ;;
-    *)         error "Unknown option: $arg. Use --help for usage." ;;
+    *)         error "Unknown option: $1. Use --help for usage." ;;
   esac
+  shift
 done
 
 echo ""

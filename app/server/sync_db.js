@@ -27,6 +27,7 @@ const NORMALIZE_LEVELS_SCRIPT = path.join(SERVER_DIR, 'scripts', 'normalize-skil
 const FINAL_FORMS_SCRIPT = path.join(SERVER_DIR, 'scripts', 'sync-final-forms.js');
 const DEFAULT_ACHIEVEMENTS_SCRIPT = path.join(SERVER_DIR, 'scripts', 'sync-default-achievements.js');
 const MIGRATE_HEIGHT_WEIGHT_SCRIPT = path.join(SERVER_DIR, 'scripts', 'migrate-height-weight.js');
+const MIGRATE_SHOW_SHINY_SCRIPT = path.join(SERVER_DIR, 'scripts', 'migrate-show-shiny.js');
 
 console.log('============================================================');
 console.log('[SYNC] 数据同步（缩略图 + SQLite）');
@@ -55,6 +56,7 @@ if (hasSharp) {
 steps.push(
   { label: '初始化数据库（建表）', script: INIT_SCRIPT },
   { label: '导入数据', script: IMPORT_SCRIPT },
+  { label: '迁移 show_shiny 列', script: MIGRATE_SHOW_SHINY_SCRIPT },
   { label: '规范化身高体重数据', script: MIGRATE_HEIGHT_WEIGHT_SCRIPT },
   { label: '清洗技能等级字段', script: NORMALIZE_LEVELS_SCRIPT },
   { label: '同步进化链（多路线合并）', script: EVOLUTION_SCRIPT },
