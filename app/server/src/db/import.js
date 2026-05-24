@@ -151,8 +151,16 @@ function importPets() {
   if (!data) return;
 
   const insertPet = db.prepare(`
-    INSERT OR REPLACE INTO pets (uid, pet_id, name, element_id, sub_element_id, ability_name, ability_desc, hp, speed, atk, matk, def, mdef, total, version, image_url, thumb_url)
+    INSERT INTO pets (uid, pet_id, name, element_id, sub_element_id, ability_name, ability_desc, hp, speed, atk, matk, def, mdef, total, version, image_url, thumb_url)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(uid) DO UPDATE SET
+      pet_id = excluded.pet_id, name = excluded.name,
+      element_id = excluded.element_id, sub_element_id = excluded.sub_element_id,
+      ability_name = excluded.ability_name, ability_desc = excluded.ability_desc,
+      hp = excluded.hp, speed = excluded.speed, atk = excluded.atk,
+      matk = excluded.matk, def = excluded.def, mdef = excluded.mdef,
+      total = excluded.total, version = excluded.version,
+      image_url = excluded.image_url, thumb_url = excluded.thumb_url
   `);
 
   const insertPetEgg = db.prepare(`INSERT OR REPLACE INTO pet_egg_groups (pet_uid, egg_group_id) VALUES (?, ?)`);
@@ -272,8 +280,16 @@ function importPetDetails() {
   const variantsMap = data.variants_map || {};
 
   const insertDetail = db.prepare(`
-    INSERT OR REPLACE INTO pet_details (pet_uid, element_id, ability_icon, image_default, image_shiny, image_fruit, image_egg, height, weight, location, evolution_chain, restrain_strong, restrain_weak, restrain_resist, restrain_resisted)
+    INSERT INTO pet_details (pet_uid, element_id, ability_icon, image_default, image_shiny, image_fruit, image_egg, height, weight, location, evolution_chain, restrain_strong, restrain_weak, restrain_resist, restrain_resisted)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(pet_uid) DO UPDATE SET
+      element_id = excluded.element_id, ability_icon = excluded.ability_icon,
+      image_default = excluded.image_default, image_shiny = excluded.image_shiny,
+      image_fruit = excluded.image_fruit, image_egg = excluded.image_egg,
+      height = excluded.height, weight = excluded.weight,
+      location = excluded.location, evolution_chain = excluded.evolution_chain,
+      restrain_strong = excluded.restrain_strong, restrain_weak = excluded.restrain_weak,
+      restrain_resist = excluded.restrain_resist, restrain_resisted = excluded.restrain_resisted
   `);
 
   const insertSkill = db.prepare(`

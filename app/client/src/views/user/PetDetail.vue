@@ -270,6 +270,7 @@ const petTags = computed(() => {
   if (pet.value.is_pass) tags.push({ key: 'pass', label: '通行证精灵', color: '#8B5CF6' })
   if (pet.value.is_boss_form) tags.push({ key: 'boss_form', label: '首领形态', color: '#EF4444' })
   if (pet.value.has_boss_form) tags.push({ key: 'has_boss', label: '拥有首领形态', color: '#F97316' })
+  if (pet.value.detail?.image_shiny) tags.push({ key: 'shiny', label: '异色精灵', color: '#EC4899' })
   return tags
 })
 
