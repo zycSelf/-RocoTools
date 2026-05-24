@@ -590,7 +590,7 @@
                     选择升级技能...
                   </button>
                   <div v-if="achSkillDropdownIdx === idx"
-                    class="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border shadow-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                    class="absolute z-50 bottom-full mb-1 w-full max-h-72 overflow-y-auto rounded-lg border shadow-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                     <div v-for="s in levelUpSkills" :key="s.skill_ref_uid"
                       @click="onAchievementSkillSelect(idx, s.skill_ref_uid); achSkillDropdownIdx = -1"
                       class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
