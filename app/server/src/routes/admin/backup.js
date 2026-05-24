@@ -160,6 +160,36 @@ router.get('/backups/snapshots', (req, res) => {
   res.json({ snapshots });
 });
 
+// GET /api/admin/backups/download/current — 下载当前数据库
+router.get('/backups/download/current', (req, res) => {
+  if (!fs.existsSync(DB_PATH)) {
+    return res.status(404).json({ error: '数据库文件不存在' });
+  }
+  const name = `roco_current_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.db`;
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  const stream = fs.createReadStream(DB_PATH);
+  stream.pipe(res);
+});
+
+// GET /api/admin/backups/download/:type/:name — 下载备份文件
+router.get('/backups/download/:type/:name', (req, res) => {
+  const { type, name } = req.params;
+  if (!isSafeFilename(name)) return res.status(400).json({ error: '非法文件名' });
+
+  const dir = type === 'season' ? SEASON_DIR : type === 'snapshot' ? SNAPSHOT_DIR : BACKUP_DIR;
+  const filePath = path.join(dir, name);
+  if (!isPathWithin(filePath, dir)) return res.status(400).json({ error: '路径非法' });
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: '备份文件不存在' });
+  }
+
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  res.setHeader('Content-Type', 'application/octet-stream');
+  const stream = fs.createReadStream(filePath);
+  stream.pipe(res);
+});
+
 // DELETE /api/admin/backups/snapshots/:name — 删除快照
 router.delete('/backups/snapshots/:name', (req, res) => {
   if (!isSafeFilename(req.params.name)) return res.status(400).json({ error: '非法文件名' });

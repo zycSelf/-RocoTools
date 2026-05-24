@@ -1,15 +1,61 @@
-# 赛季公告生成脚本
+# RocoTools 脚本工具
 
-## 概述
+## 一、服务器数据同步脚本
 
-`scripts/generate_patch_notes.js` 用于对比两个赛季的数据库快照，自动生成格式化的赛季更新公告文档（Markdown）。
+`scripts/sync_from_server.sh` 用于将服务器上的数据库和图片同步到本地开发环境。
 
-## 使用方法
+### 使用方法
+
+```bash
+# 仅同步数据库
+bash scripts/sync_from_server.sh --db
+
+# 仅同步图片（增量）
+bash scripts/sync_from_server.sh --images
+
+# 仅同步赛季备份文件
+bash scripts/sync_from_server.sh --seasons
+
+# 全部同步
+bash scripts/sync_from_server.sh --all
+```
+
+### 功能说明
+
+| 选项 | 说明 |
+|------|------|
+| `--db` | 下载服务器当前 `roco.db`，覆盖本地（自动备份旧文件） |
+| `--images` | rsync 增量同步 `public/` 和 `uploads/` 目录 |
+| `--seasons` | rsync 同步赛季备份到 `temp/seasons/` |
+| `--all` | 以上全部 |
 
 ### 前置条件
 
+- 本机已配置 SSH 免密登录到服务器（`ssh-copy-id eachzhang@43.138.230.96`）
+- 本机已安装 `rsync`（Git Bash 自带）
+
+### 管理端下载
+
+也可以通过管理端 Dashboard 页面直接下载：
+- **下载当前 DB** 按钮：下载当前线上数据库
+- 各备份列表的 **下载** 按钮：下载指定备份文件
+
+---
+
+## 二、赛季公告生成脚本
+
+`scripts/generate_patch_notes.js` 用于对比两个赛季的数据库快照，自动生成格式化的赛季更新公告文档（Markdown）。
+
+### 使用方法
+
+#### 前置条件
+
 1. 从服务器下载两个赛季的数据库备份到 `temp/seasons/` 目录：
    ```bash
+   # 方式一：使用同步脚本
+   bash scripts/sync_from_server.sh --seasons
+
+   # 方式二：手动 scp
    scp eachzhang@43.138.230.96:/var/www/roco/app/server/data/backups/seasons/season_S1_*.db temp/seasons/
    scp eachzhang@43.138.230.96:/var/www/roco/app/server/data/backups/seasons/season_S2_*.db temp/seasons/
    ```

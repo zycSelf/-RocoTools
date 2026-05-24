@@ -137,6 +137,28 @@ export const adminApi = {
     method: 'DELETE', body: JSON.stringify({ confirm_token }),
   }),
 
+  // 下载备份
+  downloadBackup: (type, name) => {
+    const token = getToken()
+    return fetch(`${BASE}/backups/download/${type}/${name}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }).then(async res => {
+      if (res.status === 401) { clearToken(); throw new Error('未登录或 token 已过期') }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Download failed') }
+      return res.blob()
+    })
+  },
+  downloadCurrentDb: () => {
+    const token = getToken()
+    return fetch(`${BASE}/backups/download/current`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }).then(async res => {
+      if (res.status === 401) { clearToken(); throw new Error('未登录或 token 已过期') }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || 'Download failed') }
+      return res.blob()
+    })
+  },
+
   // 数据审查
   conflicts: () => adminRequest('/conflicts'),
   acceptConflict: (index) => adminRequest(`/conflicts/${index}/accept`, { method: 'POST' }),

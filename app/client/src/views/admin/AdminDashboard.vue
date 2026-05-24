@@ -29,9 +29,14 @@
           <h2 class="font-roco text-base text-primary-500">数据导出</h2>
           <p class="text-muted text-xs mt-1">导出所有数据库表为 Excel 文件（不含图片路径）</p>
         </div>
-        <button @click="exportExcel" class="btn text-xs" :disabled="exporting">
-          {{ exporting ? '导出中...' : '导出 Excel' }}
-        </button>
+        <div class="flex gap-2">
+          <button @click="downloadCurrentDb" class="btn text-xs" :disabled="downloadingDb">
+            {{ downloadingDb ? '下载中...' : '下载当前 DB' }}
+          </button>
+          <button @click="exportExcel" class="btn text-xs" :disabled="exporting">
+            {{ exporting ? '导出中...' : '导出 Excel' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -63,6 +68,7 @@
             <div v-if="b.note" class="text-xs text-muted mt-0.5">{{ b.note }}</div>
           </div>
           <div class="flex gap-2 flex-shrink-0">
+            <button @click="downloadBackup('season', b.name)" class="text-xs text-green-600 dark:text-green-400 hover:underline">下载</button>
             <button @click="restoreBackup(b.name, 'season')" class="text-xs text-primary-500 hover:underline">恢复</button>
             <button @click="deleteSeasonBackup(b)" class="text-xs text-red-500 hover:underline">删除</button>
           </div>
@@ -87,6 +93,7 @@
             <div class="text-xs text-muted">{{ formatSize(b.size) }} · {{ formatTime(b.time) }}</div>
           </div>
           <div class="flex gap-2">
+            <button @click="downloadBackup('temp', b.name)" class="text-xs text-green-600 dark:text-green-400 hover:underline">下载</button>
             <button @click="restoreBackup(b.name, 'temp')" class="text-xs text-primary-500 hover:underline">恢复</button>
             <button @click="deleteBackup(b.name)" class="text-xs text-red-500 hover:underline">删除</button>
           </div>
@@ -109,6 +116,7 @@
             <div v-if="b.note" class="text-xs text-muted mt-0.5">{{ b.note }}</div>
           </div>
           <div class="flex gap-2 flex-shrink-0">
+            <button @click="downloadBackup('snapshot', b.name)" class="text-xs text-green-600 dark:text-green-400 hover:underline">下载</button>
             <button @click="restoreBackup(b.name, 'snapshot')" class="text-xs text-primary-500 hover:underline">恢复</button>
             <button @click="deleteSnapshot(b.name)" class="text-xs text-red-500 hover:underline">删除</button>
           </div>
@@ -197,8 +205,9 @@ const backingSeason = ref(false)
 const seasonLabel = ref('')
 const seasonNote = ref('')
 
-// 导出
+// 导出 & 下载
 const exporting = ref(false)
+const downloadingDb = ref(false)
 
 async function exportExcel() {
   exporting.value = true
@@ -217,6 +226,38 @@ async function exportExcel() {
   } finally {
     exporting.value = false
   }
+}
+
+async function downloadCurrentDb() {
+  downloadingDb.value = true
+  try {
+    const blob = await adminApi.downloadCurrentDb()
+    triggerDownload(blob, `roco_current_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.db`)
+  } catch (err) {
+    await modal.alert('下载失败', err.message)
+  } finally {
+    downloadingDb.value = false
+  }
+}
+
+async function downloadBackup(type, name) {
+  try {
+    const blob = await adminApi.downloadBackup(type, name)
+    triggerDownload(blob, name)
+  } catch (err) {
+    await modal.alert('下载失败', err.message)
+  }
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 // 恢复确认弹窗
