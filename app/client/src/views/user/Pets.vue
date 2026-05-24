@@ -14,10 +14,15 @@
           <option value="atk">物攻</option>
           <option value="matk">魔攻</option>
         </select>
-        <label class="flex items-center gap-1 text-xs sm:text-sm text-muted cursor-pointer select-none">
-          <input type="checkbox" v-model="bossOnly" @change="filterChanged" class="accent-primary-500" />
-          首领形态
-        </label>
+        <select v-model="tagFilter" @change="filterChanged" class="select text-xs sm:text-sm w-28 sm:w-32">
+          <option value="">全部标记</option>
+          <option value="is_final_form">最终形态</option>
+          <option value="is_legendary">传说精灵</option>
+          <option value="is_season">赛季精灵</option>
+          <option value="is_pass">通行证精灵</option>
+          <option value="is_boss_form">首领形态</option>
+          <option value="has_boss_form">拥有首领形态</option>
+        </select>
         <span class="text-muted text-xs sm:text-sm self-center">共 {{ total }} 只</span>
       </div>
       <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap">
@@ -69,7 +74,7 @@ const page = ref(Number(route.query.page) || 1)
 const search = ref(route.query.search || '')
 const elementId = ref(route.query.element_id || '')
 const sortBy = ref(route.query.sort_by || 'pet_id')
-const bossOnly = ref(route.query.boss === '1')
+const tagFilter = ref(route.query.tag || '')
 
 /** Sync current filter state to URL query (replace, not push) */
 function syncQuery() {
@@ -78,7 +83,7 @@ function syncQuery() {
   if (search.value) query.search = search.value
   if (elementId.value) query.element_id = elementId.value
   if (sortBy.value && sortBy.value !== 'pet_id') query.sort_by = sortBy.value
-  if (bossOnly.value) query.boss = '1'
+  if (tagFilter.value) query.tag = tagFilter.value
   router.replace({ query })
 }
 
@@ -100,7 +105,7 @@ async function fetchData() {
     search: search.value, element_id: elementId.value,
     sort_by: sortBy.value, order: sortBy.value === 'pet_id' ? 'asc' : 'desc',
   }
-  if (bossOnly.value) params.is_boss_form = '1'
+  if (tagFilter.value) params.tag = tagFilter.value
   const res = await petsApi.list(params)
   pets.value = res.pets
   total.value = res.total

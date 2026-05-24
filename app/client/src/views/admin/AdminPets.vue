@@ -13,10 +13,15 @@
           placeholder="筛选属性"
         />
       </div>
-      <label class="flex items-center gap-1 text-xs text-muted cursor-pointer select-none">
-        <input type="checkbox" v-model="bossFilter" @change="filterChanged" class="accent-primary-500" />
-        首领形态
-      </label>
+      <select v-model="tagFilter" @change="filterChanged" class="select text-xs w-32">
+        <option value="">全部标记</option>
+        <option value="is_final_form">最终形态</option>
+        <option value="is_legendary">传说精灵</option>
+        <option value="is_season">赛季精灵</option>
+        <option value="is_pass">通行证精灵</option>
+        <option value="is_boss_form">首领形态</option>
+        <option value="has_boss_form">拥有首领形态</option>
+      </select>
       <router-link to="/admin/pets/new" class="btn text-xs">+ 新增精灵</router-link>
       <span class="text-muted text-xs ml-auto">共 {{ total }} 只</span>
     </div>
@@ -67,7 +72,7 @@ const elements = ref([])
 const page = ref(Number(route.query.page) || 1)
 const search = ref(route.query.search || '')
 const elementFilter = ref(route.query.element_id || '')
-const bossFilter = ref(route.query.boss === '1')
+const tagFilter = ref(route.query.tag || '')
 
 /** Sync current filter state to URL query (replace, not push) */
 function syncQuery() {
@@ -75,7 +80,7 @@ function syncQuery() {
   if (page.value > 1) query.page = page.value
   if (search.value) query.search = search.value
   if (elementFilter.value) query.element_id = elementFilter.value
-  if (bossFilter.value) query.boss = '1'
+  if (tagFilter.value) query.tag = tagFilter.value
   router.replace({ query })
 }
 
@@ -96,7 +101,7 @@ async function fetchData() {
   syncQuery()
   const params = { page: page.value, limit: limit.value, search: search.value }
   if (elementFilter.value) params.element_id = elementFilter.value
-  if (bossFilter.value) params.is_boss_form = '1'
+  if (tagFilter.value) params.tag = tagFilter.value
   const res = await petsApi.list(params)
   pets.value = res.pets
   total.value = res.total
