@@ -28,9 +28,12 @@
             <!-- 正文 -->
             <div class="flex-1 overflow-y-auto px-5 py-4 prose-announcement" :class="isDark ? 'prose-dark' : 'prose-light'" v-html="announcementHtml"></div>
             <!-- 底部 -->
-            <div class="px-5 py-3 border-t flex justify-end gap-3" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+            <div class="px-5 py-3 border-t flex items-center justify-between" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
               <a v-if="announcement.url" :href="announcement.url" target="_blank" rel="noopener noreferrer"
-                class="text-xs text-primary-500 hover:underline">查看外部链接 ↗</a>
+                class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium border border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-white transition-colors">
+                📋 查看官方公告
+              </a>
+              <span v-else></span>
               <button @click="showAnnouncement = false" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors">关闭</button>
             </div>
           </div>
