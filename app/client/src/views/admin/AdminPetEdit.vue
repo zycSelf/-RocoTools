@@ -728,10 +728,10 @@
       <p v-if="form.is_final_form && !levelUpSkills.length" class="text-[10px] text-muted mt-1">提示：请先在技能配置中添加精灵技能，才能选择技能成就</p>
     </div>
 
-    <!-- 保存按钮 -->
-    <div class="flex gap-3 mb-8">
+    <!-- 保存按钮 - 常驻底部 -->
+    <div class="sticky bottom-0 z-30 -mx-4 px-4 py-3 bg-card/95 backdrop-blur-sm border-t border-border flex gap-3 items-center">
       <button @click="save" class="btn-primary shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving">{{ saving ? '保存中...' : (isNew ? '✨ 创建精灵' : '💾 保存修改') }}</button>
-      <span v-if="msg" class="text-sm self-center" :class="ok ? 'text-green-600' : 'text-red-500'">{{ msg }}</span>
+      <span v-if="msg" class="text-sm" :class="ok ? 'text-green-600' : 'text-red-500'">{{ msg }}</span>
     </div>
   </div>
   <div v-else class="text-muted text-center mt-20">加载中...</div>
