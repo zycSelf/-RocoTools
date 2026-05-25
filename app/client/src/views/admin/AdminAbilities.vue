@@ -41,11 +41,10 @@
                   <span v-else class="text-2xl">⚡</span>
                 </div>
                 <ImageUploader
-                  upload-type="pet_ability"
-                  :upload-uid="detail.name"
                   btn-class="text-xs text-primary-500 hover:underline cursor-pointer"
                   upload-label="上传图标"
                   @uploaded="onIconUploaded"
+                  @file-selected="onIconFileSelected"
                 />
               </div>
 
@@ -232,6 +231,18 @@ async function saveDesc() {
     showMsg(err.message, false)
   } finally {
     saving.value = false
+  }
+}
+
+async function onIconFileSelected(file) {
+  try {
+    // Use dedicated ability icon upload API (no uid validation needed)
+    const res = await adminApi.uploadAbilityIcon(file)
+    if (res.path) {
+      await onIconUploaded(res.path)
+    }
+  } catch (err) {
+    showMsg('上传图标失败: ' + err.message, false)
   }
 }
 
