@@ -312,6 +312,10 @@ node scripts/generate_patch_notes.js \
 
 **展示顺序**（两个脚本统一）：传说精灵 → 通行证精灵 → 赛季奇遇精灵 → 赛季奇遇异色精灵
 
+**排序规则**：所有列表（精灵/技能/赛季奇遇等）按编号自然排序（从 uid 提取数字）
+
+**自定义语法**：输出 Markdown 使用 `![pet:uid]`、`![skill:uid]`、`![ability:path]`、`![element:path]`、`![shiny:uid]` 等自定义语法，由前端动态渲染
+
 > 详细说明见 `scripts/README.md` 第六节。
 
 ---
