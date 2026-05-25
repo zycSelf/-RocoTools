@@ -348,6 +348,19 @@ function importPetDetails() {
       if (d) {
         if (manualEdits.has(uid)) {
           skippedRecords.push({ table: 'pet_details', id: uid, name: uid });
+          // 收集爬虫技能列表，供审查页面对比
+          const newSkills = {};
+          for (const skillType of ['skills', 'bloodline_skills', 'learnable_stones']) {
+            newSkills[skillType] = (d[skillType] || []).map(s => ({
+              level: s.level || null,
+              name: s.name || null,
+              element: s.element || null,
+              type: s.type || null,
+              cost: s.cost || 0,
+              power: s.power || 0,
+              skill_ref_uid: s.skill_ref?.uid || null,
+            }));
+          }
           conflictDetails.push({
             table: 'pet_details', id: uid, name: uid,
             newData: {
@@ -356,9 +369,10 @@ function importPetDetails() {
               image_fruit: d.image_fruit || null, image_egg: d.image_egg || null,
               height: d.height || null, weight: d.weight || null, location: d.location || null,
             },
+            newSkills,
           });
           skipped++;
-          // 技能仍然导入（技能来自爬虫，不属于手动编辑范围）
+          // 技能也跳过（manual_edit=1 时保护整个精灵配置，含技能列表）
         } else {
           insertDetail.run(
             uid,
@@ -375,20 +389,20 @@ function importPetDetails() {
             JSON.stringify(d.restrain_resisted || [])
           );
           imported++;
-        }
 
-        // Incremental skill update: delete old skills for this pet, then re-insert
-        deleteSkillsByUid.run(uid);
-        for (const skillType of ['skills', 'bloodline_skills', 'learnable_stones']) {
-          for (const skill of (d[skillType] || [])) {
-            insertSkill.run(
-              uid, skillType,
-              normalizeLevel(skill.level), skill.name || null,
-              skill.element || null, skill.type || null,
-              skill.cost || 0, skill.power || 0,
-              skill.description || null,
-              skill.skill_ref?.uid || null
-            );
+          // Incremental skill update: delete old skills for this pet, then re-insert
+          deleteSkillsByUid.run(uid);
+          for (const skillType of ['skills', 'bloodline_skills', 'learnable_stones']) {
+            for (const skill of (d[skillType] || [])) {
+              insertSkill.run(
+                uid, skillType,
+                normalizeLevel(skill.level), skill.name || null,
+                skill.element || null, skill.type || null,
+                skill.cost || 0, skill.power || 0,
+                skill.description || null,
+                skill.skill_ref?.uid || null
+              );
+            }
           }
         }
       }

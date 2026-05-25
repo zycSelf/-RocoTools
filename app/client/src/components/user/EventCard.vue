@@ -1,12 +1,16 @@
 <template>
   <!-- 紧凑模式：大量出没网格卡片 -->
-  <router-link v-if="compact" :to="petDetailLink" class="group block bg-white dark:bg-gray-800 rounded-lg border border-surface-light-border dark:border-surface-dark-border p-2 sm:p-3 text-center hover:shadow-md hover:border-primary-400 transition-all cursor-pointer">
+  <router-link v-if="compact" :to="petDetailLink" class="group block bg-white dark:bg-gray-800 rounded-lg border border-surface-light-border dark:border-surface-dark-border p-2 sm:p-3 text-center hover:shadow-md hover:border-primary-400 transition-all cursor-pointer" :class="eventStatus === 'ended' ? 'opacity-50' : ''">
     <div v-if="pet" class="relative w-14 h-14 sm:w-16 sm:h-16 mx-auto mb-1">
       <img v-lazy-src="petImage" :alt="pet.name || event.pet_name" class="w-full h-full object-contain transition-opacity duration-300" :class="{ 'group-hover:opacity-0': shinyUrl }" />
       <img v-if="shinyUrl" v-lazy-src="shinyUrl" :alt="`${pet.name || event.pet_name}(异色)`" class="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 opacity-0 group-hover:opacity-100" />
     </div>
     <div class="text-xs font-medium truncate">{{ event.pet_name || event.name }}</div>
     <div class="text-[10px] text-muted">{{ formatRange(event.start_date, event.end_date) }}</div>
+    <!-- 状态标签 -->
+    <div class="mt-1">
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full font-medium" :class="statusClass">{{ statusLabel }}</span>
+    </div>
   </router-link>
 
   <!-- 标准模式 -->
@@ -79,5 +83,29 @@ const petImage = computed(() => {
 const petDetailLink = computed(() => {
   if (props.event.pet_uid) return '/pets/' + props.event.pet_uid
   return '/pets'
+})
+
+const eventStatus = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  const { start_date, end_date } = props.event
+  if (!start_date || !end_date) return 'unknown'
+  if (today < start_date) return 'upcoming'
+  if (today > end_date) return 'ended'
+  return 'active'
+})
+
+const statusLabel = computed(() => {
+  const map = { active: '进行中', upcoming: '未开始', ended: '已结束', unknown: '' }
+  return map[eventStatus.value] || ''
+})
+
+const statusClass = computed(() => {
+  const map = {
+    active: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+    upcoming: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+    ended: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+    unknown: '',
+  }
+  return map[eventStatus.value] || ''
 })
 </script>

@@ -163,6 +163,16 @@ for (const [key, r] of petSkills1) {
   }
 }
 
+// Index new pet skills by pet_uid (for new pets section)
+const newPetUids = new Set(newPets.map(p => p.uid));
+const newPetSkillsByUid = {};
+for (const [, r] of petSkills2) {
+  if (newPetUids.has(r.pet_uid)) {
+    if (!newPetSkillsByUid[r.pet_uid]) newPetSkillsByUid[r.pet_uid] = { skills: [], bloodline_skills: [], learnable_stones: [] };
+    newPetSkillsByUid[r.pet_uid][r.skill_type]?.push(r);
+  }
+}
+
 // Group skill learning changes by pet
 function groupByPet(records) {
   const grouped = {};
@@ -214,6 +224,25 @@ for (const [, group] of Object.entries(petGroups)) {
   const elemName = elementNames[first.element_id] || '';
   const subElemName = first.sub_element_id ? `/${elementNames[first.sub_element_id] || ''}` : '';
   w(`- ${names}（${elemName}${subElemName}系）`);
+
+  // 列出三类技能（合并同进化线所有形态）
+  const allSkills = { skills: [], bloodline_skills: [], learnable_stones: [] };
+  for (const p of group) {
+    const ps = newPetSkillsByUid[p.uid];
+    if (!ps) continue;
+    for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
+      for (const s of (ps[type] || [])) {
+        if (!allSkills[type].find(x => x.name === s.name)) allSkills[type].push(s);
+      }
+    }
+  }
+  const SKILL_TYPE_LABELS = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
+  for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
+    const list = allSkills[type];
+    if (!list.length) continue;
+    const items = list.map(s => s.level ? `${s.name}(Lv${s.level})` : s.name).join('、');
+    w(`  - **${SKILL_TYPE_LABELS[type]}**：${items}`);
+  }
 }
 w();
 
@@ -227,6 +256,81 @@ if (newSkills.length > 0) {
     w(`| ![skill:${s.uid}] ${s.name} | ${s.element || '-'} | ${s.type || '-'} | ${s.cost ?? '-'} | ${s.power ?? '-'} | ${(s.description || '').replace(/\n/g, ' ').substring(0, 60)} |`);
   }
   w();
+}
+
+// --- Pet Stat Changes ---
+if (statChangedPets.length > 0) {
+  w(`## 📈 精灵数值调整（${statChangedPets.length} 只）`);
+  w();
+  w(`| 精灵 | HP | 速度 | 物攻 | 魔攻 | 物防 | 魔防 | 总计 |`);
+  w(`|------|----|----|----|----|----|----|------|`);
+  for (const { pet, changes } of statChangedPets) {
+    const fmt = (field) => {
+      if (!changes[field]) return '-';
+      const { old: o, new: n } = changes[field];
+      const diff = n - o;
+      return `${o}→${n}(${diff > 0 ? '+' : ''}${diff})`;
+    };
+    w(`| ![pet:${pet.uid}] ${pet.name} | ${fmt('hp')} | ${fmt('speed')} | ${fmt('atk')} | ${fmt('matk')} | ${fmt('def')} | ${fmt('mdef')} | ${fmt('total')} |`);
+  }
+  w();
+}
+
+// --- Skill Learning Changes ---
+if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
+  w(`## 📚 技能学习面变动`);
+  w();
+  
+  if (skillsAdded.length > 0) {
+    w(`### 新增学习`);
+    w();
+    const grouped = groupByPet(skillsAdded);
+    const SKILL_TYPE_LABELS_SHORT = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
+    for (const [uid, skills] of Object.entries(grouped)) {
+      const name = petNames[uid] || uid;
+      // Group by skill_type
+      const byType = {};
+      for (const s of skills) {
+        const t = s.skill_type || 'skills';
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(s);
+      }
+      const parts = [];
+      for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
+        if (!byType[type]) continue;
+        const label = SKILL_TYPE_LABELS_SHORT[type];
+        const items = byType[type].map(s => s.level != null ? `${s.name}(Lv${s.level})` : s.name).join('、');
+        parts.push(`${label}：${items}`);
+      }
+      w(`- ![pet:${uid}] **${name}**：${parts.join('；')}`);
+    }
+    w();
+  }
+  
+  if (skillsRemoved.length > 0) {
+    w(`### 移除学习`);
+    w();
+    const grouped = groupByPet(skillsRemoved);
+    const SKILL_TYPE_LABELS_SHORT2 = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
+    for (const [uid, skills] of Object.entries(grouped)) {
+      const name = oldPetNames[uid] || petNames[uid] || uid;
+      const byType = {};
+      for (const s of skills) {
+        const t = s.skill_type || 'skills';
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(s);
+      }
+      const parts = [];
+      for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
+        if (!byType[type]) continue;
+        const label = SKILL_TYPE_LABELS_SHORT2[type];
+        const items = byType[type].map(s => s.level != null ? `${s.name}(Lv${s.level})` : s.name).join('、');
+        parts.push(`${label}：${items}`);
+      }
+      w(`- ![pet:${uid}] **${name}**：${parts.join('；')}`);
+    }
+    w();
+  }
 }
 
 // --- Skill Balance ---
@@ -282,7 +386,6 @@ if (abilityChangedPets.length > 0) {
   w();
   for (const group of Object.values(abilityGroups)) {
     const names = group.pets.length <= 3 ? group.pets.join('、') : `${group.pets.slice(0, 3).join('、')}等${group.pets.length}只`;
-    // Add pet icons for the group
     const icons = group.petUids.slice(0, 3).map(uid => `![pet:${uid}]`).join(' ');
     w(`${icons} **${names}**`);
     w(`- 旧：${group.old}`);
@@ -291,56 +394,10 @@ if (abilityChangedPets.length > 0) {
   }
 }
 
-// --- Pet Stat Changes ---
-if (statChangedPets.length > 0) {
-  w(`## 📈 精灵数值调整（${statChangedPets.length} 只）`);
-  w();
-  w(`| 精灵 | HP | 速度 | 物攻 | 魔攻 | 物防 | 魔防 | 总计 |`);
-  w(`|------|----|----|----|----|----|----|------|`);
-  for (const { pet, changes } of statChangedPets) {
-    const fmt = (field) => {
-      if (!changes[field]) return '-';
-      const { old: o, new: n } = changes[field];
-      const diff = n - o;
-      return `${o}→${n}(${diff > 0 ? '+' : ''}${diff})`;
-    };
-    w(`| ![pet:${pet.uid}] ${pet.name} | ${fmt('hp')} | ${fmt('speed')} | ${fmt('atk')} | ${fmt('matk')} | ${fmt('def')} | ${fmt('mdef')} | ${fmt('total')} |`);
-  }
-  w();
-}
-
-// --- Skill Learning Changes ---
-if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
-  w(`## 📚 技能学习面变动`);
-  w();
-  
-  if (skillsAdded.length > 0) {
-    w(`### 新增学习`);
-    w();
-    const grouped = groupByPet(skillsAdded);
-    for (const [uid, skills] of Object.entries(grouped)) {
-      const name = petNames[uid] || uid;
-      w(`- ![pet:${uid}] **${name}**：${skills.map(s => `${s.name}(Lv${s.level})`).join('、')}`);
-    }
-    w();
-  }
-  
-  if (skillsRemoved.length > 0) {
-    w(`### 移除学习`);
-    w();
-    const grouped = groupByPet(skillsRemoved);
-    for (const [uid, skills] of Object.entries(grouped)) {
-      const name = oldPetNames[uid] || petNames[uid] || uid;
-      w(`- ![pet:${uid}] **${name}**：${skills.map(s => s.name).join('、')}`);
-    }
-    w();
-  }
-}
-
 // --- Footer ---
 w(`---`);
 w();
-w(`**本公告数据来源于 BWIKI 及游戏官网，通过赛季数据比对脚本自动生成。如有内容与游戏实际不符，一切以游戏内为准。**`);
+w(`**本公告数据来源于 BWIKI、游戏官网及人工补充，通过赛季数据比对脚本自动生成。如有内容与游戏实际不符，一切以游戏内为准。**`);
 
 // ============ Output ============
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });

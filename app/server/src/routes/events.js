@@ -17,8 +17,11 @@ function parseEvent(e) {
  */
 function filterActive(events, today) {
   return events.filter(e => {
-    if (e.category === 'version' || e.category === 'mass_outbreak') {
+    if (e.category === 'version') {
       return !e.end_date || e.end_date >= today;
+    }
+    if (e.category === 'mass_outbreak') {
+      return true; // 大量出没全赛季固定8只，不做时间过滤
     }
     if (e.category === 'routine') {
       return (e.periods || []).some(p => !p.end || p.end >= today);

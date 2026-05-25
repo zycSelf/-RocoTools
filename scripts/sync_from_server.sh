@@ -16,6 +16,19 @@ if [ -f "$ENV_FILE" ]; then
   source "$ENV_FILE"
 fi
 
+# ---- Colors ----
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# ---- Functions ----
+info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
+ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
+error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+
 # Defaults (override via scripts/.env or environment variables)
 REMOTE_USER="${REMOTE_USER:-}"
 REMOTE_HOST="${REMOTE_HOST:-}"
@@ -43,19 +56,6 @@ FORCE_FULL=false
 
 # Timestamp file for tracking last sync
 SYNC_TIMESTAMP_FILE="${LOCAL_PROJECT}/scripts/.last_image_sync"
-
-# ---- Colors ----
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-# ---- Functions ----
-info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
-ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
-error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # Check if rsync is available AND functional (on Windows, rsync.exe may exist but lack DLLs)
 HAS_RSYNC=false
@@ -191,7 +191,7 @@ REMOTE_SCRIPT
 
       # Step 1: Generate local file list (relative paths from data/)
       info "  Generating local file list..."
-      (cd "$LOCAL_DATA" && find public/ uploads/ -type f ! -path '*/.thumbs/*' 2>/dev/null | sort) > "$LOCAL_LIST"
+      (cd "$LOCAL_DATA" && find public/ uploads/ -type f ! -path '*/.thumbs/*' 2>/dev/null | LC_ALL=C sort) > "$LOCAL_LIST"
       LOCAL_COUNT=$(wc -l < "$LOCAL_LIST" | tr -d ' ')
       info "  Local files: ${LOCAL_COUNT}"
 
@@ -199,29 +199,52 @@ REMOTE_SCRIPT
       info "  Comparing with server..."
       scp "$LOCAL_LIST" "${REMOTE}:${REMOTE_LIST_PATH}"
 
-      SSH_OUTPUT=$(ssh "${REMOTE}" << REMOTE_SCRIPT
-        cd ${REMOTE_DATA}
-        # Generate server file list
-        REMOTE_LIST=\$(find public/ uploads/ -type f ! -path '*/.thumbs/*' 2>/dev/null | sort)
-        REMOTE_COUNT=\$(echo "\$REMOTE_LIST" | wc -l)
-        echo "REMOTE_COUNT:\$REMOTE_COUNT"
+      DIFF_FILE="/tmp/roco_diff_${RANDOM}.txt"
+      SSH_OUTPUT=$(ssh "${REMOTE}" bash -s "${REMOTE_DATA}" "${REMOTE_LIST_PATH}" "${REMOTE_TAR}" "${DIFF_FILE}" << 'REMOTE_SCRIPT'
+        RDATA="$1"
+        LOCAL_LIST_PATH="$2"
+        RTAR="$3"
+        RDIFF="$4"
+        set -e
+        cd "$RDATA"
 
-        # Find files on server that are NOT in local list
-        DIFF_FILES=\$(comm -23 <(echo "\$REMOTE_LIST") ${REMOTE_LIST_PATH})
+        # Use Python to compute diff (avoids all shell sort/comm issues)
+        python3 - "$LOCAL_LIST_PATH" "$RDIFF" << 'PYEOF'
+import sys, os
+local_list_path = sys.argv[1]
+diff_path = sys.argv[2]
+data_dir = os.getcwd()
 
-        if [ -z "\$DIFF_FILES" ]; then
+with open(local_list_path) as f:
+    local_files = set(line.strip() for line in f if line.strip())
+
+remote_files = []
+for root, dirs, files in os.walk('.'):
+    # skip .thumbs directories
+    dirs[:] = [d for d in dirs if d != '.thumbs']
+    for fname in files:
+        rel = os.path.join(root, fname).lstrip('./')
+        rel = rel.replace('\\', '/')
+        remote_files.append(rel)
+
+diff = [f for f in remote_files if f not in local_files]
+with open(diff_path, 'w') as f:
+    f.write('\n'.join(diff))
+print('REMOTE_COUNT:' + str(len(remote_files)))
+print('DIFF_COUNT:' + str(len(diff)))
+PYEOF
+
+        # Check if diff is empty
+        if [ ! -s "$RDIFF" ]; then
           echo "NO_CHANGES"
-          rm -f ${REMOTE_LIST_PATH}
+          rm -f "$LOCAL_LIST_PATH" "$RDIFF"
           exit 0
         fi
 
-        DIFF_COUNT=\$(echo "\$DIFF_FILES" | wc -l)
-        echo "DIFF_COUNT:\$DIFF_COUNT"
-
         # Pack only the diff files
-        echo "\$DIFF_FILES" | tar czf ${REMOTE_TAR} -T - 2>/dev/null
-        echo "DONE:\$(du -h ${REMOTE_TAR} | cut -f1)"
-        rm -f ${REMOTE_LIST_PATH}
+        tar czf "$RTAR" -T "$RDIFF" 2>/dev/null
+        echo "DONE:$(du -h "$RTAR" | cut -f1)"
+        rm -f "$LOCAL_LIST_PATH" "$RDIFF"
 REMOTE_SCRIPT
       )
 
@@ -249,7 +272,7 @@ REMOTE_SCRIPT
 
     # Cleanup
     rm -f "$LOCAL_TAR"
-    ssh "${REMOTE}" "rm -f ${REMOTE_TAR}"
+    ssh "${REMOTE}" "rm -f ${REMOTE_TAR}" 2>/dev/null || true
     info "  Cleaned up temp files"
   fi
 

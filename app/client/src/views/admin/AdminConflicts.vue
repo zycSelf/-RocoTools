@@ -64,6 +64,40 @@
               </tbody>
             </table>
           </div>
+
+          <!-- 技能列表对比（仅 pet_details 类型） -->
+          <template v-if="c.table === 'pet_details' && c.newSkills">
+            <div class="mt-4 border-t dark:border-white/10 pt-3">
+              <div class="text-xs font-medium text-muted mb-2">技能列表（爬虫新数据，接受后将覆盖当前技能配置）</div>
+              <div v-for="(skillTypeLabel, skillTypeKey) in { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' }" :key="skillTypeKey">
+                <template v-if="c.newSkills[skillTypeKey] && c.newSkills[skillTypeKey].length > 0">
+                  <div class="text-xs text-muted mt-2 mb-1">{{ skillTypeLabel }}（{{ c.newSkills[skillTypeKey].length }} 条）</div>
+                  <table class="w-full text-xs">
+                    <thead>
+                      <tr class="border-b dark:border-white/10">
+                        <th class="text-left py-1 px-2 text-muted w-16">等级</th>
+                        <th class="text-left py-1 px-2 text-muted">技能名</th>
+                        <th class="text-left py-1 px-2 text-muted w-16">属性</th>
+                        <th class="text-left py-1 px-2 text-muted w-14">分类</th>
+                        <th class="text-left py-1 px-2 text-muted w-12">能耗</th>
+                        <th class="text-left py-1 px-2 text-muted w-12">威力</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(sk, si) in c.newSkills[skillTypeKey]" :key="si" class="border-b dark:border-white/5">
+                        <td class="py-1 px-2 text-muted">{{ sk.level ? 'LV' + sk.level : '-' }}</td>
+                        <td class="py-1 px-2">{{ sk.name || '-' }}</td>
+                        <td class="py-1 px-2 text-muted">{{ sk.element || '-' }}</td>
+                        <td class="py-1 px-2 text-muted">{{ sk.type || '-' }}</td>
+                        <td class="py-1 px-2 text-muted">{{ sk.cost ?? '-' }}</td>
+                        <td class="py-1 px-2 text-muted">{{ sk.power ?? '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </template>
