@@ -18,6 +18,7 @@ const fs = require('fs');
 // Resolve better-sqlite3 from app/server
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const Database = require(path.join(PROJECT_ROOT, 'app/server/node_modules/better-sqlite3'));
+const { ELEMENT_SORT_ORDER } = require(path.join(PROJECT_ROOT, 'app/server/src/constants/elementOrder'));
 
 // ============ CLI Args ============
 const args = process.argv.slice(2);
@@ -414,8 +415,11 @@ w();
 
 // --- New Skills ---
 if (newSkills.length > 0) {
-  // Sort by uid numeric part
+  // Sort by element order → skill ID
   newSkills.sort((a, b) => {
+    const elemA = ELEMENT_SORT_ORDER[a.element_id] || 99;
+    const elemB = ELEMENT_SORT_ORDER[b.element_id] || 99;
+    if (elemA !== elemB) return elemA - elemB;
     const numA = parseInt(a.uid?.replace(/\D/g, '') || '0');
     const numB = parseInt(b.uid?.replace(/\D/g, '') || '0');
     return numA - numB;
@@ -522,8 +526,11 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
 }
 
 // --- Skill Balance ---
-// Sort by uid numeric part
+// Sort by element order → skill ID
 modifiedSkills.sort((a, b) => {
+  const elemA = ELEMENT_SORT_ORDER[a.skill.element_id] || 99;
+  const elemB = ELEMENT_SORT_ORDER[b.skill.element_id] || 99;
+  if (elemA !== elemB) return elemA - elemB;
   const numA = parseInt(a.skill.uid?.replace(/\D/g, '') || '0');
   const numB = parseInt(b.skill.uid?.replace(/\D/g, '') || '0');
   return numA - numB;
