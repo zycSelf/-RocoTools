@@ -245,6 +245,12 @@ for (const [, group] of Object.entries(_newPetGroupsForSummary)) {
 
 // --- Summary ---
 
+// Skill learning changes: count affected pet uids (distinct)
+const skillLearningAffectedUids = new Set([
+  ...skillsAdded.map(r => r.pet_uid),
+  ...skillsRemoved.map(r => r.pet_uid),
+]);
+
 // --- Summary ---
 w(`## 📊 更新概览`);
 w();
@@ -259,8 +265,10 @@ if (newSkills.length > 0) w(`| 新增技能 | ${newSkills.length} 个 |`);
 w(`| 技能调整 | ${modifiedSkills.length} 个 |`);
 w(`| 精灵数值调整 | ${statChangedPets.length} 只 |`);
 w(`| 精灵特性调整 | ${abilityChangedPets.length} 只 |`);
-if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
-  w(`| 技能学习面变动 | +${skillsAdded.length} / -${skillsRemoved.length} |`);
+if (skillLearningAffectedUids.size > 0) {
+  const addedUids = new Set(skillsAdded.map(r => r.pet_uid));
+  const removedUids = new Set(skillsRemoved.map(r => r.pet_uid));
+  w(`| 技能学习面变动 | ${skillLearningAffectedUids.size} 只（新增 ${addedUids.size} / 减少 ${removedUids.size}）|`);
 }
 w();
 
