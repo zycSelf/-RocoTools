@@ -27,7 +27,7 @@ function list({ page = 1, limit = 50, element_id, category, search, counter, key
   const skills = db.prepare(`
     SELECT s.*, e.name as element_name, e.color as element_color, e.icon as element_icon
     FROM skills s LEFT JOIN elements e ON s.element_id = e.id
-    ${whereClause} ORDER BY ${elementOrderSql('s.element_id')}, s.uid LIMIT ? OFFSET ?
+    ${whereClause} ORDER BY ${elementOrderSql('s.element_id')}, CAST(SUBSTR(s.uid, 7) AS INTEGER) LIMIT ? OFFSET ?
   `).all(...params, safeLimit, offset);
 
   return { total, page: +page, limit: safeLimit, skills };
