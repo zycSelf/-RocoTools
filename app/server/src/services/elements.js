@@ -1,4 +1,5 @@
 const { getDb } = require('../db/connection');
+const { ELEMENT_SORT_ORDER } = require('../constants/elementOrder');
 const db = getDb();
 
 function parseRow(row) {
@@ -14,6 +15,8 @@ function parseRow(row) {
 function getAll() {
   const rows = db.prepare('SELECT * FROM elements ORDER BY id').all();
   const elements = rows.map(parseRow);
+  // Sort by canonical display order
+  elements.sort((a, b) => (ELEMENT_SORT_ORDER[a.id] || 99) - (ELEMENT_SORT_ORDER[b.id] || 99));
   return { total: elements.length, elements };
 }
 
