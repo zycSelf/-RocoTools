@@ -254,9 +254,11 @@ function parseMarkdown(md) {
 // Inline formatting: bold, italic, code, links, inline icons
 function inline(text) {
   return text
-    // Custom inline icons: ![pet:uid] and ![skill:uid]
+    // Custom inline icons: ![pet:uid], ![skill:uid], ![img:path]
     .replace(/!\[pet:([^\]]+)\]/g, '<img class="inline-icon pet-icon" src="/public/pets/thumbs/$1_default.webp" alt="" loading="lazy" />')
     .replace(/!\[skill:([^\]]+)\]/g, '<img class="inline-icon skill-icon" src="/public/skills/icons/$1.png" alt="" loading="lazy" />')
+    .replace(/!\[img:([^\]]+)\]/g, '<img class="inline-img" src="$1" alt="" loading="lazy" />')
+    .replace(/!\[shiny:([^\]]+)\]/g, '<span class="shiny-wrap">异色：<img class="inline-img" src="/public/pets/shiny/$1_shiny.webp" alt="" loading="lazy" onerror="this.closest(&#39;.shiny-wrap&#39;).style.display=&#39;none&#39;"/></span>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
@@ -288,10 +290,10 @@ onMounted(async () => {
       { label: '蛋组', value: data.eggs ?? 0 },
       { label: '性格', value: data.natures ?? 0 },
     ]
-    if (seasonRes.season?.announcement_text) {
-      announcement.url = seasonRes.season.announcement_url || ''
-      announcement.text = seasonRes.season.announcement_text || ''
-      announcement.content = seasonRes.season.announcement_content || ''
+    if (seasonRes.season?.home_announcement_text) {
+      announcement.url = seasonRes.season.home_announcement_url || ''
+      announcement.text = seasonRes.season.home_announcement_text || ''
+      announcement.content = seasonRes.season.home_announcement_content || ''
     }
   } catch (e) {
     console.error('加载数据失败', e)
@@ -612,6 +614,16 @@ onMounted(async () => {
 :deep(.prose-announcement .skill-icon) {
   width: 20px;
   height: 20px;
+}
+/* Inline full images: ![img:path] */
+:deep(.prose-announcement .inline-img) {
+  display: inline-block;
+  vertical-align: middle;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 6px;
+  margin: 0 3px;
 }
 :deep(.prose-light .skill-icon) {
   background: rgba(0, 0, 0, 0.03);

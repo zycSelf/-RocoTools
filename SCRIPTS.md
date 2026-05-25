@@ -208,6 +208,31 @@ node scripts/sync-default-achievements.js --dry-run
 
 ---
 
+### 赛季公告脚本
+
+| 脚本 | 路径 | 用途 |
+|------|------|------|
+| `generate_launch_notes.js` | `scripts/generate_launch_notes.js` | 开服公告：读取单个DB快照，展示赛季全量内容 |
+| `generate_patch_notes.js` | `scripts/generate_patch_notes.js` | 更新公告：对比两个DB快照，展示差异变更 |
+
+**用法**：
+
+```bash
+# 开服公告（S1 开服）
+node scripts/generate_launch_notes.js temp/seasons/season_S1_20260521.db
+
+# 更新公告（S1 → S2 对比）
+node scripts/generate_patch_notes.js \
+  temp/seasons/season_S1_20260521.db \
+  temp/seasons/season_S2_20260525.db
+```
+
+**展示顺序**（两个脚本统一）：传说精灵 → 通行证精灵 → 赛季奇遇精灵 → 赛季奇遇异色精灵
+
+> 详细说明见 `scripts/README.md` 第六节。
+
+---
+
 ### 测试/调试脚本
 
 | 脚本 | 路径 | 用途 |

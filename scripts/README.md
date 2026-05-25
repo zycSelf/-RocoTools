@@ -317,11 +317,55 @@ cd app/server && node gen_webp.js
 
 ## 六、赛季公告生成脚本
 
+### generate_launch_notes.js — 开服公告
+
+**脚本**：`scripts/generate_launch_notes.js`
+
+读取单个赛季数据库快照，生成赛季开服公告（无需对比，展示全量内容）。
+
+#### 命令
+
+```bash
+# 基本用法
+node scripts/generate_launch_notes.js <db_path>
+
+# 指定输出路径
+node scripts/generate_launch_notes.js <db_path> --output <输出路径.md>
+```
+
+#### 示例
+
+```bash
+# 生成 S1 开服公告，默认输出到 temp/launch_notes_season_S1_*.md
+node scripts/generate_launch_notes.js temp/seasons/season_S1_20260521.db
+
+# 指定输出路径
+node scripts/generate_launch_notes.js temp/seasons/season_S1_20260521.db --output temp/launch_S1.md
+```
+
+#### 输出内容（按顺序）
+
+1. **本赛季概览** — 精灵总数/技能总数/特性总数/传说/通行证/赛季奇遇/异色数量
+2. **⭐ 传说精灵** — 特性 + 六维 + 常规立绘（有异色素材则展示异色）
+3. **🎫 通行证精灵** — 特性 + 六维 + 常规立绘（有异色则展示）
+4. **🌟 赛季奇遇精灵** — 特性 + 六维 + 常规立绘（有异色则展示）
+5. **✨ 赛季奇遇异色精灵** — 常规 + 异色立绘并排列表
+
+#### 异色图片处理
+
+- 使用 `![shiny:uid]` 语法输出异色图片
+- 前端渲染时若图片加载失败，自动隐藏"异色：图片"整体（`onerror` 处理）
+- 脚本不依赖本地磁盘文件检查，始终输出异色标签
+
+---
+
+### generate_patch_notes.js — 赛季更新公告
+
 **脚本**：`scripts/generate_patch_notes.js`
 
 对比两个赛季的数据库快照，自动生成格式化的赛季更新公告（Markdown）。
 
-### 前置条件
+#### 前置条件
 
 1. 下载赛季数据库备份：
    ```bash
@@ -335,7 +379,7 @@ cd app/server && node gen_webp.js
 
 2. 确保 `better-sqlite3` 已安装（`cd app/server && npm install`）
 
-### 命令
+#### 命令
 
 ```bash
 # 基本用法：对比旧版本 → 新版本
@@ -345,32 +389,42 @@ node scripts/generate_patch_notes.js <旧版本.db> <新版本.db>
 node scripts/generate_patch_notes.js <旧版本.db> <新版本.db> --output <输出路径.md>
 ```
 
-### 示例
+#### 示例
 
 ```bash
-# 对比 S1 → S2，输出到 temp/patch_S2.md
+# 对比 S1 → S2，默认输出到 temp/patch_notes_season_S2_*.md
 node scripts/generate_patch_notes.js \
   temp/seasons/season_S1_20260521.db \
-  temp/seasons/season_S2_20260524.db \
-  --output temp/patch_S2.md
+  temp/seasons/season_S2_20260525.db
 
-# 不指定输出路径，默认输出到 temp/patch_notes_<新db文件名>.md
+# 指定输出路径
 node scripts/generate_patch_notes.js \
   temp/seasons/season_S1_20260521.db \
-  temp/seasons/season_S2_20260524.db
+  temp/seasons/season_S2_20260525.db \
+  --output temp/patch_S2.md
 ```
 
-### 输出内容
+#### 输出内容（按顺序）
 
-1. **更新概览** — 各类变更的数量汇总
-2. **新增精灵** — 按进化线分组展示
-3. **新增技能** — 表格展示
-4. **技能调整** — 逐个列出能耗/威力/效果变化
-5. **精灵特性调整** — 按相同改动分组，合并进化线
-6. **精灵数值调整** — 表格展示六维变化和差值
-7. **技能学习面变动** — 已有精灵新增/移除的可学习技能
+1. **📊 更新概览** — 新增精灵总数（含传说/通行证/赛季奇遇/异色子项）、技能调整、数值调整、特性调整、技能学习面变动
+2. **⭐ 传说精灵** — 新增传说精灵，展示特性 + 六维 + 立绘
+3. **🎫 通行证精灵** — 新增通行证精灵，展示特性 + 六维 + 立绘
+4. **🌟 赛季奇遇精灵** — 新增赛季奇遇精灵，展示特性 + 六维 + 立绘
+5. **✨ 赛季奇遇异色精灵** — 老精灵新增异色，展示特性 + 六维 + 常规/异色立绘
+6. **📋 全部新增精灵** — 简单列表（含分类标签），不展示特性数值
+7. **🆕 新增技能** — 表格展示
+8. **📈 精灵数值调整** — 表格展示六维变化和差值
+9. **📚 技能学习面变动** — 已有精灵新增/移除的可学习技能
+10. **⚔️ 技能调整** — 逐个列出能耗/威力/效果变化
+11. **🔮 精灵特性调整** — 按相同改动分组，合并进化线
 
-### 自动过滤
+#### 分类识别规则
+
+- 传说/通行证/赛季奇遇：读取新赛季 `seasons` 表的 `legend_pet`/`pass_pets`/`season_pets` 字段
+- 赛季奇遇异色：对比新旧赛季 `shiny_pets` 差集，**排除本赛季新增精灵**（避免重复展示）
+- 进化形态识别：检查进化线中所有形态的 uid，不只看第一个
+
+#### 自动过滤
 
 脚本自动忽略以下非游戏性变更：
 - `manual_edit`、`version`、标签列（`is_final_form` 等）、`show_shiny`、`level` 格式变化

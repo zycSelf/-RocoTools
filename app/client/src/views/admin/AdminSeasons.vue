@@ -158,16 +158,23 @@
         </div>
       </div>
 
-      <!-- 传说精灵（1只） -->
+      <!-- 传说精灵 -->
       <div class="card">
         <h2 class="font-roco text-base text-primary-500 font-bold mb-1">传说精灵</h2>
-        <p class="text-xs text-muted mb-3">当赛季主推的传说精灵，不排除后续返厂</p>
-        <PetPicker v-model="form.legend_pet" />
+        <p class="text-xs text-muted mb-3">当赛季主推的传说精灵，可配置多只</p>
+        <div class="space-y-3">
+          <div v-for="(uid, i) in form.legend_pets" :key="'legend_'+i" class="flex items-center gap-2">
+            <span class="text-xs text-muted w-6 flex-shrink-0">{{ i + 1 }}.</span>
+            <PetPicker v-model="form.legend_pets[i]" class="flex-1" />
+            <button @click="form.legend_pets.splice(i, 1)" class="text-xs text-red-400 hover:text-red-600 flex-shrink-0">移除</button>
+          </div>
+          <button @click="form.legend_pets.push('')" class="text-xs text-primary-500 hover:underline">+ 添加</button>
+        </div>
       </div>
 
-      <!-- 赛季限定精灵（8只） -->
+<!-- 赛季奇遇精灵（8只） -->
       <div class="card">
-        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">赛季限定精灵 <span class="text-xs text-muted font-normal">（8只）</span></h2>
+<h2 class="font-roco text-base text-primary-500 font-bold mb-1">赛季奇遇精灵 <span class="text-xs text-muted font-normal">（8只）</span></h2>
         <p class="text-xs text-muted mb-3">仅当赛季可捕捉，拥有异色版本，赛季结束后异色仅可通过孵蛋获取</p>
         <div class="space-y-3">
           <div v-for="(uid, i) in form.season_pets" :key="'season_'+i" class="flex items-center gap-2">
@@ -178,9 +185,9 @@
         </div>
       </div>
 
-      <!-- 赛季异色精灵（8只） -->
+<!-- 赛季奇遇异色精灵（8只） -->
       <div class="card">
-        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">赛季异色精灵 <span class="text-xs text-muted font-normal">（8只）</span></h2>
+<h2 class="font-roco text-base text-primary-500 font-bold mb-1">赛季奇遇异色精灵 <span class="text-xs text-muted font-normal">（8只）</span></h2>
         <p class="text-xs text-muted mb-3">日常可捕捉的精灵，当赛季可在野外获取其异色版本，赛季结束后异色仅可通过孵蛋获取</p>
         <div class="space-y-3">
           <div v-for="(uid, i) in form.shiny_pets" :key="'shiny_'+i" class="flex items-center gap-2">
@@ -191,10 +198,10 @@
         </div>
       </div>
 
-      <!-- 赛季公告配置 -->
+      <!-- 赛季详情公告配置 -->
       <div class="card">
-        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">首页公告 <span class="text-xs text-muted font-normal">（可选）</span></h2>
-        <p class="text-xs text-muted mb-3">配置后将在用户端首页顶部显示公告横幅，点击弹窗展示公告正文；留空则不显示</p>
+        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">赛季详情公告 <span class="text-xs text-muted font-normal">（可选）</span></h2>
+        <p class="text-xs text-muted mb-3">配置后将在赛季详情页顶部显示公告横幅，点击弹窗展示公告正文；通常用于展示本赛季相对上赛季的改动内容</p>
         <div class="space-y-3">
           <div>
             <label class="text-xs text-muted block mb-1">公告文案（横幅显示文字）</label>
@@ -207,6 +214,28 @@
           <div>
             <label class="text-xs text-muted block mb-1">公告正文（Markdown 格式，粘贴即可）</label>
             <textarea v-model="form.announcement_content" class="input w-full font-mono text-xs" rows="12"
+              placeholder="# 标题&#10;&#10;正文内容，支持 Markdown 格式..."></textarea>
+            <p class="text-xs text-muted mt-1">支持标题、表格、列表、加粗等 Markdown 语法，用户端点击公告横幅后弹窗展示</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 首页公告配置 -->
+      <div class="card">
+        <h2 class="font-roco text-base text-primary-500 font-bold mb-1">首页公告 <span class="text-xs text-muted font-normal">（可选）</span></h2>
+        <p class="text-xs text-muted mb-3">配置后将在用户端首页顶部显示公告横幅，点击弹窗展示公告正文；可用于赛季改动摘要或其他通知</p>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-muted block mb-1">公告文案（横幅显示文字）</label>
+            <input v-model="form.home_announcement_text" class="input w-full" placeholder="如：S2 狂欢怪谈赛季已开启，点击查看更新内容" />
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">外链地址（可选，有正文时优先弹窗）</label>
+            <input v-model="form.home_announcement_url" class="input w-full" placeholder="https://..." />
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">公告正文（Markdown 格式，粘贴即可）</label>
+            <textarea v-model="form.home_announcement_content" class="input w-full font-mono text-xs" rows="8"
               placeholder="# 标题&#10;&#10;正文内容，支持 Markdown 格式..."></textarea>
             <p class="text-xs text-muted mt-1">支持标题、表格、列表、加粗等 Markdown 语法，用户端点击公告横幅后弹窗展示</p>
           </div>
@@ -251,7 +280,8 @@ const { openPreview } = useImagePreview()
 const form = reactive({
   name: '', is_current: 0, image: '', start_date: '', end_date: '', note: '',
   announcement_url: '', announcement_text: '', announcement_content: '',
-  legend_pet: '',
+  home_announcement_url: '', home_announcement_text: '', home_announcement_content: '',
+  legend_pets: [],
   pass_pets: [],
   season_pets: [],
   shiny_pets: [],
@@ -293,7 +323,10 @@ function loadSeason() {
   form.announcement_url = s.announcement_url || ''
   form.announcement_text = s.announcement_text || ''
   form.announcement_content = s.announcement_content || ''
-  form.legend_pet = s.legend_pet || ''
+  form.home_announcement_url = s.home_announcement_url || ''
+  form.home_announcement_text = s.home_announcement_text || ''
+  form.home_announcement_content = s.home_announcement_content || ''
+  form.legend_pets = parseLegendPet(s.legend_pet)
   form.pass_pets = safeParseJSON(s.pass_pets)
   form.season_pets = safeParseJSON(s.season_pets)
   form.shiny_pets = safeParseJSON(s.shiny_pets)
@@ -302,6 +335,17 @@ function loadSeason() {
 function safeParseJSON(str) {
   try { return JSON.parse(str || '[]') }
   catch { return [] }
+}
+
+// 兼容旧单值格式 "pet_295" 和新数组格式 ["pet_295","pet_152"]
+function parseLegendPet(val) {
+  if (!val) return []
+  try {
+    const parsed = JSON.parse(val)
+    return Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return [val] // 旧单值字符串
+  }
 }
 
 async function createSeason() {
@@ -358,7 +402,10 @@ async function save() {
       announcement_url: form.announcement_url || null,
       announcement_text: form.announcement_text || null,
       announcement_content: form.announcement_content || null,
-      legend_pet: form.legend_pet || null,
+      home_announcement_url: form.home_announcement_url || null,
+      home_announcement_text: form.home_announcement_text || null,
+      home_announcement_content: form.home_announcement_content || null,
+      legend_pet: JSON.stringify(form.legend_pets.filter(Boolean)),
       pass_pets: JSON.stringify(form.pass_pets.filter(Boolean)),
       season_pets: JSON.stringify(form.season_pets.filter(Boolean)),
       shiny_pets: JSON.stringify(form.shiny_pets.filter(Boolean)),

@@ -41,6 +41,41 @@
         </div>
       </div>
 
+      <!-- 赛季详情公告横幅 -->
+      <div v-if="announcementData.text" @click="showAnnouncement = true"
+        class="mb-5 sm:mb-6 card !py-3 !px-4 border-l-4 border-l-primary-500 hover:border-primary-500/50 transition-colors group cursor-pointer">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📢</span>
+          <span class="text-sm sm:text-base font-medium group-hover:text-primary-500 transition-colors">{{ announcementData.text }}</span>
+          <span class="text-xs text-muted ml-auto flex-shrink-0">查看详情 →</span>
+        </div>
+      </div>
+
+      <!-- 公告弹窗 -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div v-if="showAnnouncement" class="fixed inset-0 z-[300] flex items-center justify-center p-4" @click.self="showAnnouncement = false">
+            <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+            <div class="relative w-full max-w-5xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+              :class="isDark ? 'bg-gray-800' : 'bg-white'">
+              <div class="flex items-center justify-between px-5 py-3 border-b" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+                <h3 class="font-roco text-base text-primary-500">📢 赛季更新公告</h3>
+                <button @click="showAnnouncement = false" class="text-muted hover:text-primary-500 text-xl leading-none">&times;</button>
+              </div>
+              <div class="flex-1 overflow-y-auto px-5 py-4 prose-announcement" :class="isDark ? 'prose-dark' : 'prose-light'" v-html="announcementHtml"></div>
+              <div class="px-5 py-3 border-t flex items-center justify-between" :class="isDark ? 'border-gray-700' : 'border-gray-100'">
+                <a v-if="announcementData.url" :href="announcementData.url" target="_blank" rel="noopener noreferrer"
+                  class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium border border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-white transition-colors">
+                  📋 查看官方公告
+                </a>
+                <span v-else></span>
+                <button @click="showAnnouncement = false" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors">关闭</button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- 通行证精灵 -->
       <div v-if="passPetList.length" class="mb-6 sm:mb-8">
         <h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-3 sm:mb-4">通行证精灵</h2>
@@ -70,47 +105,49 @@
       </div>
 
       <!-- 传说精灵 -->
-      <div v-if="legendPet" class="mb-6 sm:mb-8">
+      <div v-if="legendPets.length" class="mb-6 sm:mb-8">
         <h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-3 sm:mb-4">传说精灵</h2>
-        <router-link :to="`/pets/${legendPet.uid}`"
-          class="card group flex flex-col sm:flex-row items-center gap-4 sm:gap-6 !p-5 sm:!p-6 hover:border-primary-500/30 transition-all bg-gradient-to-br from-primary-50/30 to-transparent dark:from-primary-500/5">
-          <div class="relative w-28 h-28 sm:w-36 sm:h-36 flex-shrink-0">
-            <img :src="legendPet.thumb_url || legendPet.image_url"
-              class="w-full h-full object-contain group-hover:scale-105 transition-transform"
-              :class="{ 'group-hover:opacity-0': shinyMap[legendPet.uid] }" />
-            <img v-if="shinyMap[legendPet.uid]" :src="shinyMap[legendPet.uid]"
-              class="absolute inset-0 w-full h-full object-contain transition-all opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-105" />
-          </div>
-          <div class="flex-1 min-w-0 text-center sm:text-left">
-            <div class="font-roco text-xl sm:text-2xl group-hover:text-primary-500 transition-colors">{{ legendPet.name }}</div>
-            <div class="flex items-center gap-2 mt-3 justify-center sm:justify-start">
-              <span v-if="legendPet.element_icon" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs sm:text-sm"
-                :style="{ background: legendPet.element_color + '18', color: legendPet.element_color }">
-                <img :src="legendPet.element_icon" class="w-4 h-4" /> {{ legendPet.element_name }}
-              </span>
-              <span v-if="legendPet.sub_element_icon" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs sm:text-sm"
-                :style="{ background: legendPet.sub_element_color + '18', color: legendPet.sub_element_color }">
-                <img :src="legendPet.sub_element_icon" class="w-4 h-4" /> {{ legendPet.sub_element_name }}
-              </span>
+        <div class="space-y-3">
+          <router-link v-for="legendPet in legendPets" :key="legendPet.uid" :to="'/pets/' + legendPet.uid"
+            class="card group flex flex-col sm:flex-row items-center gap-4 sm:gap-6 !p-5 sm:!p-6 hover:border-primary-500/30 transition-all bg-gradient-to-br from-primary-50/30 to-transparent dark:from-primary-500/5">
+            <div class="relative w-28 h-28 sm:w-36 sm:h-36 flex-shrink-0">
+              <img :src="legendPet.thumb_url || legendPet.image_url"
+                class="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                :class="{ 'group-hover:opacity-0': shinyMap[legendPet.uid] }" />
+              <img v-if="shinyMap[legendPet.uid]" :src="shinyMap[legendPet.uid]"
+                class="absolute inset-0 w-full h-full object-contain transition-all opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-105" />
             </div>
-            <div class="text-sm text-muted mt-2">种族值 <span class="font-bold text-primary-500">{{ legendPet.total }}</span></div>
-            <div v-if="legendPet.ability_name" class="text-xs sm:text-sm text-muted mt-1">特性：{{ legendPet.ability_name }}</div>
-          </div>
-        </router-link>
+            <div class="flex-1 min-w-0 text-center sm:text-left">
+              <div class="font-roco text-xl sm:text-2xl group-hover:text-primary-500 transition-colors">{{ legendPet.name }}</div>
+              <div class="flex items-center gap-2 mt-3 justify-center sm:justify-start">
+                <span v-if="legendPet.element_icon" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs sm:text-sm"
+                  :style="{ background: legendPet.element_color + '18', color: legendPet.element_color }">
+                  <img :src="legendPet.element_icon" class="w-4 h-4" /> {{ legendPet.element_name }}
+                </span>
+                <span v-if="legendPet.sub_element_icon" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs sm:text-sm"
+                  :style="{ background: legendPet.sub_element_color + '18', color: legendPet.sub_element_color }">
+                  <img :src="legendPet.sub_element_icon" class="w-4 h-4" /> {{ legendPet.sub_element_name }}
+                </span>
+              </div>
+              <div class="text-sm text-muted mt-2">种族值 <span class="font-bold text-primary-500">{{ legendPet.total }}</span></div>
+              <div v-if="legendPet.ability_name" class="text-xs sm:text-sm text-muted mt-1">特性：{{ legendPet.ability_name }}</div>
+            </div>
+          </router-link>
+        </div>
       </div>
 
-      <!-- 赛季限定精灵 -->
+<!-- 赛季奇遇精灵 -->
       <div v-if="seasonPetList.length" class="mb-6 sm:mb-8">
-        <h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-1 sm:mb-2">赛季限定精灵</h2>
+<h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-1 sm:mb-2">赛季奇遇精灵</h2>
         <p class="text-xs sm:text-sm text-muted mb-3 sm:mb-4">仅当赛季可捕捉，拥有异色版本，赛季结束后异色仅可通过孵蛋获取</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
           <PetCard v-for="pet in seasonPetList" :key="pet.uid" :pet="pet" :shiny-url="shinyMap[pet.uid]" />
         </div>
       </div>
 
-      <!-- 赛季异色精灵 -->
+<!-- 赛季奇遇异色精灵 -->
       <div v-if="shinyPetList.length">
-        <h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-1 sm:mb-2">赛季异色精灵</h2>
+<h2 class="font-roco text-lg sm:text-xl text-primary-500 mb-1 sm:mb-2">赛季奇遇异色精灵</h2>
         <p class="text-xs sm:text-sm text-muted mb-3 sm:mb-4">日常可捕捉的精灵，当赛季可在野外获取其异色版本，赛季结束后异色仅可通过孵蛋获取</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
           <PetCard v-for="pet in shinyPetList" :key="pet.uid" :pet="pet" :shiny-url="shinyMap[pet.uid]" />
@@ -136,16 +173,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { petsApi, seasonsApi } from '@/api'
+import { useTheme } from '@/composables/useTheme'
 import PetCard from '@/components/shared/PetCard.vue'
 
+const { isDark } = useTheme()
 const allSeasons = ref([])
 const season = ref(null)
 const currentId = ref('')
 const loaded = ref(false)
 const switching = ref(false)
-const legendPet = ref(null)
+const legendPets = ref([])
 const passPetList = ref([])
 const seasonPetList = ref([])
 const shinyPetList = ref([])
@@ -159,21 +198,105 @@ async function loadPetsByUids(uids) {
   return results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value)
 }
 
+const showAnnouncement = ref(false)
+const announcementData = ref({ url: '', text: '', content: '' })
+
+function parseMarkdown(md) {
+  if (!md) return ''
+  const lines = md.split('\n')
+  let html = ''
+  let inTable = false
+  let inList = false
+  let listType = ''
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i]
+    if (/^---+$/.test(line.trim())) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      html += '<hr/>'; continue
+    }
+    const hm = line.match(/^(#{1,6})\s+(.+)$/)
+    if (hm) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      html += `<h${hm[1].length}>${inlineFormat(hm[2])}</h${hm[1].length}>`; continue
+    }
+    if (line.startsWith('> ')) {
+      if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+      if (inTable) { html += '</tbody></table>'; inTable = false }
+      html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>`; continue
+    }
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      const cells = line.split('|').slice(1, -1).map(c => c.trim())
+      if (cells.every(c => /^[-:]+$/.test(c))) continue
+      if (!inTable) {
+        if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+        inTable = true
+        html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${inlineFormat(c)}</th>`).join('') + '</tr></thead><tbody>'
+        continue
+      }
+      html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join('') + '</tr>'; continue
+    } else if (inTable) { html += '</tbody></table></div>'; inTable = false }
+    if (/^[-*]\s+/.test(line.trim())) {
+      if (!inList || listType !== 'ul') { if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'; html += '<ul>'; inList = true; listType = 'ul' }
+      html += `<li>${inlineFormat(line.trim().replace(/^[-*]\s+/, ''))}</li>`; continue
+    }
+    if (/^\d+\.\s+/.test(line.trim())) {
+      if (!inList || listType !== 'ol') { if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'; html += '<ol>'; inList = true; listType = 'ol' }
+      html += `<li>${inlineFormat(line.trim().replace(/^\d+\.\s+/, ''))}</li>`; continue
+    }
+    if (inList && line.trim() === '') { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; continue }
+    if (line.trim() === '') continue
+    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
+    html += `<p>${inlineFormat(line)}</p>`
+  }
+  if (inList) html += listType === 'ul' ? '</ul>' : '</ol>'
+  if (inTable) html += '</tbody></table></div>'
+  return html
+}
+function inlineFormat(text) {
+  return text
+    .replace(/!\[pet:([^\]]+)\]/g, '<img class="inline-icon pet-icon" src="/public/pets/thumbs/$1_default.webp" alt="" loading="lazy" />')
+    .replace(/!\[skill:([^\]]+)\]/g, '<img class="inline-icon skill-icon" src="/public/skills/icons/$1.png" alt="" loading="lazy" />')
+    .replace(/!\[img:([^\]]+)\]/g, '<img class="inline-img" src="$1" alt="" loading="lazy" />')
+    .replace(/!\[shiny:([^\]]+)\]/g, '<span class="shiny-wrap">异色：<img class="inline-img" src="/public/pets/shiny/$1_shiny.webp" alt="" loading="lazy" onerror="this.closest(&#39;.shiny-wrap&#39;).style.display=&#39;none&#39;"/></span>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+}
+const announcementHtml = computed(() => parseMarkdown(announcementData.value.content))
+
 async function loadSeasonData(s) {
+  announcementData.value = {
+    url: s.announcement_url || '',
+    text: s.announcement_text || '',
+    content: s.announcement_content || '',
+  }
+  showAnnouncement.value = false
   season.value = s
   currentId.value = s.id
-  legendPet.value = null
+  legendPets.value = []
   passPetList.value = []
   seasonPetList.value = []
   shinyPetList.value = []
 
-  const [legend, pass, sPets, shPets] = await Promise.all([
-    s.legend_pet ? petsApi.get(s.legend_pet).catch(() => null) : null,
+  // 将 legend_pet 字段解析为数组（兼容旧单值格式）
+  function parseLegendPet(val) {
+    if (!val) return []
+    try {
+      const parsed = JSON.parse(val)
+      return Array.isArray(parsed) ? parsed : [parsed]
+    } catch { return [val] }
+  }
+
+  const [legendUids, pass, sPets, shPets] = await Promise.all([
+    Promise.resolve(parseLegendPet(s.legend_pet)),
     loadPetsByUids(s.pass_pets || []),
     loadPetsByUids(s.season_pets || []),
     loadPetsByUids(s.shiny_pets || []),
   ])
-  legendPet.value = legend
+  legendPets.value = (await loadPetsByUids(legendUids)).filter(Boolean)
   passPetList.value = pass
   seasonPetList.value = sPets
   shinyPetList.value = shPets
@@ -210,3 +333,61 @@ onMounted(async () => {
   loaded.value = true
 })
 </script>
+
+<style scoped>
+.modal-enter-active, .modal-leave-active { transition: all 0.2s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from > div:last-child { transform: scale(0.95) translateY(8px); }
+.modal-leave-to > div:last-child { transform: scale(0.95) translateY(8px); }
+
+:deep(.prose-announcement) { font-size: 0.85rem; line-height: 1.65; }
+:deep(.prose-light) { color: #374151; }
+:deep(.prose-dark) { color: #e5e7eb; }
+:deep(.prose-announcement h1) { font-size: 1.2rem; font-weight: 700; margin: 0 0 0.5rem; color: #D69F23; font-family: 'MIANFEIZITI', 'PingFang SC', sans-serif; }
+:deep(.prose-announcement h2) { font-size: 1rem; font-weight: 700; margin: 1.5rem 0 0.6rem; padding: 0.4rem 0.75rem; border-radius: 6px; border-left: 3px solid #D69F23; }
+:deep(.prose-light h2) { background: rgba(214,159,35,0.08); color: #92700C; }
+:deep(.prose-dark h2) { background: rgba(255,202,40,0.1); color: #FFCA28; }
+:deep(.prose-announcement h3) { font-size: 0.9rem; font-weight: 600; margin: 0.9rem 0 0.2rem; padding-left: 0.5rem; border-left: 2px solid #D69F23; }
+:deep(.prose-dark h3) { color: #fde68a; }
+:deep(.prose-announcement p) { margin: 0.3rem 0; }
+:deep(.prose-announcement blockquote) { margin: 0.5rem 0 1rem; padding: 0.4rem 0.75rem; border-left: 3px solid #D69F23; border-radius: 0 6px 6px 0; font-size: 0.78rem; }
+:deep(.prose-light blockquote) { background: rgba(214,159,35,0.06); color: #6b7280; }
+:deep(.prose-dark blockquote) { background: rgba(255,202,40,0.06); color: #9ca3af; }
+:deep(.prose-announcement ul), :deep(.prose-announcement ol) { margin: 0.3rem 0; padding-left: 1.2rem; }
+:deep(.prose-announcement li) { margin: 0.15rem 0; line-height: 1.6; }
+:deep(.prose-announcement ul li) { list-style: disc; }
+:deep(.prose-announcement ol li) { list-style: decimal; }
+:deep(.prose-light li::marker) { color: #D69F23; }
+:deep(.prose-dark li::marker) { color: #FFCA28; }
+:deep(.prose-announcement strong) { font-weight: 600; }
+:deep(.prose-light strong) { color: #1f2937; }
+:deep(.prose-dark strong) { color: #f9fafb; }
+:deep(.prose-announcement code) { padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.78rem; }
+:deep(.prose-light code) { background: rgba(214,159,35,0.1); color: #92700C; }
+:deep(.prose-dark code) { background: rgba(255,202,40,0.12); color: #fde68a; }
+:deep(.prose-announcement .table-wrap) { overflow-x: auto; margin: 0.75rem 0; border-radius: 8px; border: 1px solid; }
+:deep(.prose-light .table-wrap) { border-color: #e5e7eb; }
+:deep(.prose-dark .table-wrap) { border-color: #2d3548; }
+:deep(.prose-announcement table) { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+:deep(.prose-announcement th) { font-weight: 600; padding: 0.45rem 0.6rem; text-align: left; }
+:deep(.prose-light th) { background: #fdf6e3; color: #92700C; border-bottom: 2px solid rgba(214,159,35,0.3); }
+:deep(.prose-dark th) { background: #252d3a; color: #FFCA28; border-bottom: 2px solid rgba(255,202,40,0.2); }
+:deep(.prose-announcement td) { padding: 0.4rem 0.6rem; }
+:deep(.prose-light td) { border-bottom: 1px solid #f3f4f6; }
+:deep(.prose-dark td) { border-bottom: 1px solid #1e2433; }
+:deep(.prose-light tr:nth-child(even) td) { background: #fafafa; }
+:deep(.prose-dark tr:nth-child(even) td) { background: rgba(255,255,255,0.02); }
+:deep(.prose-announcement hr) { margin: 1.25rem 0; border: none; }
+:deep(.prose-light hr) { border-top: 1px solid #e5e7eb; }
+:deep(.prose-dark hr) { border-top: 1px solid #2d3548; }
+:deep(.prose-announcement hr + p) { text-align: center; font-size: 0.8rem; padding: 0.6rem 1rem; border-radius: 6px; margin-top: 0.5rem; }
+:deep(.prose-light hr + p) { background: rgba(214,159,35,0.06); color: #92700C; border: 1px dashed rgba(214,159,35,0.3); }
+:deep(.prose-dark hr + p) { background: rgba(255,202,40,0.06); color: #FFCA28; border: 1px dashed rgba(255,202,40,0.25); }
+:deep(.prose-announcement a) { color: #D69F23; text-decoration: underline; text-underline-offset: 2px; }
+:deep(.prose-announcement .inline-icon) { display: inline-block; vertical-align: middle; border-radius: 4px; object-fit: contain; margin: 0 2px; }
+:deep(.prose-announcement .pet-icon) { width: 24px; height: 24px; border-radius: 50%; }
+:deep(.prose-light .pet-icon) { background: rgba(214,159,35,0.08); border: 1px solid rgba(214,159,35,0.2); }
+:deep(.prose-dark .pet-icon) { background: rgba(255,202,40,0.08); border: 1px solid rgba(255,202,40,0.2); }
+:deep(.prose-announcement .skill-icon) { width: 20px; height: 20px; }
+:deep(.prose-announcement .inline-img) { display: inline-block; vertical-align: middle; width: 56px; height: 56px; object-fit: contain; border-radius: 6px; margin: 0 3px; }
+</style>

@@ -72,6 +72,22 @@ const newSeasonName = season2?.name || 'Unknown';
 const oldSeasonId = season1?.id || '?';
 const newSeasonId = season2?.id || '?';
 
+// Parse season2 pet lists (传说/赛季奇遇/通行证/异色)
+const parseList = json => { try { return JSON.parse(json || '[]'); } catch { return []; } };
+const stripPrefix = id => id.replace(/^pet_/, '');
+const makeIdSet = list => new Set([...list, ...list.map(stripPrefix)]);
+
+const s2LegendIds  = makeIdSet((() => {
+  const v = season2?.legend_pet;
+  if (!v) return [];
+  try { const p = JSON.parse(v); return Array.isArray(p) ? p : [p]; } catch { return [v]; }
+})());
+const s2SeasonIds  = makeIdSet(parseList(season2?.season_pets));
+const s2PassIds    = makeIdSet(parseList(season2?.pass_pets));
+const s2ShinyIds   = makeIdSet(parseList(season2?.shiny_pets));
+
+// Shiny images are rendered dynamically by the frontend (onerror hides if missing)
+
 // Pet names lookup
 const petNames = {};
 db2.prepare('SELECT uid, name FROM pets').all().forEach(r => { petNames[r.uid] = r.name; });
@@ -163,16 +179,6 @@ for (const [key, r] of petSkills1) {
   }
 }
 
-// Index new pet skills by pet_uid (for new pets section)
-const newPetUids = new Set(newPets.map(p => p.uid));
-const newPetSkillsByUid = {};
-for (const [, r] of petSkills2) {
-  if (newPetUids.has(r.pet_uid)) {
-    if (!newPetSkillsByUid[r.pet_uid]) newPetSkillsByUid[r.pet_uid] = { skills: [], bloodline_skills: [], learnable_stones: [] };
-    newPetSkillsByUid[r.pet_uid][r.skill_type]?.push(r);
-  }
-}
-
 // Group skill learning changes by pet
 function groupByPet(records) {
   const grouped = {};
@@ -181,6 +187,30 @@ function groupByPet(records) {
     grouped[r.pet_uid].push(r);
   }
   return grouped;
+}
+
+// Pre-compute new shiny pets (for summary)
+// Only count OLD pets that newly gained shiny in S2 (exclude brand-new pets which are shown in their own section)
+const oldShinyIds = makeIdSet(parseList(season1?.shiny_pets));
+const newPetUidSet = new Set(newPets.map(p => p.uid));
+const newPetPetIdSet = new Set(newPets.map(p => p.pet_id));
+// Normalize to pet_xxx format, deduplicate, then filter
+const _rawShinyNew = [...s2ShinyIds].filter(id => {
+  if (oldShinyIds.has(id)) return false;
+  const stripped = stripPrefix(id);
+  if (newPetUidSet.has(id) || newPetUidSet.has('pet_' + stripped)) return false;
+  if (newPetPetIdSet.has(id) || newPetPetIdSet.has(stripped)) return false;
+  return true;
+});
+// Deduplicate: normalize all to pet_xxx format
+const _shinySeenNorm = new Set();
+const newShinyOnlyIds = [];
+for (const id of _rawShinyNew) {
+  const norm = id.startsWith('pet_') ? id : 'pet_' + id;
+  if (!_shinySeenNorm.has(norm)) {
+    _shinySeenNorm.add(norm);
+    newShinyOnlyIds.push(norm);
+  }
 }
 
 // ============ Generate Markdown ============
@@ -193,12 +223,38 @@ w(`> 对比版本：${oldSeasonId} ${oldSeasonName} → ${newSeasonId} ${newSeas
 w(`> 生成时间：${new Date().toISOString().split('T')[0]}`);
 w();
 
+// Pre-classify new pets for summary
+// Group by pet_id first, then check if ANY uid in the group matches a category
+const _newPetGroupsForSummary = {};
+for (const p of newPets) {
+  if (!_newPetGroupsForSummary[p.pet_id]) _newPetGroupsForSummary[p.pet_id] = [];
+  _newPetGroupsForSummary[p.pet_id].push(p);
+}
+function groupMatchesSet(group, idSet) {
+  return group.some(p =>
+    idSet.has(p.uid) || idSet.has(p.pet_id) ||
+    idSet.has(stripPrefix(p.uid)) || idSet.has(stripPrefix(p.pet_id))
+  );
+}
+let _summaryLegend = 0, _summarySeason = 0, _summaryPass = 0;
+for (const [, group] of Object.entries(_newPetGroupsForSummary)) {
+  if (groupMatchesSet(group, s2LegendIds)) _summaryLegend++;
+  else if (groupMatchesSet(group, s2PassIds)) _summaryPass++;
+  else if (groupMatchesSet(group, s2SeasonIds)) _summarySeason++;
+}
+
+// --- Summary ---
+
 // --- Summary ---
 w(`## 📊 更新概览`);
 w();
 w(`| 类别 | 数量 |`);
 w(`|------|------|`);
 w(`| 新增精灵 | ${newPets.length} 只 |`);
+if (_summaryLegend > 0) w(`| 　传说精灵 | ${_summaryLegend} 只 |`);
+if (_summaryPass > 0) w(`| 　通行证精灵 | ${_summaryPass} 只 |`);
+if (_summarySeason > 0) w(`| 　赛季奇遇精灵 | ${_summarySeason} 只 |`);
+if (newShinyOnlyIds.length > 0) w(`| 　赛季奇遇异色精灵 | ${newShinyOnlyIds.length} 只 |`);
 if (newSkills.length > 0) w(`| 新增技能 | ${newSkills.length} 个 |`);
 w(`| 技能调整 | ${modifiedSkills.length} 个 |`);
 w(`| 精灵数值调整 | ${statChangedPets.length} 只 |`);
@@ -208,41 +264,121 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
 }
 w();
 
-// --- New Pets ---
-w(`## 🆕 新增精灵（${newPets.length} 只）`);
-w();
-// Group by evolution line (pet_id)
-const petGroups = {};
-for (const p of newPets) {
-  const baseId = p.pet_id || p.uid.replace(/_\d+$/, '');
-  if (!petGroups[baseId]) petGroups[baseId] = [];
-  petGroups[baseId].push(p);
-}
-for (const [, group] of Object.entries(petGroups)) {
-  const names = group.map(p => `![pet:${p.uid}] **${p.name}**`).join(' → ');
+// --- New Pets (each category is its own ## section, no top-level heading) ---
+
+// Helper: render one pet group (evolution line)
+function renderNewPetGroup(group, tag) {
   const first = group[0];
   const elemName = elementNames[first.element_id] || '';
   const subElemName = first.sub_element_id ? `/${elementNames[first.sub_element_id] || ''}` : '';
-  w(`- ${names}（${elemName}${subElemName}系）`);
+  const tagStr = tag ? `　\`${tag}\`` : '';
+  const chain = group.map(p => `![pet:${p.uid}] **${p.name}**`).join(' → ');
 
-  // 列出三类技能（合并同进化线所有形态）
-  const allSkills = { skills: [], bloodline_skills: [], learnable_stones: [] };
-  for (const p of group) {
-    const ps = newPetSkillsByUid[p.uid];
-    if (!ps) continue;
-    for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
-      for (const s of (ps[type] || [])) {
-        if (!allSkills[type].find(x => x.name === s.name)) allSkills[type].push(s);
-      }
+  w(`### ${chain}（${elemName}${subElemName}系）${tagStr}`);
+  w();
+
+  // Final form = highest total
+  const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
+
+  // 特性
+  if (finalForm.ability_name) {
+    w(`**特性「${finalForm.ability_name}」**：${finalForm.ability_desc || ''}`);
+    w();
+  }
+
+  // 六维
+  w(`**基础数值**：HP ${finalForm.hp} / 速度 ${finalForm.speed} / 物攻 ${finalForm.atk} / 魔攻 ${finalForm.matk} / 物防 ${finalForm.def} / 魔防 ${finalForm.mdef}　总计 **${finalForm.total}**`);
+  w();
+
+  // 立绘（常规 + 异色，异色图片由前端动态判断是否显示）
+  const defaultThumb = petThumbs[finalForm.uid] || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
+  w(`常规：![img:${defaultThumb}]　![shiny:${finalForm.uid}]`);
+  w();
+}
+
+// Group new pets by pet_id (evolution line)
+const newPetGroups = {};
+for (const p of newPets) {
+  if (!newPetGroups[p.pet_id]) newPetGroups[p.pet_id] = [];
+  newPetGroups[p.pet_id].push(p);
+}
+
+// Classify by season role (check ALL uids in group, not just first)
+const legendGroups  = [];
+const seasonGroups  = [];
+const passGroups    = [];
+
+for (const [, group] of Object.entries(newPetGroups)) {
+  if (groupMatchesSet(group, s2LegendIds)) legendGroups.push(group);
+  else if (groupMatchesSet(group, s2PassIds)) passGroups.push(group);
+  else if (groupMatchesSet(group, s2SeasonIds)) seasonGroups.push(group);
+  // else: skip — not shown in detail sections (will appear in 全部新增 list)
+}
+
+// --- 传说精灵 ---
+if (legendGroups.length) {
+  w(`## ⭐ 传说精灵（${legendGroups.length} 只）`);
+  w();
+  for (const g of legendGroups) renderNewPetGroup(g, '传说');
+}
+
+// --- 通行证精灵 ---
+if (passGroups.length) {
+  w(`## 🎫 通行证精灵（${passGroups.length} 只）`);
+  w();
+  for (const g of passGroups) renderNewPetGroup(g, '通行证');
+}
+
+// --- 赛季奇遇精灵 ---
+if (seasonGroups.length) {
+  w(`## 🌟 赛季奇遇精灵（${seasonGroups.length} 只）`);
+  w();
+  for (const g of seasonGroups) renderNewPetGroup(g, null);
+}
+
+// --- 赛季奇遇异色精灵（老精灵新增异色）---
+if (newShinyOnlyIds.length > 0) {
+  w(`## ✨ 赛季奇遇异色精灵（${newShinyOnlyIds.length} 只）`);
+  w();
+  for (const id of newShinyOnlyIds) {
+    const pet = db2.prepare('SELECT * FROM pets WHERE uid=? OR pet_id=? LIMIT 1').get(id, stripPrefix(id));
+    if (!pet) continue;
+    const elemName = elementNames[pet.element_id] || '';
+    const subElemName = pet.sub_element_id ? `/${elementNames[pet.sub_element_id] || ''}` : '';
+    const defaultThumb = petThumbs[pet.uid] || `/public/pets/thumbs/${pet.uid}_default.webp`;
+    const shinyThumb = `/public/pets/shiny/${pet.uid}_shiny.webp`;
+    w(`### ![pet:${pet.uid}] **${pet.name}**（${elemName}${subElemName}系）`);
+    w();
+    if (pet.ability_name) {
+      w(`**特性「${pet.ability_name}」**：${pet.ability_desc || ''}`);
+      w();
     }
+    w(`**基础数值**：HP ${pet.hp} / 速度 ${pet.speed} / 物攻 ${pet.atk} / 魔攻 ${pet.matk} / 物防 ${pet.def} / 魔防 ${pet.mdef}　总计 **${pet.total}**`);
+    w();
+    w(`常规：![img:${defaultThumb}]　![shiny:${pet.uid}]`);
+    w();
   }
-  const SKILL_TYPE_LABELS = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
-  for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
-    const list = allSkills[type];
-    if (!list.length) continue;
-    const items = list.map(s => s.level ? `${s.name}(Lv${s.level})` : s.name).join('、');
-    w(`  - **${SKILL_TYPE_LABELS[type]}**：${items}`);
-  }
+}
+
+// --- 全部新增精灵
+// --- 全部新增精灵（简单列表，不展示特性数值）---
+w(`## 📋 全部新增精灵（${newPets.length} 只）`);
+w();
+// Sort by pet_id then uid for consistent ordering
+const sortedNewPets = [...newPets].sort((a, b) => {
+  if (a.pet_id < b.pet_id) return -1;
+  if (a.pet_id > b.pet_id) return 1;
+  return a.uid < b.uid ? -1 : 1;
+});
+for (const p of sortedNewPets) {
+  const elemName = elementNames[p.element_id] || '';
+  const subElemName = p.sub_element_id ? `/${elementNames[p.sub_element_id] || ''}` : '';
+  const tags = [];
+  if (groupMatchesSet([p], s2LegendIds)) tags.push('传说');
+  else if (groupMatchesSet([p], s2PassIds)) tags.push('通行证');
+  else if (groupMatchesSet([p], s2SeasonIds)) tags.push('赛季奇遇');
+  const tagStr = tags.length ? `　\`${tags[0]}\`` : '';
+  w(`- ![pet:${p.uid}] **${p.name}**（${elemName}${subElemName}系）${tagStr}`);
 }
 w();
 

@@ -65,7 +65,7 @@ router.get('/export-excel', (req, res) => {
       is_current: '当前赛季',
       pass_pets: '通行证精灵',
       legend_pet: '传说精灵',
-      season_pets: '赛季限定精灵',
+  season_pets: '赛季奇遇精灵',
       shiny_pets: '异色精灵',
       start_date: '开始日期',
       end_date: '结束日期',

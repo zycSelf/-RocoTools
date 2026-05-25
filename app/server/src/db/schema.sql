@@ -143,15 +143,18 @@ CREATE TABLE IF NOT EXISTS seasons (
   is_current  INTEGER DEFAULT 0,    -- 是否为当前赛季
   image       TEXT,                 -- 赛季封面图
   pass_pets   TEXT,                 -- 通行证精灵 JSON array (2 uid)
-  legend_pet  TEXT,                 -- 传说精灵 (1 uid，赛季限定)
-  season_pets TEXT,                 -- 赛季限定精灵 JSON array (8 uid，必有异色)
+  legend_pet  TEXT,                 -- 传说精灵 (JSON数组，如["pet_295","pet_152"]，兼容旧单值格式)
+  season_pets TEXT,                 -- 赛季奇遇精灵 JSON array (8 uid，必有异色)
   shiny_pets  TEXT,                 -- 常态异色精灵 JSON array (8 uid)
   start_date  TEXT,                 -- 赛季开始日期
   end_date    TEXT,                 -- 赛季结束日期
   note        TEXT,                -- 备注
-  announcement_url  TEXT,          -- 赛季更新公告链接
-  announcement_text TEXT,          -- 赛季更新公告文案
-  announcement_content TEXT        -- 赛季更新公告正文（Markdown）
+  announcement_url  TEXT,          -- 赛季详情公告链接（赛季页展示）
+  announcement_text TEXT,          -- 赛季详情公告文案（赛季页展示）
+  announcement_content TEXT,       -- 赛季详情公告正文（Markdown，赛季页展示）
+  home_announcement_url  TEXT,     -- 首页公告链接
+  home_announcement_text TEXT,     -- 首页公告文案（横幅显示）
+  home_announcement_content TEXT   -- 首页公告正文（Markdown，首页弹窗展示）
 );
 
 -- 赛季活动日历

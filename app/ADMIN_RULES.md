@@ -881,6 +881,72 @@ FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
 
 ---
 
+## 十七、赛季公告系统
+
+### 公告字段拆分
+
+赛季公告分为两套独立配置，互不影响：
+
+| 字段组 | 前缀 | 展示位置 | 说明 |
+|--------|------|----------|------|
+| 赛季详情公告 | `announcement_*` | 赛季详情页 | 展示当前赛季相对于上赛季的改动 |
+| 首页公告 | `home_announcement_*` | 用户首页 | 展示当前赛季改动或其他形式文本公告 |
+
+**数据库字段**（`seasons` 表新增）：
+
+| 字段 | 说明 |
+|------|------|
+| `home_announcement_url` | 首页公告链接 |
+| `home_announcement_text` | 首页公告横幅文案 |
+| `home_announcement_content` | 首页公告正文（Markdown） |
+
+### 多传说精灵支持
+
+`seasons.legend_pet` 字段支持 JSON 数组格式，可配置多只传说精灵：
+
+```json
+// 旧格式（单值字符串，向后兼容）
+"pet_295"
+
+// 新格式（JSON数组）
+["pet_295", "pet_152"]
+```
+
+**兼容规则**：
+- 读取时自动兼容旧单值格式（`parseLegendPet` 函数）
+- 管理端配置界面支持增删多只传说精灵
+- 用户端展示支持多只循环渲染
+
+### 公告 Markdown 自定义语法
+
+公告内容支持以下自定义语法，由前端 `inline()` / `inlineFormat()` 函数解析：
+
+| 语法 | 渲染结果 | 说明 |
+|------|----------|------|
+| `![pet:uid]` | 精灵头像图标（24px圆形） | — |
+| `![skill:uid]` | 技能图标（20px） | — |
+| `![img:path]` | 内联图片（56px固定尺寸） | 路径需完整 |
+| `![shiny:uid]` | 异色立绘（56px） | 图片加载失败时自动隐藏整个"异色：图片"区域 |
+
+**`![shiny:uid]` 实现原理**：
+
+渲染为带 `onerror` 的 `<span class="shiny-wrap">`，图片加载失败时整个 span（含"异色："文字）自动隐藏。使用 HTML 实体 `&#39;` 代替单引号，避免 JS 字符串中引号嵌套转义失效问题。
+
+### 底部声明样式（hr + p）
+
+公告 Markdown 末尾的 `---` 分隔线后跟段落文字，渲染为金色虚线框声明样式：
+
+```css
+/* 亮色 */
+background: rgba(214,159,35,0.06); color: #92700C; border: 1px dashed rgba(214,159,35,0.3);
+/* 暗色 */
+background: rgba(255,202,40,0.06); color: #FFCA28; border: 1px dashed rgba(255,202,40,0.25);
+```
+
+此样式在 `Home.vue` 和 `Season.vue` 的 `.prose-announcement` 中均已配置（`hr + p` 选择器）。
+
+---
+
 ## 十四、身高体重配置
 
 ### 存储格式
