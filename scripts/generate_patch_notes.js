@@ -94,9 +94,10 @@ db2.prepare('SELECT uid, name FROM pets').all().forEach(r => { petNames[r.uid] =
 const oldPetNames = {};
 db1.prepare('SELECT uid, name FROM pets').all().forEach(r => { oldPetNames[r.uid] = r.name; });
 
-// Element names lookup
+// Element names & icons lookup
 const elementNames = {};
-db2.prepare('SELECT id, name FROM elements').all().forEach(r => { elementNames[r.id] = r.name; });
+const elementIcons = {};
+db2.prepare('SELECT id, name, icon FROM elements').all().forEach(r => { elementNames[r.id] = r.name; if (r.icon) elementIcons[r.id] = r.icon; });
 
 // Skill icon lookup
 const skillIcons = {};
@@ -120,7 +121,7 @@ const skills2 = getRows(db2, 'skills', ['uid']);
 const newSkills = [];
 const modifiedSkills = [];
 const SKILL_IGNORE = ['manual_edit', 'version'];
-const SKILL_VALUE_FIELDS = ['cost', 'power', 'description', 'type', 'element', 'name'];
+const SKILL_VALUE_FIELDS = ['cost', 'power', 'description', 'category', 'element_id', 'name'];
 
 for (const [key, s2] of skills2) {
   if (!skills1.has(key)) {
@@ -331,6 +332,12 @@ for (const [, group] of Object.entries(newPetGroups)) {
   // else: skip — not shown in detail sections (will appear in 全部新增 list)
 }
 
+// Sort all groups by pet_id (numeric)
+const sortByPetId = (a, b) => (a[0].pet_id || 0) - (b[0].pet_id || 0);
+legendGroups.sort(sortByPetId);
+passGroups.sort(sortByPetId);
+seasonGroups.sort(sortByPetId);
+
 // --- 传说精灵 ---
 if (legendGroups.length) {
   w(`## ⭐ 传说精灵（${legendGroups.length} 只）`);
@@ -354,6 +361,12 @@ if (seasonGroups.length) {
 
 // --- 赛季奇遇异色精灵（老精灵新增异色）---
 if (newShinyOnlyIds.length > 0) {
+  // Sort by pet_id (numeric)
+  newShinyOnlyIds.sort((a, b) => {
+    const petA = db2.prepare('SELECT pet_id FROM pets WHERE uid=? OR pet_id=? LIMIT 1').get(a, stripPrefix(a));
+    const petB = db2.prepare('SELECT pet_id FROM pets WHERE uid=? OR pet_id=? LIMIT 1').get(b, stripPrefix(b));
+    return ((petA?.pet_id || 0) - (petB?.pet_id || 0));
+  });
   w(`## ✨ 赛季奇遇异色精灵（${newShinyOnlyIds.length} 只）`);
   w();
   for (const id of newShinyOnlyIds) {
@@ -401,18 +414,28 @@ w();
 
 // --- New Skills ---
 if (newSkills.length > 0) {
+  // Sort by uid numeric part
+  newSkills.sort((a, b) => {
+    const numA = parseInt(a.uid?.replace(/\D/g, '') || '0');
+    const numB = parseInt(b.uid?.replace(/\D/g, '') || '0');
+    return numA - numB;
+  });
   w(`## 🆕 新增技能（${newSkills.length} 个）`);
   w();
   w(`| 技能名 | 属性 | 类型 | 能耗 | 威力 | 描述 |`);
   w(`|--------|------|------|------|------|------|`);
   for (const s of newSkills) {
-    w(`| ![skill:${s.uid}] ${s.name} | ${s.element || '-'} | ${s.type || '-'} | ${s.cost ?? '-'} | ${s.power ?? '-'} | ${(s.description || '').replace(/\n/g, ' ').substring(0, 60)} |`);
+    const elemIcon = s.element_id && elementIcons[s.element_id] ? `![element:${elementIcons[s.element_id]}]` : '-';
+    const catName = s.category || '-';
+    w(`| ![skill:${s.uid}] ${s.name} | ${elemIcon} | ${catName} | ${s.cost ?? '-'} | ${s.power ?? '-'} | ${(s.description || '').replace(/\n/g, ' ').substring(0, 60)} |`);
   }
   w();
 }
 
 // --- Pet Stat Changes ---
 if (statChangedPets.length > 0) {
+  // Sort by pet_id (numeric)
+  statChangedPets.sort((a, b) => (a.pet.pet_id || 0) - (b.pet.pet_id || 0));
   w(`## 📈 精灵数值调整（${statChangedPets.length} 只）`);
   w();
   w(`| 精灵 | HP | 速度 | 物攻 | 魔攻 | 物防 | 魔防 | 总计 |`);
@@ -439,7 +462,13 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
     w();
     const grouped = groupByPet(skillsAdded);
     const SKILL_TYPE_LABELS_SHORT = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
-    for (const [uid, skills] of Object.entries(grouped)) {
+    // Sort by pet_id numeric part
+    const sortedAddedEntries = Object.entries(grouped).sort((a, b) => {
+      const numA = parseInt(a[0].replace(/\D/g, '') || '0');
+      const numB = parseInt(b[0].replace(/\D/g, '') || '0');
+      return numA - numB;
+    });
+    for (const [uid, skills] of sortedAddedEntries) {
       const name = petNames[uid] || uid;
       // Group by skill_type
       const byType = {};
@@ -465,7 +494,13 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
     w();
     const grouped = groupByPet(skillsRemoved);
     const SKILL_TYPE_LABELS_SHORT2 = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
-    for (const [uid, skills] of Object.entries(grouped)) {
+    // Sort by pet_id numeric part
+    const sortedRemovedEntries = Object.entries(grouped).sort((a, b) => {
+      const numA = parseInt(a[0].replace(/\D/g, '') || '0');
+      const numB = parseInt(b[0].replace(/\D/g, '') || '0');
+      return numA - numB;
+    });
+    for (const [uid, skills] of sortedRemovedEntries) {
       const name = oldPetNames[uid] || petNames[uid] || uid;
       const byType = {};
       for (const s of skills) {
@@ -487,6 +522,12 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
 }
 
 // --- Skill Balance ---
+// Sort by uid numeric part
+modifiedSkills.sort((a, b) => {
+  const numA = parseInt(a.skill.uid?.replace(/\D/g, '') || '0');
+  const numB = parseInt(b.skill.uid?.replace(/\D/g, '') || '0');
+  return numA - numB;
+});
 w(`## ⚔️ 技能调整（${modifiedSkills.length} 个）`);
 w();
 for (const { skill, changes, relevantFields } of modifiedSkills) {
@@ -505,11 +546,11 @@ for (const { skill, changes, relevantFields } of modifiedSkills) {
         w(`- **效果**：${oldVal}`);
         w(`- **→**：${newVal}`);
         break;
-      case 'type':
+      case 'category':
         w(`- **类型**：${oldVal} → ${newVal}`);
         break;
-      case 'element':
-        w(`- **属性**：${oldVal} → ${newVal}`);
+      case 'element_id':
+        w(`- **属性**：${elementNames[oldVal] || oldVal} → ${elementNames[newVal] || newVal}`);
         break;
       case 'name':
         w(`- **名称**：${oldVal} → ${newVal}`);
@@ -521,6 +562,8 @@ for (const { skill, changes, relevantFields } of modifiedSkills) {
 
 // --- Pet Ability Changes ---
 if (abilityChangedPets.length > 0) {
+  // Sort by pet_id (numeric)
+  abilityChangedPets.sort((a, b) => (a.pet.pet_id || 0) - (b.pet.pet_id || 0));
   w(`## 🔮 精灵特性调整（${abilityChangedPets.length} 只）`);
   w();
   // Group by ability_desc to merge evolution lines

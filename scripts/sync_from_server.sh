@@ -76,11 +76,32 @@ sync_db() {
     ok "Local DB backed up as: ${BACKUP_NAME}"
   fi
 
-  # Download DB directly via scp (simple & reliable)
+  # Create a safe snapshot on server using better-sqlite3 backup API
+  # First checkpoint WAL to merge pending writes, then backup
+  REMOTE_SNAPSHOT="/tmp/roco_snapshot_$$.db"
   mkdir -p "$(dirname "$LOCAL_DB")"
+  info "Creating safe DB snapshot on server..."
+  ssh "${REMOTE}" "cd ${REMOTE_PROJECT}/app/server && node -e \"
+    const Database = require('better-sqlite3');
+    const db = new Database('data/roco.db');
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    db.backup('${REMOTE_SNAPSHOT}').then(() => { db.close(); console.log('BACKUP_OK'); }).catch(e => { db.close(); console.error('BACKUP_FAIL:' + e.message); process.exit(1); });
+  \"" || {
+    warn "Node.js backup failed, falling back to direct scp..."
+    REMOTE_SNAPSHOT="${REMOTE_DB}"
+  }
+
+  # Download the snapshot
   info "Downloading database from server..."
-  scp "${REMOTE}:${REMOTE_DB}" "$LOCAL_DB"
+  # Remove stale WAL/SHM files before overwriting (they belong to the old DB)
+  rm -f "${LOCAL_DB}-wal" "${LOCAL_DB}-shm"
+  scp "${REMOTE}:${REMOTE_SNAPSHOT}" "$LOCAL_DB"
   ok "Downloaded: $(du -h "$LOCAL_DB" | cut -f1)"
+
+  # Cleanup remote snapshot (if it's not the original DB)
+  if [ "$REMOTE_SNAPSHOT" != "${REMOTE_DB}" ]; then
+    ssh "${REMOTE}" "rm -f ${REMOTE_SNAPSHOT}" 2>/dev/null || true
+  fi
 
   # Verify integrity after download
   info "Verifying database integrity..."

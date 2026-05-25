@@ -93,20 +93,20 @@ for (const p of allPets) {
   if (!seenPetIds.has(p.pet_id)) { seenPetIds.add(p.pet_id); repPets.push(p); }
 }
 
-// Season pets
+// Season pets (sorted by pet_id)
 const seasonPets = repPets.filter(p =>
   seasonPetIds.has(p.pet_id) || seasonPetIds.has('pet_' + p.pet_id)
-);
+).sort((a, b) => (a.pet_id || 0) - (b.pet_id || 0));
 
-// Pass pets
+// Pass pets (sorted by pet_id)
 const passPets = repPets.filter(p =>
   passPetIds.has(p.pet_id) || passPetIds.has('pet_' + p.pet_id)
-);
+).sort((a, b) => (a.pet_id || 0) - (b.pet_id || 0));
 
-// Shiny pets
+// Shiny pets (sorted by pet_id)
 const shinyPets = repPets.filter(p =>
   shinyPetIds.has(p.uid) || shinyPetIds.has(p.pet_id) || shinyPetIds.has('pet_' + p.pet_id)
-);
+).sort((a, b) => (a.pet_id || 0) - (b.pet_id || 0));
 
 // Parse legend_pet: compatible with old single-value "pet_295" and new array ["pet_295","pet_152"]
 function parseLegendPet(val) {
