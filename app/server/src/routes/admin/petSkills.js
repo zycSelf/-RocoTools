@@ -5,6 +5,7 @@ const fs = require('fs');
 const { authAdmin } = require('../../middleware/authAdmin');
 const { getDb, getWriteDb, DATA_DIR } = require('../../db/connection');
 const { handleUpload } = require('./utils');
+const { elementOrderSql } = require('../../constants/elementOrder');
 
 /**
  * Normalize level field: extract pure number from "LV15", "Lv.20" etc.
@@ -179,10 +180,13 @@ router.get('/pet-skills/:uid', authAdmin, (req, res) => {
   const { uid } = req.params;
   try {
     const db = getDb();
+    const skillOrder = elementOrderSql('sk.element_id');
+    const skillIdOrder = "CAST(SUBSTR(ps.skill_ref_uid, 7) AS INTEGER)";
     const skills = db.prepare(`
       SELECT ps.*, sk.icon_url as skill_icon
       FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
-      WHERE ps.pet_uid = ? ORDER BY ps.id
+      WHERE ps.pet_uid = ?
+      ORDER BY ps.skill_type, CAST(ps.level AS INTEGER), ${skillOrder}, ${skillIdOrder}
     `).all(uid);
 
     const result = {
