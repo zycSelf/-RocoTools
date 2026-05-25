@@ -116,6 +116,58 @@ cd app/server && npm install
 
 ---
 
+### 远程数据同步脚本
+
+| 脚本 | 路径 | 用途 |
+|------|------|------|
+| `sync_from_server.sh` | `scripts/sync_from_server.sh` | 从服务器拉取数据库/图片/赛季备份到本地 |
+
+**前置条件**：
+
+1. 创建配置文件：
+   ```bash
+   cp scripts/.env.example scripts/.env
+   # 编辑填入：REMOTE_USER / REMOTE_HOST / REMOTE_PROJECT
+   ```
+2. 配置 SSH 免密登录：`ssh-copy-id user@your.server.ip`
+
+**用法**：
+
+```bash
+# 仅拉取数据库（自动备份本地旧DB + 完整性校验）
+bash scripts/sync_from_server.sh --db
+
+# 仅同步图片（增量，基于上次同步时间戳自动判断）
+bash scripts/sync_from_server.sh --images
+
+# 同步图片 - 强制全量
+bash scripts/sync_from_server.sh --images --full
+
+# 仅同步赛季备份文件（到 temp/seasons/）
+bash scripts/sync_from_server.sh --seasons
+
+# 全部同步（数据库 + 图片 + 赛季备份）
+bash scripts/sync_from_server.sh --all
+```
+
+**选项说明**：
+
+| 选项 | 说明 |
+|------|------|
+| `--db` | 下载服务器 `roco.db`，覆盖本地（自动备份 + 完整性校验） |
+| `--images` | 增量同步 `data/public/` 和 `data/uploads/` |
+| `--seasons` | 同步赛季备份到 `temp/seasons/` |
+| `--all` | 以上全部 |
+| `--full` | 强制全量同步图片（忽略时间戳） |
+| `--since N` | 仅同步最近 N 天内变更的文件 |
+
+**同步机制**：
+- 有 rsync → 直接增量同步
+- 无 rsync（Windows Git Bash）→ 自动 fallback 到 scp+tar 差异同步
+- 每次成功同步后记录时间戳到 `scripts/.last_image_sync`
+
+---
+
 ### 图片处理脚本
 
 | 脚本 | 路径 | 用途 |
@@ -357,6 +409,14 @@ npm run dev
 
 ```
 1. cd app/server && node gen_library_thumbs.js
+```
+
+### 从服务器拉取最新数据
+
+```
+1. bash scripts/sync_from_server.sh --db       (拉取数据库)
+2. bash scripts/sync_from_server.sh --images   (拉取图片，增量)
+3. bash scripts/sync_from_server.sh --all      (全部拉取)
 ```
 
 ---
