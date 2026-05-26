@@ -310,12 +310,14 @@
                 <div class="text-[10px] sm:text-xs text-muted mt-1 text-center">
                   {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
                   <span class="font-medium text-foreground">{{ cp.def_value }}</span>
-                  <span class="ml-1 text-blue-500 font-medium">{{ cp.total_score.toFixed(1) }}</span>
+                  <span v-if="cp.meteor_rabbit_bonus" class="ml-1 text-pink-500 font-bold">∞</span>
+                  <span v-else class="ml-1 text-blue-500 font-medium">{{ cp.total_score.toFixed(1) }}</span>
                 </div>
                 <!-- Score progress bar -->
                 <div class="w-full mt-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                  <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
-                    :style="{ width: Math.max(10, Math.min(100, cp.total_score / (counterPicks.pets[0]?.total_score || 1) * 100)) + '%' }"></div>
+                  <div v-if="cp.meteor_rabbit_bonus" class="h-full rounded-full bg-gradient-to-r from-pink-400 to-purple-500 w-full"></div>
+                  <div v-else class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
+                    :style="{ width: Math.max(10, Math.min(100, cp.total_score / (counterPicksMaxNormalScore || 1) * 100)) + '%' }"></div>
                 </div>
               </div>
             </div>
@@ -485,6 +487,13 @@ const fateFlowerSkills = ref([])
 const fateNature = ref('')
 const counterPicks = ref(null)
 const counterLoading = ref(false)
+
+// Max score among non-meteor-rabbit pets (for progress bar normalization)
+const counterPicksMaxNormalScore = computed(() => {
+  if (!counterPicks.value?.pets) return 1
+  const normalPets = counterPicks.value.pets.filter(p => !p.meteor_rabbit_bonus)
+  return normalPets.length > 0 ? normalPets[0].total_score : 1
+})
 
 // Skill recommendation modal state
 const skillModalVisible = ref(false)
