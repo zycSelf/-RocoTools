@@ -862,62 +862,39 @@ function getCounterPicks(petUid, natureOverride) {
     };
   }).filter(Boolean); // Remove nulls (pets that resist nothing)
 
-  // Group by resistance pattern
-  // Sort key for groups: resist_count desc, then alphabetical element combo
-  const groupMap = new Map(); // "水,毒" -> [pets]
-  for (const p of scored) {
-    const key = p.resisted_elements.sort().join(',');
-    if (!groupMap.has(key)) groupMap.set(key, []);
-    groupMap.get(key).push(p);
-  }
+  // Sort all scored pets by total_score desc (flat list, no grouping)
+  scored.sort((a, b) => b.total_score - a.total_score);
 
-  // Sort groups: more elements resisted first, then alphabetical
-  const sortedGroups = Array.from(groupMap.entries())
-    .sort((a, b) => {
-      const countA = a[0].split(',').length;
-      const countB = b[0].split(',').length;
-      if (countB !== countA) return countB - countA;
-      return a[0].localeCompare(b[0]);
-    });
-
-  // Within each group, sort by total_score desc
-  const groups = sortedGroups.map(([key, pets]) => {
-    pets.sort((a, b) => b.total_score - a.total_score);
-    const topPets = pets.slice(0, 10).map(p => ({
-      uid: p.uid,
-      name: p.name,
-      image_url: p.image_url,
-      element_name: p.element_name,
-      element_icon: p.element_icon,
-      element_color: p.element_color,
-      sub_element_name: p.sub_element_name,
-      sub_element_icon: p.sub_element_icon,
-      sub_element_color: p.sub_element_color,
-      hp: p.hp,
-      atk: p.atk,
-      matk: p.matk,
-      def: p.def,
-      mdef: p.mdef,
-      speed: p.speed,
-      total: p.total,
-      se_attack_score: p.se_attack_score,
-      counter_status_bonus: p.counter_status_bonus,
-      counter_defense_bonus: p.counter_defense_bonus,
-      counter_attack_bonus: p.counter_attack_bonus,
-      boss_weak_bonus: p.boss_weak_bonus,
-      lifesteal_bonus: p.lifesteal_bonus,
-      greedy_bonus: p.greedy_bonus,
-      cleanse_bonus: p.cleanse_bonus,
-      def_value: p.def_value,
-      total_score: Math.round(p.total_score * 100) / 100,
-    }));
-    return {
-      resisted_elements: key.split(','),
-      label: `抵抗 ${key.split(',').join('+')}`,
-      count: pets.length,
-      pets: topPets,
-    };
-  });
+  // Take top 20 pets
+  const topPets = scored.slice(0, 20).map(p => ({
+    uid: p.uid,
+    name: p.name,
+    image_url: p.image_url,
+    element_name: p.element_name,
+    element_icon: p.element_icon,
+    element_color: p.element_color,
+    sub_element_name: p.sub_element_name,
+    sub_element_icon: p.sub_element_icon,
+    sub_element_color: p.sub_element_color,
+    hp: p.hp,
+    atk: p.atk,
+    matk: p.matk,
+    def: p.def,
+    mdef: p.mdef,
+    speed: p.speed,
+    total: p.total,
+    resisted_elements: p.resisted_elements,
+    se_attack_score: p.se_attack_score,
+    counter_status_bonus: p.counter_status_bonus,
+    counter_defense_bonus: p.counter_defense_bonus,
+    counter_attack_bonus: p.counter_attack_bonus,
+    boss_weak_bonus: p.boss_weak_bonus,
+    lifesteal_bonus: p.lifesteal_bonus,
+    greedy_bonus: p.greedy_bonus,
+    cleanse_bonus: p.cleanse_bonus,
+    def_value: p.def_value,
+    total_score: Math.round(p.total_score * 100) / 100,
+  }));
 
   return {
     attack_profile: {
@@ -933,7 +910,7 @@ function getCounterPicks(petUid, natureOverride) {
       boss_def: bossDefStat,
       boss_mdef: bossMdefStat,
     },
-    groups,
+    pets: topPets,
   };
 }
 

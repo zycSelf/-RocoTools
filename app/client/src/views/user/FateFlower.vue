@@ -250,82 +250,69 @@
             分析中...
           </div>
 
-          <!-- Grouped recommended pets by resistance -->
-          <template v-else-if="counterPicks && counterPicks.groups && counterPicks.groups.length">
-            <div v-for="(group, gIdx) in counterPicks.groups" :key="gIdx" class="mb-4 last:mb-0">
-              <!-- Group header -->
-              <div class="flex items-center gap-2 mb-2">
-                <div class="flex items-center gap-1">
-                  <template v-for="elemName in group.resisted_elements" :key="elemName">
-                    <span v-if="elemMap[elemName]" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
-                      :style="{ background: elemMap[elemName].color + '15', color: elemMap[elemName].color }">
-                      <img :src="elemMap[elemName].icon" class="w-3.5 h-3.5" />
-                      <span>{{ elemName }}</span>
-                    </span>
+          <!-- Recommended pets sorted by score (flat list) -->
+          <template v-else-if="counterPicks && counterPicks.pets && counterPicks.pets.length">
+            <!-- Pets grid: 5 per row -->
+            <div class="grid grid-cols-5 gap-2 sm:gap-3">
+              <div
+                v-for="cp in counterPicks.pets"
+                :key="cp.uid"
+                @click="openSkillModal(cp)"
+                class="counter-pick-card group flex flex-col items-center p-2 sm:p-2.5"
+              >
+                <!-- Pet image -->
+                <img :src="cp.image_url" class="w-14 h-14 sm:w-16 sm:h-16 md:w-[4.5rem] md:h-[4.5rem] object-contain mx-auto" :alt="cp.name" />
+                <!-- Pet name -->
+                <div class="text-xs sm:text-sm font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
+                <!-- Element badges -->
+                <div class="flex items-center justify-center gap-1 mt-1">
+                  <img v-if="cp.element_icon" :src="cp.element_icon" class="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" :title="cp.element_name" />
+                  <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" :title="cp.sub_element_name" />
+                </div>
+                <!-- Resisted elements -->
+                <div v-if="cp.resisted_elements && cp.resisted_elements.length" class="flex items-center gap-0.5 mt-1 flex-wrap justify-center">
+                  <span class="text-[9px] text-muted">抗</span>
+                  <template v-for="elemName in cp.resisted_elements" :key="elemName">
+                    <img v-if="elemMap[elemName]" :src="elemMap[elemName].icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4" :title="'抵抗' + elemName" />
                   </template>
                 </div>
-                <span class="text-xs font-medium">
-                  {{ group.resisted_elements.length === counterPicks.attack_profile.elements.length ? '全抗' : '抵抗' }}
-                </span>
-                <span class="text-[10px] text-muted">({{ group.count }}只)</span>
-                <div class="flex-1 h-px bg-gray-200 dark:bg-white/10"></div>
-              </div>
-
-              <!-- Pets grid: 5 per row, auto height -->
-              <div class="grid grid-cols-5 gap-2 sm:gap-3">
-                <div
-                  v-for="cp in group.pets"
-                  :key="cp.uid"
-                  @click="openSkillModal(cp)"
-                  class="counter-pick-card group flex flex-col items-center p-2 sm:p-2.5"
-                >
-                  <!-- Pet image -->
-                  <img :src="cp.image_url" class="w-14 h-14 sm:w-16 sm:h-16 md:w-[4.5rem] md:h-[4.5rem] object-contain mx-auto" :alt="cp.name" />
-                  <!-- Pet name -->
-                  <div class="text-xs sm:text-sm font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
-                  <!-- Element badges -->
-                  <div class="flex items-center justify-center gap-1 mt-1">
-                    <img v-if="cp.element_icon" :src="cp.element_icon" class="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" :title="cp.element_name" />
-                    <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" :title="cp.sub_element_name" />
-                  </div>
-                  <!-- Bonus tags -->
-                  <div class="flex items-center gap-0.5 mt-1.5 flex-wrap justify-center">
-                    <span v-if="cp.greedy_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 font-bold" title="可学习贪婪(100%吸血)，最高优先级">
-                      🌟贪
-                    </span>
-                    <span v-if="cp.cleanse_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400 font-bold" title="可学习驱散自己减益(非血脉)，应对灼烧/中毒">
-                      🌟净
-                    </span>
-                    <span v-if="cp.se_attack_score" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
-                      {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}
-                    </span>
-                    <span v-if="cp.counter_status_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
-                      {{ cp.counter_status_bonus >= 2 ? '⚡克' : '⚡' }}
-                    </span>
-                    <span v-if="cp.counter_defense_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400">
-                      🛡️
-                    </span>
-                    <span v-if="cp.counter_attack_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
-                      🔰
-                    </span>
-                    <span v-if="cp.boss_weak_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
-                      💢
-                    </span>
-                    <span v-if="cp.lifesteal_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" title="拥有吸血/吸取技能，高续航">
-                      💚
-                    </span>
-                  </div>
-                  <!-- Defense stat & score -->
-                  <div class="text-[10px] sm:text-xs text-muted mt-1 text-center">
-                    {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
-                    <span class="font-medium text-foreground">{{ cp.def_value }}</span>
-                    <span class="ml-1 text-blue-500 font-medium">{{ cp.total_score.toFixed(1) }}</span>
-                  </div>
-                  <!-- Score progress bar -->
-                  <div class="w-full mt-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                    <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
-                      :style="{ width: Math.max(10, Math.min(100, cp.total_score / (group.pets[0]?.total_score || 1) * 100)) + '%' }"></div>
-                  </div>
+                <!-- Bonus tags -->
+                <div class="flex items-center gap-0.5 mt-1.5 flex-wrap justify-center">
+                  <span v-if="cp.greedy_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 font-bold" title="可学习贪婪(100%吸血)，最高优先级">
+                    🌟贪
+                  </span>
+                  <span v-if="cp.cleanse_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400 font-bold" title="可学习驱散自己减益(非血脉)，应对灼烧/中毒">
+                    🌟净
+                  </span>
+                  <span v-if="cp.se_attack_score" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
+                    {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}
+                  </span>
+                  <span v-if="cp.counter_status_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
+                    {{ cp.counter_status_bonus >= 2 ? '⚡克' : '⚡' }}
+                  </span>
+                  <span v-if="cp.counter_defense_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400">
+                    🛡️
+                  </span>
+                  <span v-if="cp.counter_attack_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
+                    🔰
+                  </span>
+                  <span v-if="cp.boss_weak_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                    💢
+                  </span>
+                  <span v-if="cp.lifesteal_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" title="拥有吸血/吸取技能，高续航">
+                    💚
+                  </span>
+                </div>
+                <!-- Defense stat & score -->
+                <div class="text-[10px] sm:text-xs text-muted mt-1 text-center">
+                  {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
+                  <span class="font-medium text-foreground">{{ cp.def_value }}</span>
+                  <span class="ml-1 text-blue-500 font-medium">{{ cp.total_score.toFixed(1) }}</span>
+                </div>
+                <!-- Score progress bar -->
+                <div class="w-full mt-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
+                    :style="{ width: Math.max(10, Math.min(100, cp.total_score / (counterPicks.pets[0]?.total_score || 1) * 100)) + '%' }"></div>
                 </div>
               </div>
             </div>
