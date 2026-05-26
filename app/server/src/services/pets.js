@@ -295,12 +295,15 @@ function findByCoverage(elementNames) {
  * Counter-pick recommendation for Fate Flower pets.
  * Analyzes the target pet's attack profile and recommends best defensive pets.
  *
- * Algorithm:
- * 1. Determine attack tendency (physical/magical) from base stats + nature
- * 2. Collect all attack skill elements (including 愿力冲击 = bloodline element)
- * 3. Find element combinations that resist the most attack elements
- * 4. Sort final-form pets by relevant defense stat (def for physical, mdef for magical)
- * 5. Score each pet by: resistance coverage + defense stat
+ * Scoring dimensions (multi-factor):
+ * 1. Resistance score: element matchup coverage against all attack elements (weight: 3)
+ * 2. Counter-status bonus: has skills that counter status moves (weight: 2)
+ *    - Extra bonus if counter-status skill also super-effective against target
+ * 3. Counter-defense bonus: has skills that counter defense moves (weight: 2)
+ *    - Only applies when target pet has defense skills
+ * 4. Super-effective high-power bonus: has high-power attack skills that are
+ *    super-effective against the target pet's element (weight: 1.5)
+ * 5. Defense stat: relevant defense stat as tiebreaker (weight: 1, normalized)
  *
  * @param {string} petUid - The fate flower pet UID
  * @param {string} [natureOverride] - Optional nature name to override
@@ -322,11 +325,9 @@ function getCounterPicks(petUid, natureOverride) {
   let atk = pet.atk;
   let matk = pet.matk;
 
-  // Apply nature bonus if provided
   if (natureOverride) {
     const nature = db.prepare('SELECT stat_up, stat_down FROM natures WHERE name = ?').get(natureOverride);
     if (nature) {
-      // +10% for stat_up, -10% for stat_down
       const applyBonus = (stat, field) => {
         if (nature.stat_up === field) return Math.floor(stat * 1.1);
         if (nature.stat_down === field) return Math.floor(stat * 0.9);
@@ -337,16 +338,13 @@ function getCounterPicks(petUid, natureOverride) {
     }
   }
 
-  // Determine tendency: physical if atk >= matk (tie goes to physical)
   const attackTendency = atk >= matk ? '物攻' : '魔攻';
   const defenseStat = attackTendency === '物攻' ? 'def' : 'mdef';
 
   // --- Step 2: Collect attack elements ---
-  // 愿力冲击 always uses bloodline element (= main element)
   const attackElements = new Set();
   attackElements.add(pet.element_name);
 
-  // Get configured fate flower skills
   const fateSkills = db.prepare(`
     SELECT ffs.skill_ref_uid, ps.element, ps.type, ps.power
     FROM fate_flower_skills ffs
@@ -355,14 +353,12 @@ function getCounterPicks(petUid, natureOverride) {
     WHERE pmp.pet_uid = ?
   `).all(petUid, petUid);
 
-  // Also check skills table for skill info
   for (const fs of fateSkills) {
     if (fs.element && fs.power > 0 && (fs.type === '物攻' || fs.type === '魔攻')) {
       attackElements.add(fs.element);
     }
   }
 
-  // If no fate flower skills configured, fallback to pet's own attack skills
   if (fateSkills.length === 0) {
     const ownSkills = db.prepare(`
       SELECT element, type, power FROM pet_skills
@@ -374,6 +370,15 @@ function getCounterPicks(petUid, natureOverride) {
   }
 
   const attackElementList = Array.from(attackElements);
+
+  // --- Step 2b: Detect target pet's skill types ---
+  const hasStatusSkills = db.prepare(`
+    SELECT COUNT(*) as c FROM pet_skills WHERE pet_uid = ? AND type = '状态'
+  `).get(petUid).c > 0;
+
+  const hasDefenseSkills = db.prepare(`
+    SELECT COUNT(*) as c FROM pet_skills WHERE pet_uid = ? AND type = '防御'
+  `).get(petUid).c > 0;
 
   // --- Step 3: Load element matchup data ---
   const elements = db.prepare('SELECT * FROM elements').all().map(row => ({
@@ -391,7 +396,21 @@ function getCounterPicks(petUid, natureOverride) {
     elemById[e.id] = e;
   }
 
-  // Calculate defense multiplier for a given defender element combo against all attack elements
+  // Determine which elements are super-effective against the target pet
+  const targetWeakTo = new Set();
+  const targetElemIds = [pet.element_id];
+  if (pet.sub_element_id) targetElemIds.push(pet.sub_element_id);
+  for (const defId of targetElemIds) {
+    const defElem = elemById[defId];
+    if (!defElem) continue;
+    // Elements that are strong against this defender element
+    for (const e of elements) {
+      if (e.strong_against?.some(sa => sa.id === defId || sa.name === defElem.name)) {
+        targetWeakTo.add(e.name);
+      }
+    }
+  }
+
   function calcResistanceScore(defElemIds) {
     let score = 0;
     for (const atkElemName of attackElementList) {
@@ -402,22 +421,15 @@ function getCounterPicks(petUid, natureOverride) {
       for (const defId of defElemIds) {
         const defElem = elemById[defId];
         if (!defElem) continue;
-        // Attacker strong against defender → ×2 (bad for defender)
         if (atkElem.strong_against?.some(e => e.id === defId || e.name === defElem.name)) {
           mult *= 2;
-        }
-        // Defender resists attacker → ×0.5 (good for defender)
-        else if (defElem.resistant_to?.some(e => e.id === atkElem.id || e.name === atkElem.name)) {
+        } else if (defElem.resistant_to?.some(e => e.id === atkElem.id || e.name === atkElem.name)) {
           mult *= 0.5;
         }
       }
-      // Special: double strong = ×3, double resist = ×0.25
       if (defElemIds.length === 2) {
         if (mult === 4) mult = 3;
-        else if (mult === 0.25) mult = 0.25;
       }
-      // Lower mult = better resistance. Score += (1 - mult) for each attack element
-      // resist(0.5) → +0.5, neutral(1) → 0, weak(2) → -1
       score += (1 - mult);
     }
     return score;
@@ -434,23 +446,119 @@ function getCounterPicks(petUid, natureOverride) {
     LEFT JOIN elements e ON p.element_id = e.id
     LEFT JOIN elements se ON p.sub_element_id = se.id
     WHERE p.is_final_form = 1
-    ORDER BY p.${defenseStat} DESC
   `).all();
 
-  // Score and rank
+  // Pre-fetch counter-status and counter-defense skills for all final-form pets
+  const counterStatusPets = new Map(); // pet_uid -> best counter-status skill info
+  const counterDefensePets = new Set(); // pet_uid set
+  const superEffectiveSkills = new Map(); // pet_uid -> max power of SE skill
+
+  const allFinalUids = finalPets.map(p => p.uid);
+
+  // Batch query: counter-status skills
+  if (hasStatusSkills) {
+    const csRows = db.prepare(`
+      SELECT pet_uid, element, power FROM pet_skills
+      WHERE description LIKE '%应对状态%' AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+    `).all();
+    for (const row of csRows) {
+      const existing = counterStatusPets.get(row.pet_uid);
+      const isSE = targetWeakTo.has(row.element);
+      const score = isSE ? 2 : 1;
+      if (!existing || score > existing.score || (score === existing.score && row.power > existing.power)) {
+        counterStatusPets.set(row.pet_uid, { score, power: row.power, element: row.element, isSE });
+      }
+    }
+  }
+
+  // Batch query: counter-defense skills
+  if (hasDefenseSkills) {
+    const cdRows = db.prepare(`
+      SELECT DISTINCT pet_uid FROM pet_skills
+      WHERE description LIKE '%应对防御%' AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+    `).all();
+    for (const row of cdRows) {
+      counterDefensePets.add(row.pet_uid);
+    }
+  }
+
+  // Batch query: super-effective high-power attack skills
+  if (targetWeakTo.size > 0) {
+    const placeholders = Array.from(targetWeakTo).map(() => '?').join(',');
+    const seRows = db.prepare(`
+      SELECT pet_uid, MAX(power) as max_power FROM pet_skills
+      WHERE element IN (${placeholders}) AND power > 0 AND (type = '物攻' OR type = '魔攻')
+        AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+      GROUP BY pet_uid
+    `).all(...Array.from(targetWeakTo));
+    for (const row of seRows) {
+      superEffectiveSkills.set(row.pet_uid, row.max_power);
+    }
+  }
+
+  // --- Step 5: Score and rank ---
+  // Weight constants
+  const W_RESIST = 3;
+  const W_COUNTER_STATUS = 2;
+  const W_COUNTER_DEFENSE = 2;
+  const W_SUPER_EFFECTIVE = 1.5;
+  const W_DEF_STAT = 1;
+
+  // Find max defense stat for normalization
+  let maxDef = 1;
+  for (const p of finalPets) {
+    if (p[defenseStat] > maxDef) maxDef = p[defenseStat];
+  }
+
   const scored = finalPets.map(p => {
     const defElemIds = [p.element_id];
     if (p.sub_element_id) defElemIds.push(p.sub_element_id);
+
+    // Dimension 1: Resistance score
     const resistScore = calcResistanceScore(defElemIds);
+
+    // Dimension 2: Counter-status bonus
+    let counterStatusBonus = 0;
+    if (hasStatusSkills && counterStatusPets.has(p.uid)) {
+      counterStatusBonus = counterStatusPets.get(p.uid).score; // 1 or 2 (SE bonus)
+    }
+
+    // Dimension 3: Counter-defense bonus
+    let counterDefenseBonus = 0;
+    if (hasDefenseSkills && counterDefensePets.has(p.uid)) {
+      counterDefenseBonus = 1;
+    }
+
+    // Dimension 4: Super-effective high-power bonus
+    let superEffectiveBonus = 0;
+    const maxSEPower = superEffectiveSkills.get(p.uid) || 0;
+    if (maxSEPower >= 120) superEffectiveBonus = 2;
+    else if (maxSEPower >= 80) superEffectiveBonus = 1;
+    else if (maxSEPower >= 40) superEffectiveBonus = 0.5;
+
+    // Dimension 5: Defense stat (normalized 0~1)
     const defValue = p[defenseStat];
-    return { ...p, resist_score: resistScore, def_value: defValue };
+    const defNormalized = defValue / maxDef;
+
+    // Total score
+    const totalScore = resistScore * W_RESIST
+      + counterStatusBonus * W_COUNTER_STATUS
+      + counterDefenseBonus * W_COUNTER_DEFENSE
+      + superEffectiveBonus * W_SUPER_EFFECTIVE
+      + defNormalized * W_DEF_STAT;
+
+    return {
+      ...p,
+      resist_score: resistScore,
+      counter_status_bonus: counterStatusBonus,
+      counter_defense_bonus: counterDefenseBonus,
+      super_effective_bonus: superEffectiveBonus,
+      def_value: defValue,
+      total_score: totalScore,
+    };
   });
 
-  // Sort: primary by resist_score DESC (higher = more resistant), secondary by defense stat DESC
-  scored.sort((a, b) => {
-    if (b.resist_score !== a.resist_score) return b.resist_score - a.resist_score;
-    return b.def_value - a.def_value;
-  });
+  scored.sort((a, b) => b.total_score - a.total_score);
 
   // Return top 20
   const top = scored.slice(0, 20).map(p => ({
@@ -469,7 +577,11 @@ function getCounterPicks(petUid, natureOverride) {
     speed: p.speed,
     total: p.total,
     resist_score: p.resist_score,
+    counter_status_bonus: p.counter_status_bonus,
+    counter_defense_bonus: p.counter_defense_bonus,
+    super_effective_bonus: p.super_effective_bonus,
     def_value: p.def_value,
+    total_score: Math.round(p.total_score * 100) / 100,
   }));
 
   return {
@@ -478,6 +590,9 @@ function getCounterPicks(petUid, natureOverride) {
       tendency_values: { atk, matk },
       elements: attackElementList,
       defense_stat_used: defenseStat,
+      has_status_skills: hasStatusSkills,
+      has_defense_skills: hasDefenseSkills,
+      target_weak_to: Array.from(targetWeakTo),
     },
     recommended_pets: top,
   };

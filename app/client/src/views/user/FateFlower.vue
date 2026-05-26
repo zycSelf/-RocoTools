@@ -182,14 +182,14 @@
 
           <!-- Attack profile summary -->
           <div v-if="counterPicks" class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30">
-            <div class="flex items-center gap-3 flex-wrap text-xs sm:text-sm">
+            <div class="flex items-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm">
               <div class="flex items-center gap-1.5">
                 <span class="text-muted">攻击倾向：</span>
                 <span class="font-medium" :class="counterPicks.attack_profile.tendency === '物攻' ? 'text-red-500' : 'text-purple-500'">
                   {{ counterPicks.attack_profile.tendency }}
                 </span>
                 <span class="text-muted text-xs">
-                  (物攻{{ counterPicks.attack_profile.tendency_values.atk }} / 魔攻{{ counterPicks.attack_profile.tendency_values.matk }})
+                  ({{ counterPicks.attack_profile.tendency_values.atk }}/{{ counterPicks.attack_profile.tendency_values.matk }})
                 </span>
               </div>
               <span class="text-muted">|</span>
@@ -207,11 +207,27 @@
               </div>
               <span class="text-muted">|</span>
               <div class="flex items-center gap-1.5">
-                <span class="text-muted">排序依据：</span>
-                <span class="font-medium text-blue-600 dark:text-blue-400">
-                  {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
-                </span>
+                <span class="text-muted">弱点：</span>
+                <div class="flex items-center gap-1">
+                  <template v-for="elemName in counterPicks.attack_profile.target_weak_to" :key="elemName">
+                    <span v-if="elemMap[elemName]" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded"
+                      :style="{ background: elemMap[elemName].color + '15', color: elemMap[elemName].color }">
+                      <img :src="elemMap[elemName].icon" class="w-3 h-3" />
+                    </span>
+                  </template>
+                </div>
               </div>
+            </div>
+            <div class="flex items-center gap-2 mt-2 flex-wrap">
+              <span v-if="counterPicks.attack_profile.has_status_skills" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] sm:text-xs bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
+                ⚡ 有状态技能
+              </span>
+              <span v-if="counterPicks.attack_profile.has_defense_skills" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] sm:text-xs bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400">
+                🛡️ 有防御技能
+              </span>
+              <span class="text-[10px] sm:text-xs text-muted">
+                排序：抗性×3 + 应对状态×2 + 应对防御×2 + 克制高威力×1.5 + {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}×1
+              </span>
             </div>
           </div>
 
@@ -242,15 +258,28 @@
                 <img v-if="cp.element_icon" :src="cp.element_icon" class="w-3.5 h-3.5" :title="cp.element_name" />
                 <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-3.5 h-3.5" :title="cp.sub_element_name" />
               </div>
+              <!-- Bonus tags -->
+              <div class="flex items-center gap-0.5 mt-1 flex-wrap justify-center">
+                <span v-if="cp.counter_status_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400" title="拥有应对状态技能">
+                  {{ cp.counter_status_bonus >= 2 ? '⚡克' : '⚡' }}
+                </span>
+                <span v-if="cp.counter_defense_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400" title="拥有应对防御技能">
+                  🛡️
+                </span>
+                <span v-if="cp.super_effective_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400" title="拥有克制属性高威力技能">
+                  {{ cp.super_effective_bonus >= 2 ? '⚔️⚔️' : cp.super_effective_bonus >= 1 ? '⚔️' : '🗡️' }}
+                </span>
+              </div>
               <!-- Defense stat -->
               <div class="text-[10px] text-muted mt-0.5 text-center">
                 {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
                 <span class="font-medium text-foreground">{{ cp.def_value }}</span>
+                <span class="ml-1 text-blue-500">{{ cp.total_score }}</span>
               </div>
-              <!-- Resist score indicator -->
+              <!-- Total score indicator -->
               <div class="w-full mt-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                <div class="h-full rounded-full bg-blue-400"
-                  :style="{ width: Math.max(10, Math.min(100, (cp.resist_score + attackElementList.length) / (attackElementList.length * 2) * 100)) + '%' }"></div>
+                <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
+                  :style="{ width: Math.max(10, Math.min(100, cp.total_score / (counterPicks.recommended_pets[0]?.total_score || 1) * 100)) + '%' }"></div>
               </div>
             </router-link>
           </div>
