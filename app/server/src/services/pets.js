@@ -529,6 +529,18 @@ function getCounterPicks(petUid, natureOverride) {
     counterAttackPets.add(row.pet_uid);
   }
 
+  // Batch query: lifesteal/drain skills (high sustain - "吸血"/"吸取"/"汲取" in description)
+  // Only count status skills OR super-effective attack skills (not random attacks)
+  const lifestealPets = new Set(); // pet_uid
+  const lifestealRows = db.prepare(`
+    SELECT DISTINCT pet_uid FROM pet_skills
+    WHERE (description LIKE '%吸血%' OR description LIKE '%吸取%' OR description LIKE '%汲取%')
+      AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+  `).all();
+  for (const row of lifestealRows) {
+    lifestealPets.add(row.pet_uid);
+  }
+
   // Batch query: super-effective attack skills with counter-ability detection
   // For each final-form pet, find their best SE attack skill considering stat-type synergy
   // We store ALL SE skills per pet, then pick the best one during scoring (needs pet's atk/matk)
@@ -640,6 +652,7 @@ function getCounterPicks(petUid, natureOverride) {
   const W_COUNTER_ATTACK = 1.5;  // Counter-attack defense skills (survivability)
   const W_DEF_STAT = 1;        // Defense stat
   const W_BOSS_WEAK = 0.5;     // Bonus for matching boss's weaker defense
+  const W_LIFESTEAL = 3;       // Lifesteal/drain skills (high sustain)
 
   // Find max defense stat for normalization
   let maxDef = 1;
@@ -744,13 +757,20 @@ function getCounterPicks(petUid, natureOverride) {
       bossWeakBonus = 1;
     }
 
+    // Dimension 7: Lifesteal/drain bonus (high sustain)
+    let lifestealBonus = 0;
+    if (lifestealPets.has(p.uid)) {
+      lifestealBonus = 1;
+    }
+
     // Total score (within group)
     const totalScore = seAttackScore * W_SE_ATTACK
       + counterStatusBonus * W_COUNTER_STATUS
       + counterDefenseBonus * W_COUNTER_DEFENSE
       + counterAttackBonus * W_COUNTER_ATTACK
       + defNormalized * W_DEF_STAT
-      + bossWeakBonus * W_BOSS_WEAK;
+      + bossWeakBonus * W_BOSS_WEAK
+      + lifestealBonus * W_LIFESTEAL;
 
     return {
       ...p,
@@ -761,6 +781,7 @@ function getCounterPicks(petUid, natureOverride) {
       counter_defense_bonus: counterDefenseBonus,
       counter_attack_bonus: counterAttackBonus,
       boss_weak_bonus: bossWeakBonus,
+      lifesteal_bonus: lifestealBonus,
       def_value: defValue,
       total_score: totalScore,
     };
@@ -809,6 +830,7 @@ function getCounterPicks(petUid, natureOverride) {
       counter_defense_bonus: p.counter_defense_bonus,
       counter_attack_bonus: p.counter_attack_bonus,
       boss_weak_bonus: p.boss_weak_bonus,
+      lifesteal_bonus: p.lifesteal_bonus,
       def_value: p.def_value,
       total_score: Math.round(p.total_score * 100) / 100,
     }));

@@ -239,6 +239,7 @@
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 text-[9px]">🛡️</span> 应对防御</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400 text-[9px]">🔰</span> 应对攻击</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 text-[9px]">💢</span> 克制弱防</span>
+              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 text-[9px]">💚</span> 吸血续航</span>
             </div>
           </div>
 
@@ -301,6 +302,9 @@
                     </span>
                     <span v-if="cp.boss_weak_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
                       💢
+                    </span>
+                    <span v-if="cp.lifesteal_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" title="拥有吸血/吸取技能，高续航">
+                      💚
                     </span>
                   </div>
                   <!-- Defense stat & score -->
@@ -414,6 +418,12 @@
                       <span v-if="skill.description && skill.description.includes('应对防御')" class="text-[10px] px-1 py-0.5 rounded bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 font-medium">
                         🛡️ 应对防御
                       </span>
+                      <span v-if="skill.description && (skill.description.includes('吸血') || skill.description.includes('吸取') || skill.description.includes('汲取'))" class="text-[10px] px-1 py-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 font-medium">
+                        💚 吸血
+                      </span>
+                      <span v-if="skill.type === '状态' && !skill.description?.includes('应对攻击') && !skill.description?.includes('应对状态') && !skill.description?.includes('应对防御')" class="text-[10px] px-1 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400 font-medium">
+                        📋 状态
+                      </span>
                       <!-- Extra info per tab -->
                       <span v-if="skillModalActiveTab === 'skills' && skill.level" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                         Lv.{{ skill.level }}
@@ -502,6 +512,8 @@ function filterRelevantSkills(allSkills, petDetail, isBloodline = false) {
     if (desc.includes('应对状态')) return true
     // 4. Counter-defense skill (应对防御)
     if (desc.includes('应对防御')) return true
+    // 5. All status skills (type = '状态') - show for reference
+    if (skill.type === '状态') return true
     return false
   })
 
