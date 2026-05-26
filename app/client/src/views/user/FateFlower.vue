@@ -284,6 +284,9 @@
                   <span v-if="cp.cleanse_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400 font-bold" title="可学习驱散自己减益(非血脉)，应对灼烧/中毒">
                     🌟净
                   </span>
+                  <span v-if="cp.meteor_rabbit_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400 font-bold" title="特性「陨落」：回合结束效果不触发，完美免疫灼烧/中毒结算">
+                    🌟陨
+                  </span>
                   <span v-if="cp.se_attack_score" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
                     {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}
                   </span>

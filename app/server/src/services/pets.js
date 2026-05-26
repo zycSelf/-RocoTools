@@ -697,6 +697,7 @@ function getCounterPicks(petUid, natureOverride) {
   const W_LIFESTEAL = 3;       // Lifesteal/drain skills (high sustain)
   const W_GREEDY = 5;          // Can learn "贪婪" (100% lifesteal - highest priority)
   const W_CLEANSE = 5;         // Can learn self-debuff cleanse (same priority as greedy, only when boss has burn/poison)
+  const W_METEOR_RABBIT = 999; // 落陨星兔: passive prevents end-of-turn effects (burn/poison immune)
 
   // Find max defense stat for normalization
   let maxDef = 1;
@@ -834,6 +835,9 @@ function getCounterPicks(petUid, natureOverride) {
       if (hasCleanse) cleanseBonus = 1;
     }
 
+    // Dimension 10: 落陨星兔 special bonus (passive prevents end-of-turn effects like burn/poison)
+    const meteorRabbitBonus = (bossHasBurnOrPoison && p.uid === 'pet_337') ? 1 : 0;
+
     // Total score (within group)
     const totalScore = seAttackScore * W_SE_ATTACK
       + counterStatusBonus * W_COUNTER_STATUS
@@ -843,7 +847,8 @@ function getCounterPicks(petUid, natureOverride) {
       + bossWeakBonus * W_BOSS_WEAK
       + lifestealBonus * W_LIFESTEAL
       + greedyBonus * W_GREEDY
-      + cleanseBonus * W_CLEANSE;
+      + cleanseBonus * W_CLEANSE
+      + meteorRabbitBonus * W_METEOR_RABBIT;
 
     return {
       ...p,
@@ -857,6 +862,7 @@ function getCounterPicks(petUid, natureOverride) {
       lifesteal_bonus: lifestealBonus,
       greedy_bonus: greedyBonus,
       cleanse_bonus: cleanseBonus,
+      meteor_rabbit_bonus: meteorRabbitBonus,
       def_value: defValue,
       total_score: totalScore,
     };
@@ -892,6 +898,7 @@ function getCounterPicks(petUid, natureOverride) {
     lifesteal_bonus: p.lifesteal_bonus,
     greedy_bonus: p.greedy_bonus,
     cleanse_bonus: p.cleanse_bonus,
+    meteor_rabbit_bonus: p.meteor_rabbit_bonus,
     def_value: p.def_value,
     total_score: Math.round(p.total_score * 100) / 100,
   }));
