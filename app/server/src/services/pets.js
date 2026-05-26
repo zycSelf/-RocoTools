@@ -552,6 +552,22 @@ function getCounterPicks(petUid, natureOverride) {
     greedyPets.add(row.pet_uid);
   }
 
+  // Batch query: pets that can learn self-debuff cleanse skills (驱散自己减益)
+  // Only active when boss has burn/poison; excludes bloodline skills
+  // Skills: 除厄, 洗礼, 生日蛋糕, 清洗
+  const cleansePets = new Set(); // pet_uid
+  if (bossHasBurnOrPoison) {
+    const cleanseRows = db.prepare(`
+      SELECT DISTINCT pet_uid FROM pet_skills
+      WHERE name IN ('除厄', '洗礼', '生日蛋糕', '清洗')
+        AND skill_type != 'bloodline_skills'
+        AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+    `).all();
+    for (const row of cleanseRows) {
+      cleansePets.add(row.pet_uid);
+    }
+  }
+
   // Batch query: super-effective attack skills with counter-ability detection
   // For each final-form pet, find their best SE attack skill considering stat-type synergy
   // We store ALL SE skills per pet, then pick the best one during scoring (needs pet's atk/matk)
@@ -656,6 +672,10 @@ function getCounterPicks(petUid, natureOverride) {
     }
   }
 
+  // Detect if boss has burn (灼烧) or poison (中毒) in skills/ability
+  // If so, pets that can cleanse their own debuffs get a high-priority bonus
+  const bossHasBurnOrPoison = allBossText.includes('灼烧') || allBossText.includes('中毒');
+
   // Weight constants
   const W_SE_ATTACK = 4;       // Core: super-effective attack + counter synergy
   const W_COUNTER_STATUS = 2;  // Counter-status attack skills
@@ -665,6 +685,7 @@ function getCounterPicks(petUid, natureOverride) {
   const W_BOSS_WEAK = 0.5;     // Bonus for matching boss's weaker defense
   const W_LIFESTEAL = 3;       // Lifesteal/drain skills (high sustain)
   const W_GREEDY = 5;          // Can learn "贪婪" (100% lifesteal - highest priority)
+  const W_CLEANSE = 5;         // Can learn self-debuff cleanse (same priority as greedy, only when boss has burn/poison)
 
   // Find max defense stat for normalization
   let maxDef = 1;
@@ -781,6 +802,12 @@ function getCounterPicks(petUid, natureOverride) {
       greedyBonus = 1;
     }
 
+    // Dimension 9: Self-debuff cleanse bonus (only when boss has burn/poison)
+    let cleanseBonus = 0;
+    if (bossHasBurnOrPoison && cleansePets.has(p.uid)) {
+      cleanseBonus = 1;
+    }
+
     // Total score (within group)
     const totalScore = seAttackScore * W_SE_ATTACK
       + counterStatusBonus * W_COUNTER_STATUS
@@ -789,7 +816,8 @@ function getCounterPicks(petUid, natureOverride) {
       + defNormalized * W_DEF_STAT
       + bossWeakBonus * W_BOSS_WEAK
       + lifestealBonus * W_LIFESTEAL
-      + greedyBonus * W_GREEDY;
+      + greedyBonus * W_GREEDY
+      + cleanseBonus * W_CLEANSE;
 
     return {
       ...p,
@@ -802,6 +830,7 @@ function getCounterPicks(petUid, natureOverride) {
       boss_weak_bonus: bossWeakBonus,
       lifesteal_bonus: lifestealBonus,
       greedy_bonus: greedyBonus,
+      cleanse_bonus: cleanseBonus,
       def_value: defValue,
       total_score: totalScore,
     };
@@ -852,6 +881,7 @@ function getCounterPicks(petUid, natureOverride) {
       boss_weak_bonus: p.boss_weak_bonus,
       lifesteal_bonus: p.lifesteal_bonus,
       greedy_bonus: p.greedy_bonus,
+      cleanse_bonus: p.cleanse_bonus,
       def_value: p.def_value,
       total_score: Math.round(p.total_score * 100) / 100,
     }));
