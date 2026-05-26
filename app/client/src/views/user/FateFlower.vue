@@ -403,6 +403,19 @@
                         :style="{ background: categoryColor(skill.type) + '15', color: categoryColor(skill.type) }">
                         {{ skill.type }}
                       </span>
+                      <!-- Recommendation reason tags -->
+                      <span v-if="isSkillSuperEffective(skill)" class="text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 font-medium">
+                        ⚔️ 克制属性
+                      </span>
+                      <span v-if="skill.description && skill.description.includes('应对攻击')" class="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400 font-medium">
+                        🔰 应对攻击
+                      </span>
+                      <span v-if="skill.description && skill.description.includes('应对状态')" class="text-[10px] px-1 py-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 font-medium">
+                        ⚡ 应对状态
+                      </span>
+                      <span v-if="skill.description && skill.description.includes('应对防御')" class="text-[10px] px-1 py-0.5 rounded bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 font-medium">
+                        🛡️ 应对防御
+                      </span>
                       <!-- Extra info per tab -->
                       <span v-if="skillModalActiveTab === 'skills' && skill.level" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                         Lv.{{ skill.level }}
@@ -432,7 +445,7 @@
                 </div>
               </div>
               <div v-else class="text-center py-8 text-muted text-sm">
-                该分类下暂无技能
+                该分类下无命中推荐规则的技能
               </div>
             </div>
           </div>
@@ -697,6 +710,35 @@ const skillModalLoading = ref(false)
 const skillModalData = ref(null) // { skills, bloodline_skills, learnable_stones }
 const skillModalActiveTab = ref('skills')
 
+// Filter skills to only show those that contributed to the counter-pick score
+function filterRelevantSkills(allSkills) {
+  if (!counterPicks.value?.attack_profile) return allSkills
+  const profile = counterPicks.value.attack_profile
+  const weakTo = new Set(profile.target_weak_to || [])
+
+  return allSkills.filter(skill => {
+    const desc = skill.description || ''
+    // 1. Super-effective attack: attack skill with element in boss's weakness list
+    if ((skill.type === '物攻' || skill.type === '魔攻') && skill.power > 0 && weakTo.has(skill.element)) {
+      return true
+    }
+    // 2. Counter-attack defense skill (应对攻击)
+    if (desc.includes('应对攻击')) return true
+    // 3. Counter-status attack skill (应对状态)
+    if (desc.includes('应对状态')) return true
+    // 4. Counter-defense skill (应对防御)
+    if (desc.includes('应对防御')) return true
+    return false
+  })
+}
+
+// Check if a skill is super-effective against the boss
+function isSkillSuperEffective(skill) {
+  if (!counterPicks.value?.attack_profile) return false
+  const weakTo = new Set(counterPicks.value.attack_profile.target_weak_to || [])
+  return (skill.type === '物攻' || skill.type === '魔攻') && skill.power > 0 && weakTo.has(skill.element)
+}
+
 const skillModalTabs = computed(() => {
   if (!skillModalData.value) return []
   const tabs = []
@@ -723,15 +765,20 @@ async function openSkillModal(pet) {
   skillModalActiveTab.value = 'skills'
   try {
     const detail = await petsApi.get(pet.uid)
+    // Filter to only show skills that contributed to the counter-pick score
+    const filteredSkills = filterRelevantSkills(detail.skills || [])
+    const filteredBloodline = filterRelevantSkills(detail.bloodline_skills || [])
+    const filteredStones = filterRelevantSkills(detail.learnable_stones || [])
+
     skillModalData.value = {
-      skills: detail.skills || [],
-      bloodline_skills: detail.bloodline_skills || [],
-      learnable_stones: detail.learnable_stones || [],
+      skills: filteredSkills,
+      bloodline_skills: filteredBloodline,
+      learnable_stones: filteredStones,
     }
     // Auto-select first non-empty tab
-    if (!detail.skills?.length && detail.bloodline_skills?.length) {
+    if (!filteredSkills.length && filteredBloodline.length) {
       skillModalActiveTab.value = 'bloodline'
-    } else if (!detail.skills?.length && !detail.bloodline_skills?.length && detail.learnable_stones?.length) {
+    } else if (!filteredSkills.length && !filteredBloodline.length && filteredStones.length) {
       skillModalActiveTab.value = 'stones'
     }
   } catch (err) {
