@@ -560,24 +560,22 @@ function getCounterPicks(petUid, natureOverride) {
   }
 
   // Batch query: pets that can learn self-debuff cleanse skills (驱散自己减益)
-  // Only active when boss has burn/poison
+  // Queried unconditionally here; bossHasBurnOrPoison check is applied during scoring
   // Track whether each pet can learn it via non-bloodline or only bloodline
   // Skills: 除厄, 洗礼, 生日蛋糕, 清洗
   const cleansePets = new Map(); // pet_uid -> { hasNonBloodline: boolean }
-  if (bossHasBurnOrPoison) {
-    const cleanseRows = db.prepare(`
-      SELECT pet_uid, skill_type FROM pet_skills
-      WHERE name IN ('除厄', '洗礼', '生日蛋糕', '清洗')
-        AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
-    `).all();
-    for (const row of cleanseRows) {
-      const existing = cleansePets.get(row.pet_uid);
-      const isNonBloodline = row.skill_type !== 'bloodline_skills';
-      if (!existing) {
-        cleansePets.set(row.pet_uid, { hasNonBloodline: isNonBloodline });
-      } else if (isNonBloodline) {
-        existing.hasNonBloodline = true;
-      }
+  const cleanseRows = db.prepare(`
+    SELECT pet_uid, skill_type FROM pet_skills
+    WHERE name IN ('除厄', '洗礼', '生日蛋糕', '清洗')
+      AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
+  `).all();
+  for (const row of cleanseRows) {
+    const existing = cleansePets.get(row.pet_uid);
+    const isNonBloodline = row.skill_type !== 'bloodline_skills';
+    if (!existing) {
+      cleansePets.set(row.pet_uid, { hasNonBloodline: isNonBloodline });
+    } else if (isNonBloodline) {
+      existing.hasNonBloodline = true;
     }
   }
 
