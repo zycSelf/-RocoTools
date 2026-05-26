@@ -51,6 +51,7 @@ export const petsApi = {
   get: (uid) => request(`${BASE}/pets/${uid}`),
   shiny: () => request(`${BASE}/pets/shiny`),
   coverage: (elements) => request(`${BASE}/pets/coverage`, { elements: elements.join(',') }),
+  counterPicks: (uid, nature) => request(`${BASE}/pets/counter-picks/${uid}`, nature ? { nature } : {}),
 }
 
 export const naturesApi = {

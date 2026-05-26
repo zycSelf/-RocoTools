@@ -291,4 +291,196 @@ function findByCoverage(elementNames) {
   return { normal: normalPets, bloodline: bloodlinePets };
 }
 
-module.exports = { list, getByUid, getShinyList, findByCoverage };
+/**
+ * Counter-pick recommendation for Fate Flower pets.
+ * Analyzes the target pet's attack profile and recommends best defensive pets.
+ *
+ * Algorithm:
+ * 1. Determine attack tendency (physical/magical) from base stats + nature
+ * 2. Collect all attack skill elements (including 愿力冲击 = bloodline element)
+ * 3. Find element combinations that resist the most attack elements
+ * 4. Sort final-form pets by relevant defense stat (def for physical, mdef for magical)
+ * 5. Score each pet by: resistance coverage + defense stat
+ *
+ * @param {string} petUid - The fate flower pet UID
+ * @param {string} [natureOverride] - Optional nature name to override
+ * @returns {object} { attack_profile, recommended_pets }
+ */
+function getCounterPicks(petUid, natureOverride) {
+  const pet = db.prepare(`
+    SELECT p.*, e.name as element_name, e.id as element_id,
+           se.name as sub_element_name, se.id as sub_element_id
+    FROM pets p
+    LEFT JOIN elements e ON p.element_id = e.id
+    LEFT JOIN elements se ON p.sub_element_id = se.id
+    WHERE p.uid = ?
+  `).get(petUid);
+
+  if (!pet) return null;
+
+  // --- Step 1: Determine attack tendency ---
+  let atk = pet.atk;
+  let matk = pet.matk;
+
+  // Apply nature bonus if provided
+  if (natureOverride) {
+    const nature = db.prepare('SELECT stat_up, stat_down FROM natures WHERE name = ?').get(natureOverride);
+    if (nature) {
+      // +10% for stat_up, -10% for stat_down
+      const applyBonus = (stat, field) => {
+        if (nature.stat_up === field) return Math.floor(stat * 1.1);
+        if (nature.stat_down === field) return Math.floor(stat * 0.9);
+        return stat;
+      };
+      atk = applyBonus(atk, '物攻');
+      matk = applyBonus(matk, '魔攻');
+    }
+  }
+
+  // Determine tendency: physical if atk >= matk (tie goes to physical)
+  const attackTendency = atk >= matk ? '物攻' : '魔攻';
+  const defenseStat = attackTendency === '物攻' ? 'def' : 'mdef';
+
+  // --- Step 2: Collect attack elements ---
+  // 愿力冲击 always uses bloodline element (= main element)
+  const attackElements = new Set();
+  attackElements.add(pet.element_name);
+
+  // Get configured fate flower skills
+  const fateSkills = db.prepare(`
+    SELECT ffs.skill_ref_uid, ps.element, ps.type, ps.power
+    FROM fate_flower_skills ffs
+    JOIN pika_monthly_pets pmp ON ffs.monthly_pet_id = pmp.id
+    LEFT JOIN pet_skills ps ON ps.skill_ref_uid = ffs.skill_ref_uid AND ps.pet_uid = ?
+    WHERE pmp.pet_uid = ?
+  `).all(petUid, petUid);
+
+  // Also check skills table for skill info
+  for (const fs of fateSkills) {
+    if (fs.element && fs.power > 0 && (fs.type === '物攻' || fs.type === '魔攻')) {
+      attackElements.add(fs.element);
+    }
+  }
+
+  // If no fate flower skills configured, fallback to pet's own attack skills
+  if (fateSkills.length === 0) {
+    const ownSkills = db.prepare(`
+      SELECT element, type, power FROM pet_skills
+      WHERE pet_uid = ? AND power > 0 AND (type = '物攻' OR type = '魔攻')
+    `).all(petUid);
+    for (const s of ownSkills) {
+      if (s.element) attackElements.add(s.element);
+    }
+  }
+
+  const attackElementList = Array.from(attackElements);
+
+  // --- Step 3: Load element matchup data ---
+  const elements = db.prepare('SELECT * FROM elements').all().map(row => ({
+    ...row,
+    strong_against: JSON.parse(row.strong_against || '[]'),
+    resisted_by: JSON.parse(row.resisted_by || '[]'),
+    weak_to: JSON.parse(row.weak_to || '[]'),
+    resistant_to: JSON.parse(row.resistant_to || '[]'),
+  }));
+
+  const elemByName = {};
+  const elemById = {};
+  for (const e of elements) {
+    elemByName[e.name] = e;
+    elemById[e.id] = e;
+  }
+
+  // Calculate defense multiplier for a given defender element combo against all attack elements
+  function calcResistanceScore(defElemIds) {
+    let score = 0;
+    for (const atkElemName of attackElementList) {
+      const atkElem = elemByName[atkElemName];
+      if (!atkElem) continue;
+
+      let mult = 1;
+      for (const defId of defElemIds) {
+        const defElem = elemById[defId];
+        if (!defElem) continue;
+        // Attacker strong against defender → ×2 (bad for defender)
+        if (atkElem.strong_against?.some(e => e.id === defId || e.name === defElem.name)) {
+          mult *= 2;
+        }
+        // Defender resists attacker → ×0.5 (good for defender)
+        else if (defElem.resistant_to?.some(e => e.id === atkElem.id || e.name === atkElem.name)) {
+          mult *= 0.5;
+        }
+      }
+      // Special: double strong = ×3, double resist = ×0.25
+      if (defElemIds.length === 2) {
+        if (mult === 4) mult = 3;
+        else if (mult === 0.25) mult = 0.25;
+      }
+      // Lower mult = better resistance. Score += (1 - mult) for each attack element
+      // resist(0.5) → +0.5, neutral(1) → 0, weak(2) → -1
+      score += (1 - mult);
+    }
+    return score;
+  }
+
+  // --- Step 4: Get all final-form pets and score them ---
+  const finalPets = db.prepare(`
+    SELECT p.uid, p.pet_id, p.name, p.element_id, p.sub_element_id,
+           p.hp, p.atk, p.matk, p.def, p.mdef, p.speed, p.total,
+           COALESCE(p.thumb_url, p.image_url) as image_url,
+           e.name as element_name, e.icon as element_icon, e.color as element_color,
+           se.name as sub_element_name, se.icon as sub_element_icon, se.color as sub_element_color
+    FROM pets p
+    LEFT JOIN elements e ON p.element_id = e.id
+    LEFT JOIN elements se ON p.sub_element_id = se.id
+    WHERE p.is_final_form = 1
+    ORDER BY p.${defenseStat} DESC
+  `).all();
+
+  // Score and rank
+  const scored = finalPets.map(p => {
+    const defElemIds = [p.element_id];
+    if (p.sub_element_id) defElemIds.push(p.sub_element_id);
+    const resistScore = calcResistanceScore(defElemIds);
+    const defValue = p[defenseStat];
+    return { ...p, resist_score: resistScore, def_value: defValue };
+  });
+
+  // Sort: primary by resist_score DESC (higher = more resistant), secondary by defense stat DESC
+  scored.sort((a, b) => {
+    if (b.resist_score !== a.resist_score) return b.resist_score - a.resist_score;
+    return b.def_value - a.def_value;
+  });
+
+  // Return top 20
+  const top = scored.slice(0, 20).map(p => ({
+    uid: p.uid,
+    name: p.name,
+    image_url: p.image_url,
+    element_name: p.element_name,
+    element_icon: p.element_icon,
+    element_color: p.element_color,
+    sub_element_name: p.sub_element_name,
+    sub_element_icon: p.sub_element_icon,
+    sub_element_color: p.sub_element_color,
+    hp: p.hp,
+    def: p.def,
+    mdef: p.mdef,
+    speed: p.speed,
+    total: p.total,
+    resist_score: p.resist_score,
+    def_value: p.def_value,
+  }));
+
+  return {
+    attack_profile: {
+      tendency: attackTendency,
+      tendency_values: { atk, matk },
+      elements: attackElementList,
+      defense_stat_used: defenseStat,
+    },
+    recommended_pets: top,
+  };
+}
+
+module.exports = { list, getByUid, getShinyList, findByCoverage, getCounterPicks };

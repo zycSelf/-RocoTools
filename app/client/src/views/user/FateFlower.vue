@@ -171,6 +171,95 @@
             <SkillTable title="" :skills="bloodlineElementSkills" :elem-map="elemMap" />
           </div>
         </div>
+
+        <!-- Counter-picks recommendation -->
+        <div class="card">
+          <h3 class="font-roco text-sm sm:text-base mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            反制推荐
+            <span class="text-xs font-normal text-muted">（最适合应对该花种精灵的精灵）</span>
+          </h3>
+
+          <!-- Attack profile summary -->
+          <div v-if="counterPicks" class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30">
+            <div class="flex items-center gap-3 flex-wrap text-xs sm:text-sm">
+              <div class="flex items-center gap-1.5">
+                <span class="text-muted">攻击倾向：</span>
+                <span class="font-medium" :class="counterPicks.attack_profile.tendency === '物攻' ? 'text-red-500' : 'text-purple-500'">
+                  {{ counterPicks.attack_profile.tendency }}
+                </span>
+                <span class="text-muted text-xs">
+                  (物攻{{ counterPicks.attack_profile.tendency_values.atk }} / 魔攻{{ counterPicks.attack_profile.tendency_values.matk }})
+                </span>
+              </div>
+              <span class="text-muted">|</span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-muted">攻击属性：</span>
+                <div class="flex items-center gap-1">
+                  <template v-for="elemName in counterPicks.attack_profile.elements" :key="elemName">
+                    <span v-if="elemMap[elemName]" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded"
+                      :style="{ background: elemMap[elemName].color + '15', color: elemMap[elemName].color }">
+                      <img :src="elemMap[elemName].icon" class="w-3.5 h-3.5" />
+                      <span class="text-xs">{{ elemName }}</span>
+                    </span>
+                  </template>
+                </div>
+              </div>
+              <span class="text-muted">|</span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-muted">排序依据：</span>
+                <span class="font-medium text-blue-600 dark:text-blue-400">
+                  {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div v-if="counterLoading" class="text-center py-6 text-muted text-sm animate-pulse">
+            分析中...
+          </div>
+
+          <!-- Recommended pets grid -->
+          <div v-else-if="counterPicks && counterPicks.recommended_pets.length" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+            <router-link
+              v-for="(cp, idx) in counterPicks.recommended_pets"
+              :key="cp.uid"
+              :to="'/pets/' + cp.uid"
+              class="counter-pick-card group"
+            >
+              <!-- Rank badge -->
+              <div class="absolute top-1 left-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center z-10"
+                :class="idx < 3 ? 'bg-amber-400 text-white' : 'bg-gray-200 dark:bg-gray-600 text-muted'">
+                {{ idx + 1 }}
+              </div>
+              <!-- Pet image -->
+              <img :src="cp.image_url" class="w-14 h-14 sm:w-16 sm:h-16 object-contain mx-auto" :alt="cp.name" />
+              <!-- Pet name -->
+              <div class="text-xs font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
+              <!-- Element badges -->
+              <div class="flex items-center justify-center gap-0.5 mt-0.5">
+                <img v-if="cp.element_icon" :src="cp.element_icon" class="w-3.5 h-3.5" :title="cp.element_name" />
+                <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-3.5 h-3.5" :title="cp.sub_element_name" />
+              </div>
+              <!-- Defense stat -->
+              <div class="text-[10px] text-muted mt-0.5 text-center">
+                {{ counterPicks.attack_profile.defense_stat_used === 'def' ? '物防' : '魔防' }}
+                <span class="font-medium text-foreground">{{ cp.def_value }}</span>
+              </div>
+              <!-- Resist score indicator -->
+              <div class="w-full mt-1 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div class="h-full rounded-full bg-blue-400"
+                  :style="{ width: Math.max(10, Math.min(100, (cp.resist_score + attackElementList.length) / (attackElementList.length * 2) * 100)) + '%' }"></div>
+              </div>
+            </router-link>
+          </div>
+
+          <!-- Empty state -->
+          <div v-else-if="!counterLoading" class="text-center py-6 text-muted text-sm">
+            暂无反制推荐数据
+          </div>
+        </div>
       </div>
 
       <!-- Loading pet detail -->
@@ -197,6 +286,8 @@ const petDetail = ref(null)
 const elemMap = ref({})
 const fateFlowerSkills = ref([])
 const fateNature = ref('')
+const counterPicks = ref(null)
+const counterLoading = ref(false)
 
 // Extract all unique pets from fate_flower events
 const allPets = computed(() => {
@@ -243,6 +334,11 @@ const bloodlineElementSkills = computed(() => {
   return petDetail.value.bloodline_skills.filter(s => s.element === mainElement)
 })
 
+// Attack element list from counter-picks (for progress bar width calculation)
+const attackElementList = computed(() => {
+  return counterPicks.value?.attack_profile?.elements || []
+})
+
 function parsePetIcons(petIcon) {
   if (!petIcon || !petIcon.startsWith('[')) return []
   try { return JSON.parse(petIcon) } catch { return [] }
@@ -267,6 +363,8 @@ async function selectPet(pet) {
   petDetail.value = null
   fateFlowerSkills.value = []
   fateNature.value = ''
+  counterPicks.value = null
+  counterLoading.value = true
   try {
     const [detail, skillRes] = await Promise.all([
       petsApi.get(pet.uid),
@@ -275,9 +373,18 @@ async function selectPet(pet) {
     petDetail.value = detail
     fateFlowerSkills.value = skillRes.skills || []
     fateNature.value = skillRes.fate_nature || ''
+
+    // Load counter-picks after we know the nature
+    try {
+      const cpRes = await petsApi.counterPicks(pet.uid, skillRes.fate_nature || '')
+      counterPicks.value = cpRes
+    } catch (cpErr) {
+      console.error('[FateFlower] Load counter-picks failed:', cpErr)
+    }
   } catch (err) {
     console.error('[FateFlower] Load pet failed:', err)
   }
+  counterLoading.value = false
 }
 
 function goBack() {
@@ -332,5 +439,13 @@ onMounted(async () => {
 
 .pet-tab-inactive {
   @apply bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 opacity-70 hover:opacity-100;
+}
+
+.counter-pick-card {
+  @apply relative flex flex-col items-center p-2 sm:p-3 rounded-xl
+         bg-gray-50 dark:bg-white/5
+         hover:bg-blue-50 dark:hover:bg-blue-500/10
+         border border-transparent hover:border-blue-200 dark:hover:border-blue-500/30
+         transition-all cursor-pointer;
 }
 </style>
