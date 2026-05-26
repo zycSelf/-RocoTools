@@ -448,6 +448,46 @@ function getCounterPicks(petUid, natureOverride) {
     WHERE p.is_final_form = 1
   `).all();
 
+  // --- Deduplicate multi-form pets ---
+  // If a pet_id has multiple forms with identical stats + element + skills, keep only one.
+  // Forms with different stats/elements/skills are all kept (they matter for counter-pick).
+  const petIdGroups = new Map(); // pet_id -> [pets]
+  for (const p of finalPets) {
+    if (!petIdGroups.has(p.pet_id)) petIdGroups.set(p.pet_id, []);
+    petIdGroups.get(p.pet_id).push(p);
+  }
+
+  const deduped = [];
+  for (const [, forms] of petIdGroups) {
+    if (forms.length === 1) {
+      deduped.push(forms[0]);
+      continue;
+    }
+    // Compare stats + element for each form against the first
+    const kept = [forms[0]];
+    const statKeys = ['hp', 'atk', 'matk', 'def', 'mdef', 'speed', 'element_id', 'sub_element_id'];
+    for (let i = 1; i < forms.length; i++) {
+      const f = forms[i];
+      const hasDiff = statKeys.some(k => f[k] !== forms[0][k]);
+      if (hasDiff) {
+        kept.push(f);
+      } else {
+        // Stats identical → check if skill sets differ (attack skills only, relevant for counter-pick)
+        const getSkillSet = (uid) => db.prepare(
+          `SELECT skill_ref_uid FROM pet_skills WHERE pet_uid = ? AND power > 0 AND (type = '物攻' OR type = '魔攻') ORDER BY skill_ref_uid`
+        ).all(uid).map(r => r.skill_ref_uid).join(',');
+        if (getSkillSet(f.uid) !== getSkillSet(forms[0].uid)) {
+          kept.push(f);
+        }
+        // else: identical stats + skills → skip this form
+      }
+    }
+    deduped.push(...kept);
+  }
+
+  // Replace finalPets with deduplicated list
+  const finalPetsDeduped = deduped;
+
   // Pre-fetch counter-status and counter-defense skills for all final-form pets
   const counterStatusPets = new Map(); // pet_uid -> best counter-status skill info
   const counterDefensePets = new Set(); // pet_uid set
@@ -577,12 +617,12 @@ function getCounterPicks(petUid, natureOverride) {
 
   // Find max defense stat for normalization
   let maxDef = 1;
-  for (const p of finalPets) {
+  for (const p of finalPetsDeduped) {
     if (p[defenseStat] > maxDef) maxDef = p[defenseStat];
   }
 
   // Score each pet
-  const scored = finalPets.map(p => {
+  const scored = finalPetsDeduped.map(p => {
     const defElemIds = [p.element_id];
     if (p.sub_element_id) defElemIds.push(p.sub_element_id);
 
