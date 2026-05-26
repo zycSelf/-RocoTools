@@ -166,7 +166,8 @@ function getByUid(uid) {
   pet.skills = db.prepare(`
     SELECT ps.*, sk.icon_url as skill_icon,
            COALESCE(sk.cost, ps.cost) as cost,
-           COALESCE(sk.power, ps.power) as power
+           COALESCE(sk.power, ps.power) as power,
+           COALESCE(sk.description, ps.description) as description
     FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
     WHERE ps.pet_uid = ? AND ps.skill_type = 'skills'
     ORDER BY CAST(ps.level AS INTEGER), ${skillOrderSql}, ${skillIdOrder}
@@ -175,7 +176,8 @@ function getByUid(uid) {
   pet.bloodline_skills = db.prepare(`
     SELECT ps.*, sk.icon_url as skill_icon,
            COALESCE(sk.cost, ps.cost) as cost,
-           COALESCE(sk.power, ps.power) as power
+           COALESCE(sk.power, ps.power) as power,
+           COALESCE(sk.description, ps.description) as description
     FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
     WHERE ps.pet_uid = ? AND ps.skill_type = 'bloodline_skills'
     ORDER BY ${skillOrderSql}, ${skillIdOrder}
@@ -184,7 +186,8 @@ function getByUid(uid) {
   pet.learnable_stones = db.prepare(`
     SELECT ps.*, sk.icon_url as skill_icon,
            COALESCE(sk.cost, ps.cost) as cost,
-           COALESCE(sk.power, ps.power) as power
+           COALESCE(sk.power, ps.power) as power,
+           COALESCE(sk.description, ps.description) as description
     FROM pet_skills ps LEFT JOIN skills sk ON ps.skill_ref_uid = sk.uid
     WHERE ps.pet_uid = ? AND ps.skill_type = 'learnable_stones'
     ORDER BY ${skillOrderSql}, ${skillIdOrder}
