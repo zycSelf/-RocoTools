@@ -240,8 +240,8 @@
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 text-[9px]">⚡</span> 应对状态</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 text-[9px]">🛡️</span> 应对防御</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400 text-[9px]">🔰</span> 应对攻击</span>
-              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 text-[9px]">💢</span> 克制弱防</span>
-              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 text-[9px]">💚</span> 吸血续航</span>
+              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[9px]">💚⚔️</span> 克制续航</span>
+              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 text-[9px]">💚</span> 续航</span>
             </div>
           </div>
 
@@ -299,10 +299,13 @@
                   <span v-if="cp.counter_attack_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
                     🔰
                   </span>
-                  <span v-if="cp.boss_weak_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
-                    💢
+                  <span v-if="cp.lifesteal_bonus && cp.lifesteal_category === 'se'" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold" title="克制boss的吸血续航技能">
+                    💚⚔️
                   </span>
-                  <span v-if="cp.lifesteal_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" title="拥有吸血/吸取技能，高续航">
+                  <span v-else-if="cp.lifesteal_bonus && cp.lifesteal_category === 'neutral'" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" title="吸血续航技能（不被boss抵抗）">
+                    💚
+                  </span>
+                  <span v-else-if="cp.lifesteal_bonus && cp.lifesteal_category === 'resisted'" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-gray-100 text-gray-500 dark:bg-gray-500/20 dark:text-gray-400 line-through" title="吸血续航技能（被boss抵抗）">
                     💚
                   </span>
                 </div>

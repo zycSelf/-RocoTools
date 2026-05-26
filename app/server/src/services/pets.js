@@ -534,14 +534,18 @@ function getCounterPicks(petUid, natureOverride) {
 
   // Batch query: lifesteal/sustain skills (high sustain)
   // Only these specific skills count: 蝙蝠, 暗突袭, 撕裂, 等价交换, 抽枝, 气沉丹田
-  const lifestealPets = new Set(); // pet_uid
+  // Store element info to determine if the skill counters boss or is resisted by boss
+  const lifestealPetSkills = new Map(); // pet_uid -> [{ element, name }]
   const lifestealRows = db.prepare(`
-    SELECT DISTINCT pet_uid FROM pet_skills
+    SELECT pet_uid, element, name FROM pet_skills
     WHERE name IN ('蝙蝠', '暗突袭', '撕裂', '等价交换', '抽枝', '气沉丹田')
       AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
   `).all();
   for (const row of lifestealRows) {
-    lifestealPets.add(row.pet_uid);
+    if (!lifestealPetSkills.has(row.pet_uid)) {
+      lifestealPetSkills.set(row.pet_uid, []);
+    }
+    lifestealPetSkills.get(row.pet_uid).push({ element: row.element, name: row.name });
   }
 
   // Batch query: pets that can learn "贪婪" (100% lifesteal - highest priority sustain)
@@ -709,18 +713,29 @@ function getCounterPicks(petUid, natureOverride) {
 
   // Detect if boss has burn (灼烧) or poison (中毒) in skills/ability
   // If so, pets that can cleanse their own debuffs get a high-priority bonus
-  const bossHasBurnOrPoison = allBossText.includes('灼烧') || allBossText.includes('中毒');
+  const bossHasBurnOrPoison = allBossText.includes('灼烧') || allBossText.includes('中毒') || allBossText.includes('中毒印记');
 
-  // Weight constants
-  const W_SE_ATTACK = 4;       // Core: super-effective attack + counter synergy
-  const W_COUNTER_STATUS = 2;  // Counter-status attack skills
-  const W_COUNTER_DEFENSE = 1.5; // Counter-defense skills
-  const W_COUNTER_ATTACK = 1.5;  // Counter-attack defense skills (survivability)
-  const W_DEF_STAT = 1;        // Defense stat
-  const W_BOSS_WEAK = 0.5;     // Bonus for matching boss's weaker defense
-  const W_LIFESTEAL = 3;       // Lifesteal/drain skills (high sustain)
-  const W_GREEDY = 5;          // Can learn "贪婪" (100% lifesteal - highest priority)
-  const W_CLEANSE = 5;         // Can learn self-debuff cleanse (same priority as greedy, only when boss has burn/poison)
+  // Determine which elements the boss RESISTS (for lifesteal skill evaluation)
+  const bossResists = new Set(); // element names that the boss resists
+  for (const defId of targetElemIds) {
+    const defElem = elemById[defId];
+    if (!defElem || !defElem.resistant_to) continue;
+    for (const r of defElem.resistant_to) {
+      bossResists.add(r.name);
+    }
+  }
+
+  // Weight constants - new priority system:
+  // 贪婪 = 净化(对抗中毒灼烧) > 克制boss的吸血续航 > 大威力应对克制(boss有状态时) > 大威力克制 > 抵抗 > 不被抵抗的吸血续航 > 普通应对克制 > 其他 > 被抵抗的吸血续航
+  const W_GREEDY = 10;          // Can learn "贪婪" (100% lifesteal - highest priority)
+  const W_CLEANSE = 10;         // Can learn self-debuff cleanse (only when boss has burn/poison)
+  const W_LIFESTEAL_SE = 8;    // Lifesteal skill that counters boss (element in targetWeakTo)
+  const W_SE_ATTACK = 6;       // Core: super-effective attack (high power)
+  const W_RESIST = 3;          // Resists boss attack elements (per element resisted)
+  const W_LIFESTEAL_NEUTRAL = 2; // Lifesteal skill not resisted by boss
+  const W_COUNTER_DEFENSE = 0.5; // Counter-defense skills (very low priority)
+  const W_DEF_STAT = 0.5;      // Defense stat (minor tiebreaker)
+  const W_LIFESTEAL_RESISTED = -1; // Lifesteal skill resisted by boss (penalty)
   const W_METEOR_RABBIT = 999; // 落陨星兔: passive prevents end-of-turn effects (burn/poison immune)
 
   // Find max defense stat for normalization
@@ -749,9 +764,11 @@ function getCounterPicks(petUid, natureOverride) {
     // Sub-element pets are kept: they can fight with their main element
     if (statusImmunities.has(p.element_id)) return null;
 
-    // Dimension 1 (Core): Super-effective attack + counter synergy
-    // Pick the best TWO SE skills (practical: 1 defense + 1 status + 2 attack slots)
-    // Second skill scores at 50% to avoid over-stacking
+    // === NEW SCORING SYSTEM ===
+    // Priority: 贪婪=净化(对抗中毒灼烧) > 克制boss的吸血续航 > boss有状态时大威力应对克制 > 大威力克制 > 抵抗 > 不被抵抗的吸血续航 > 普通应对克制 > 其他 > 被抵抗的吸血续航
+
+    // --- SE Attack Score ---
+    // hasCounter bonus only applies when boss has status skills
     let seAttackScore = 0;
     const seSkills = superEffectiveSkillsByPet.get(p.uid);
     if (seSkills && seSkills.length > 0) {
@@ -759,25 +776,24 @@ function getCounterPicks(petUid, natureOverride) {
       const petMatk = p.matk;
       const maxStat = Math.max(petAtk, petMatk, 1);
 
-      // Calculate effective power for each SE skill
       const skillScores = [];
       for (const sk of seSkills) {
         const statRatio = sk.type === '物攻' ? (petAtk / maxStat) : (petMatk / maxStat);
         const effPower = sk.power * statRatio;
-        skillScores.push({ effPower, hasCounter: sk.hasCounter });
+        // hasCounter only matters when boss has status skills
+        const counterBonus = (sk.hasCounter && hasStatusSkills) ? true : false;
+        skillScores.push({ effPower, hasCounter: counterBonus });
       }
 
-      // Sort by: prefer counter skills first (if close in power), then by effective power
       skillScores.sort((a, b) => {
-        // If both have similar effective power (within 80%), prefer the one with counter
         if (a.hasCounter !== b.hasCounter && Math.min(a.effPower, b.effPower) >= Math.max(a.effPower, b.effPower) * 0.8) {
           return a.hasCounter ? -1 : 1;
         }
         return b.effPower - a.effPower;
       });
 
-      // Score function for a single skill
       function calcSkillScore(effPower, hasCounter) {
+        // High power (>=120): big bonus; hasCounter adds extra when boss has status
         if (effPower >= 120) return hasCounter ? 3 : 2;
         if (effPower >= 80) return hasCounter ? 2.5 : 1.5;
         if (effPower >= 40) return hasCounter ? 2 : 1;
@@ -785,57 +801,66 @@ function getCounterPicks(petUid, natureOverride) {
         return 0;
       }
 
-      // Best skill: full score
       const best = skillScores[0];
       seAttackScore = calcSkillScore(best.effPower, best.hasCounter);
 
-      // Second best skill: 50% score (max 2 skills counted)
       if (skillScores.length >= 2) {
         const second = skillScores[1];
         seAttackScore += calcSkillScore(second.effPower, second.hasCounter) * 0.5;
       }
     }
 
-    // Dimension 2: Counter-status bonus
-    let counterStatusBonus = 0;
-    if (hasStatusSkills && counterStatusPets.has(p.uid)) {
-      counterStatusBonus = counterStatusPets.get(p.uid).score;
-    }
-
-    // Dimension 3: Counter-defense bonus
+    // --- Counter-defense bonus (very low priority, only when boss has defense skills) ---
     let counterDefenseBonus = 0;
     if (hasDefenseSkills && counterDefensePets.has(p.uid)) {
       counterDefenseBonus = 1;
     }
 
-    // Dimension 4: Counter-attack bonus (survivability)
+    // --- Counter-attack bonus (NO score, only icon display) ---
     let counterAttackBonus = 0;
     if (counterAttackPets.has(p.uid)) {
-      counterAttackBonus = 1;
+      counterAttackBonus = 1; // Only for display, weight is 0
     }
 
-    // Dimension 5: Defense stat (normalized 0~1)
+    // --- Counter-status bonus (NO score when boss has no status skills, only icon display) ---
+    let counterStatusBonus = 0;
+    if (hasStatusSkills && counterStatusPets.has(p.uid)) {
+      counterStatusBonus = counterStatusPets.get(p.uid).score; // Only for display when boss has no status
+    }
+
+    // --- Resistance score: bonus per resisted element ---
+    const resistScore = resistedElements.length;
+
+    // --- Defense stat (minor tiebreaker, normalized 0~1) ---
     const defValue = p[defenseStat];
     const defNormalized = defValue / maxDef;
 
-    // Dimension 6: Boss weakness exploitation bonus
-    // If boss has lower physical def, physical attackers get bonus; vice versa
-    let bossWeakBonus = 0;
-    const petMainAttackType = p.atk >= p.matk ? 'physical' : 'magical';
-    if (petMainAttackType === bossWeakerDef) {
-      bossWeakBonus = 1;
+    // --- Lifesteal evaluation: categorize as SE / neutral / resisted ---
+    let lifestealBonus = 0; // Will hold the weighted score
+    let lifestealCategory = ''; // 'se', 'neutral', 'resisted', or ''
+    const petLifestealSkills = lifestealPetSkills.get(p.uid);
+    if (petLifestealSkills && petLifestealSkills.length > 0) {
+      // Find the best category among all lifesteal skills this pet has
+      let bestCat = 'resisted'; // worst case
+      for (const ls of petLifestealSkills) {
+        if (!ls.element) {
+          // No element (e.g. 等价交换 is 防御 type) → treat as neutral
+          if (bestCat === 'resisted') bestCat = 'neutral';
+        } else if (targetWeakTo.has(ls.element)) {
+          bestCat = 'se'; // Counters boss
+          break; // Can't get better than this
+        } else if (!bossResists.has(ls.element)) {
+          if (bestCat !== 'se') bestCat = 'neutral';
+        }
+        // else: resisted, keep current bestCat
+      }
+      lifestealCategory = bestCat;
+      if (bestCat === 'se') lifestealBonus = 1;
+      else if (bestCat === 'neutral') lifestealBonus = 1;
+      else lifestealBonus = 1; // resisted: will use negative weight
     }
 
-    // Dimension 7: Lifesteal/drain bonus (high sustain)
-    let lifestealBonus = 0;
-    if (lifestealPets.has(p.uid)) {
-      lifestealBonus = 1;
-    }
-
-    // Dimension 8: "贪婪" skill bonus (100% lifesteal - highest priority)
-    // Dimension 9: Self-debuff cleanse bonus (only when boss has burn/poison)
-    // Rule: greedy and cleanse CANNOT both be bloodline-only skills for the same pet
-    // (because you can only activate one bloodline line at a time)
+    // --- Greedy & Cleanse (highest priority, same level) ---
     let greedyBonus = 0;
     let cleanseBonus = 0;
     const hasGreedy = greedyPets.has(p.uid);
@@ -844,13 +869,10 @@ function getCounterPicks(petUid, natureOverride) {
     if (hasGreedy && hasCleanse) {
       const greedyInfo = greedyPets.get(p.uid);
       const cleanseInfo = cleansePets.get(p.uid);
-      // If both are bloodline-only, can only count one (pick greedy as it's always useful)
       if (!greedyInfo.hasNonBloodline && !cleanseInfo.hasNonBloodline) {
-        // Both bloodline-only: only count one (greedy takes priority)
         greedyBonus = 1;
         cleanseBonus = 0;
       } else {
-        // At least one has non-bloodline path, both can be used
         greedyBonus = 1;
         cleanseBonus = 1;
       }
@@ -859,19 +881,21 @@ function getCounterPicks(petUid, natureOverride) {
       if (hasCleanse) cleanseBonus = 1;
     }
 
-    // Dimension 10: 落陨星兔 special bonus (passive prevents end-of-turn effects like burn/poison)
+    // --- 落陨星兔 special bonus ---
     const meteorRabbitBonus = (bossHasBurnOrPoison && p.uid === 'pet_337') ? 1 : 0;
 
-    // Total score (within group)
-    const totalScore = seAttackScore * W_SE_ATTACK
-      + counterStatusBonus * W_COUNTER_STATUS
-      + counterDefenseBonus * W_COUNTER_DEFENSE
-      + counterAttackBonus * W_COUNTER_ATTACK
-      + defNormalized * W_DEF_STAT
-      + bossWeakBonus * W_BOSS_WEAK
-      + lifestealBonus * W_LIFESTEAL
-      + greedyBonus * W_GREEDY
+    // --- Total score ---
+    const lifestealWeight = lifestealCategory === 'se' ? W_LIFESTEAL_SE
+      : lifestealCategory === 'neutral' ? W_LIFESTEAL_NEUTRAL
+      : lifestealCategory === 'resisted' ? W_LIFESTEAL_RESISTED : 0;
+
+    const totalScore = greedyBonus * W_GREEDY
       + cleanseBonus * W_CLEANSE
+      + lifestealBonus * lifestealWeight
+      + seAttackScore * W_SE_ATTACK
+      + resistScore * W_RESIST
+      + counterDefenseBonus * W_COUNTER_DEFENSE
+      + defNormalized * W_DEF_STAT
       + meteorRabbitBonus * W_METEOR_RABBIT;
 
     return {
@@ -882,8 +906,8 @@ function getCounterPicks(petUid, natureOverride) {
       counter_status_bonus: counterStatusBonus,
       counter_defense_bonus: counterDefenseBonus,
       counter_attack_bonus: counterAttackBonus,
-      boss_weak_bonus: bossWeakBonus,
       lifesteal_bonus: lifestealBonus,
+      lifesteal_category: lifestealCategory,
       greedy_bonus: greedyBonus,
       cleanse_bonus: cleanseBonus,
       meteor_rabbit_bonus: meteorRabbitBonus,
@@ -918,8 +942,8 @@ function getCounterPicks(petUid, natureOverride) {
     counter_status_bonus: p.counter_status_bonus,
     counter_defense_bonus: p.counter_defense_bonus,
     counter_attack_bonus: p.counter_attack_bonus,
-    boss_weak_bonus: p.boss_weak_bonus,
     lifesteal_bonus: p.lifesteal_bonus,
+    lifesteal_category: p.lifesteal_category,
     greedy_bonus: p.greedy_bonus,
     cleanse_bonus: p.cleanse_bonus,
     meteor_rabbit_bonus: p.meteor_rabbit_bonus,
