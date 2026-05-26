@@ -25,7 +25,7 @@
 
       <!-- Pet selector tabs with avatars -->
       <div class="pet-tabs-container mb-5">
-        <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-2">
+        <div class="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-2 px-1 pt-1">
           <button
             v-for="pet in allPets"
             :key="pet.uid"
