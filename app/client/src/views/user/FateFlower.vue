@@ -492,7 +492,8 @@ function filterRelevantSkills(allSkills, petDetail, isBloodline = false) {
   const relevant = allSkills.filter(skill => {
     const desc = skill.description || ''
     // 1. Super-effective attack: attack skill with element in boss's weakness list
-    if ((skill.type === '物攻' || skill.type === '魔攻') && skill.power > 0 && weakTo.has(skill.element)) {
+    // NOT considered for bloodline skills (bloodline only counts defense/status)
+    if (!isBloodline && (skill.type === '物攻' || skill.type === '魔攻') && skill.power > 0 && weakTo.has(skill.element)) {
       return true
     }
     // 2. Counter-attack defense skill (应对攻击)

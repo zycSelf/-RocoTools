@@ -538,6 +538,7 @@ function getCounterPicks(petUid, natureOverride) {
     const seRows = db.prepare(`
       SELECT pet_uid, power, type, description FROM pet_skills
       WHERE element IN (${placeholders}) AND power > 0 AND (type = '物攻' OR type = '魔攻')
+        AND skill_type != 'bloodline_skills'
         AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
       ORDER BY power DESC
     `).all(...Array.from(targetWeakTo));
@@ -606,26 +607,29 @@ function getCounterPicks(petUid, natureOverride) {
   // This gives a bonus to candidates whose attack type matches the boss's weaker defense
   const bossWeakerDef = bossDefStat <= bossMdefStat ? 'physical' : 'magical';
 
-  // --- Determine which status effects the boss is immune to ---
-  // If the boss's element(s) resist poison(10) or ice(7), it's immune to those status effects.
-  // Candidates whose sub-element relies on those statuses should be excluded.
-  const bossElemIds = [pet.element_id];
-  if (pet.sub_element_id) bossElemIds.push(pet.sub_element_id);
+  // --- Determine which status effects the boss uses (from skills/ability descriptions) ---
+  // If the boss's skills or ability mention status keywords, candidates whose MAIN element
+  // matches that status type should be excluded (they likely rely on that status to fight,
+  // but the boss is immune to it). Sub-element candidates are kept (they can fight with main element).
+  //   "灼烧" → Fire(3), "寄生" → Grass(2), "中毒" → Poison(10), "冰冻/冻结" → Ice(7)
+  const STATUS_KEYWORD_MAP = [
+    { keywords: ['灼烧'], elementId: 3 },   // Fire → burn
+    { keywords: ['寄生'], elementId: 2 },   // Grass → leech
+    { keywords: ['中毒'], elementId: 10 },  // Poison → poison
+    { keywords: ['冰冻', '冻结'], elementId: 7 }, // Ice → freeze
+  ];
 
-  const POISON_ID = 10;
-  const ICE_ID = 7;
-  const statusImmunities = new Set(); // element IDs that the boss is immune to (status-wise)
+  // Gather all text to search: boss skill descriptions + ability description
+  const bossSkillDescs = db.prepare(
+    `SELECT description FROM pet_skills WHERE pet_uid = ? AND description IS NOT NULL`
+  ).all(petUid).map(r => r.description);
+  const bossAbilityDesc = pet.ability_desc || '';
+  const allBossText = [...bossSkillDescs, bossAbilityDesc].join('\n');
 
-  for (const bossElemId of bossElemIds) {
-    const bossElem = elemById[bossElemId];
-    if (!bossElem) continue;
-    // If boss's element resists poison → immune to poison status
-    if (bossElem.resistant_to?.some(e => e.id === POISON_ID)) {
-      statusImmunities.add(POISON_ID);
-    }
-    // If boss's element resists ice → immune to freeze status
-    if (bossElem.resistant_to?.some(e => e.id === ICE_ID)) {
-      statusImmunities.add(ICE_ID);
+  const statusImmunities = new Set(); // element IDs whose status the boss uses (candidates with this MAIN elem excluded)
+  for (const { keywords, elementId } of STATUS_KEYWORD_MAP) {
+    if (keywords.some(kw => allBossText.includes(kw))) {
+      statusImmunities.add(elementId);
     }
   }
 
@@ -658,9 +662,10 @@ function getCounterPicks(petUid, natureOverride) {
     const weakElements = getWeakElements(defElemIds);
     if (weakElements.length > 0) return null; // Being weak to ANY boss attack = not recommended
 
-    // Exclude pets whose sub-element relies on status effects the boss is immune to
-    // e.g. sub-element is Poison but boss is immune to poison; sub-element is Ice but boss is immune to freeze
-    if (p.sub_element_id && statusImmunities.has(p.sub_element_id)) return null;
+    // Exclude pets whose MAIN element relies on status effects the boss uses
+    // e.g. main element is Poison but boss uses poison status (immune to it)
+    // Sub-element pets are kept: they can fight with their main element
+    if (statusImmunities.has(p.element_id)) return null;
 
     // Dimension 1 (Core): Super-effective attack + counter synergy
     // Pick the best TWO SE skills (practical: 1 defense + 1 status + 2 attack slots)
