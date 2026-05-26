@@ -62,7 +62,8 @@ const shinyPetIds  = makeIdSet(shinyPetIdsFull);
 
 // Lookups
 const elementNames = {};
-db.prepare('SELECT id, name FROM elements').all().forEach(r => { elementNames[r.id] = r.name; });
+const elementIcons = {};
+db.prepare('SELECT id, name, icon FROM elements').all().forEach(r => { elementNames[r.id] = r.name; if (r.icon) elementIcons[r.id] = r.icon; });
 
 // All pets
 const allPets = db.prepare('SELECT * FROM pets ORDER BY pet_id, uid').all();
@@ -155,87 +156,98 @@ w(`| 赛季奇遇精灵 | ${seasonPets.length} 只 |`);
 w(`| 赛季奇遇异色精灵 | ${shinyPets.length} 只 |`);
 w();
 
+// Helper: render a section of pets as a compact table (same format as patch_notes)
+function renderPetSection(pets, tag) {
+  w(`| <div style="min-width:130px;display:inline-block">图鉴</div> | <div style="min-width:360px;display:inline-block">精灵信息</div> |`);
+  w(`|------|---------|`);
+  for (const p of pets) {
+    const group = allPets.filter(x => x.pet_id === p.pet_id);
+    const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
+    const elemIcon = finalForm.element_id && elementIcons[finalForm.element_id] ? `![element:${elementIcons[finalForm.element_id]}]` : '';
+    const elemName = elementNames[finalForm.element_id] || '';
+    const subElemIcon = finalForm.sub_element_id && elementIcons[finalForm.sub_element_id] ? `![element:${elementIcons[finalForm.sub_element_id]}]` : '';
+    const subElemName = finalForm.sub_element_id ? (elementNames[finalForm.sub_element_id] || '') : '';
+    const elemDisplay = subElemName
+      ? `${elemIcon}${elemName} / ${subElemIcon}${subElemName}`
+      : `${elemIcon}${elemName}`;
+    const tagStr = tag ? ` \`${tag}\`` : '';
+
+    // Evolution chain names
+    const chain = group.map(x => `**${x.name}**`).join(' → ');
+
+    // Ability
+    let abilityStr = '';
+    if (finalForm.ability_name) {
+      const abilityIconStr = abilityIcons[finalForm.uid] ? `![ability:${abilityIcons[finalForm.uid]}]` : '';
+      abilityStr = `**特性** ${abilityIconStr} **「${finalForm.ability_name}」** ${finalForm.ability_desc || ''}`;
+    }
+
+    // Stats
+    const statsStr = `HP **${finalForm.hp}** / 速度 **${finalForm.speed}** / 物攻 **${finalForm.atk}** / 魔攻 **${finalForm.matk}** / 物防 **${finalForm.def}** / 魔防 **${finalForm.mdef}** 　总计 **${finalForm.total}**`;
+
+    // Thumbnail cell
+    const defaultThumb = finalForm.thumb_url || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
+    const thumbCell = `![img:${defaultThumb}] ![shiny:${finalForm.uid}]`;
+
+    // Info lines
+    const nameRow = `${chain}（${elemDisplay}系）${tagStr}`;
+    const infoLines = [nameRow];
+    if (abilityStr) infoLines.push(abilityStr);
+    infoLines.push(statsStr);
+
+    w(`| ${thumbCell} | ${infoLines.join('<br>')} |`);
+  }
+  w();
+}
+
 // --- Legend Pets ---
 if (legendPets.length) {
-  w(`## ⭐ 传说精灵`);
+  w(`## ⭐ 传说精灵（${legendPets.length} 只）`);
   w();
-  for (const legendPet of legendPets) {
-    const elemName = elementNames[legendPet.element_id] || '';
-    const subElemName = legendPet.sub_element_id ? `/${elementNames[legendPet.sub_element_id] || ''}` : '';
-    w(`### ![pet:${legendPet.uid}] **${legendPet.name}**（${elemName}${subElemName}系）`);
-    w();
-    if (legendPet.ability_name) {
-      const abilityIconStr = abilityIcons[legendPet.uid] ? `![ability:${abilityIcons[legendPet.uid]}] ` : '';
-      w(`**特性${abilityIconStr}「${legendPet.ability_name}」**：${legendPet.ability_desc || ''}`);
-      w();
-    }
-    w(`**基础数值**：HP ${legendPet.hp} / 速度 ${legendPet.speed} / 物攻 ${legendPet.atk} / 魔攻 ${legendPet.matk} / 物防 ${legendPet.def} / 魔防 ${legendPet.mdef}　总计 **${legendPet.total}**`);
-    w();
-    const legendThumb = legendPet.thumb_url || `/public/pets/thumbs/${legendPet.uid}_default.webp`;
-    w(`常规：![img:${legendThumb}]　![shiny:${legendPet.uid}]`);
-    w();
-  }
+  renderPetSection(legendPets, '传说');
 }
 
 // --- Pass Pets ---
 if (passPets.length > 0) {
   w(`## 🎫 通行证精灵（${passPets.length} 只）`);
   w();
-  for (const p of passPets) {
-    const group = allPets.filter(x => x.pet_id === p.pet_id);
-    const elemName = elementNames[p.element_id] || '';
-    const subElemName = p.sub_element_id ? `/${elementNames[p.sub_element_id] || ''}` : '';
-    const chain = group.map(x => `![pet:${x.uid}] **${x.name}**`).join(' → ');
-    w(`### ${chain}（${elemName}${subElemName}系）　\`通行证\``);
-    w();
-    const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
-    if (finalForm.ability_name) {
-      const abilityIconStr = abilityIcons[finalForm.uid] ? `![ability:${abilityIcons[finalForm.uid]}] ` : '';
-      w(`**特性${abilityIconStr}「${finalForm.ability_name}」**：${finalForm.ability_desc || ''}`);
-      w();
-    }
-    w(`**基础数值**：HP ${finalForm.hp} / 速度 ${finalForm.speed} / 物攻 ${finalForm.atk} / 魔攻 ${finalForm.matk} / 物防 ${finalForm.def} / 魔防 ${finalForm.mdef}　总计 **${finalForm.total}**`);
-    w();
-    const defaultThumb = finalForm.thumb_url || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
-    w(`常规：![img:${defaultThumb}]　![shiny:${finalForm.uid}]`);
-    w();
-  }
+  renderPetSection(passPets, '通行证');
 }
 
 // --- Season Pets ---
 if (seasonPets.length > 0) {
   w(`## 🌟 赛季奇遇精灵（${seasonPets.length} 只）`);
   w();
-  for (const p of seasonPets) {
-    const group = allPets.filter(x => x.pet_id === p.pet_id);
-    const elemName = elementNames[p.element_id] || '';
-    const subElemName = p.sub_element_id ? `/${elementNames[p.sub_element_id] || ''}` : '';
-    const chain = group.map(x => `![pet:${x.uid}] **${x.name}**`).join(' → ');
-    w(`### ${chain}（${elemName}${subElemName}系）`);
-    w();
-    const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
-    if (finalForm.ability_name) {
-      const abilityIconStr = abilityIcons[finalForm.uid] ? `![ability:${abilityIcons[finalForm.uid]}] ` : '';
-      w(`**特性${abilityIconStr}「${finalForm.ability_name}」**：${finalForm.ability_desc || ''}`);
-      w();
-    }
-    w(`**基础数值**：HP ${finalForm.hp} / 速度 ${finalForm.speed} / 物攻 ${finalForm.atk} / 魔攻 ${finalForm.matk} / 物防 ${finalForm.def} / 魔防 ${finalForm.mdef}　总计 **${finalForm.total}**`);
-    w();
-    const defaultThumb = finalForm.thumb_url || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
-    w(`常规：![img:${defaultThumb}]　![shiny:${finalForm.uid}]`);
-    w();
-  }
+  renderPetSection(seasonPets, null);
 }
 
 // --- Shiny Pets ---
 if (shinyPets.length > 0) {
-w(`## ✨ 赛季奇遇异色精灵（${shinyPets.length} 只）`);
+  w(`## ✨ 赛季奇遇异色精灵（${shinyPets.length} 只）`);
   w();
+  w(`| <div style="min-width:130px;display:inline-block">图鉴</div> | <div style="min-width:360px;display:inline-block">精灵信息</div> |`);
+  w(`|------|---------|`);
   for (const p of shinyPets) {
+    const elemIcon = p.element_id && elementIcons[p.element_id] ? `![element:${elementIcons[p.element_id]}]` : '';
     const elemName = elementNames[p.element_id] || '';
-    const subElemName = p.sub_element_id ? `/${elementNames[p.sub_element_id] || ''}` : '';
+    const subElemIcon = p.sub_element_id && elementIcons[p.sub_element_id] ? `![element:${elementIcons[p.sub_element_id]}]` : '';
+    const subElemName = p.sub_element_id ? (elementNames[p.sub_element_id] || '') : '';
+    const elemDisplay = subElemName
+      ? `${elemIcon}${elemName} / ${subElemIcon}${subElemName}`
+      : `${elemIcon}${elemName}`;
     const defaultThumb = p.thumb_url || `/public/pets/thumbs/${p.uid}_default.webp`;
-    w(`- ![pet:${p.uid}] **${p.name}**（${elemName}${subElemName}系）　常规：![img:${defaultThumb}]　![shiny:${p.uid}]`);
+    const thumbCell = `![img:${defaultThumb}] ![shiny:${p.uid}]`;
+    let abilityStr = '';
+    if (p.ability_name) {
+      const abilityIconStr = abilityIcons[p.uid] ? `![ability:${abilityIcons[p.uid]}]` : '';
+      abilityStr = `**特性** ${abilityIconStr} **「${p.ability_name}」** ${p.ability_desc || ''}`;
+    }
+    const statsStr = `HP **${p.hp}** / 速度 **${p.speed}** / 物攻 **${p.atk}** / 魔攻 **${p.matk}** / 物防 **${p.def}** / 魔防 **${p.mdef}** 　总计 **${p.total}**`;
+    const nameRow = `**${p.name}**（${elemDisplay}系）`;
+    const infoLines = [nameRow];
+    if (abilityStr) infoLines.push(abilityStr);
+    infoLines.push(statsStr);
+    w(`| ${thumbCell} | ${infoLines.join('<br>')} |`);
   }
   w();
 }
