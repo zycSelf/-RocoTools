@@ -594,7 +594,7 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
     const iconMd = skillIconMd(skillUid, elemId);
 
     // Table row: skill icon+name | element | type | cost | power | desc
-    w(`| ${iconMd} **${skillName}** | ${elemIcon} ${elemName} | ${catName} | ${cost} | ${power} | ${desc} |`);
+    w(`| ${iconMd} **${skillName}** | ${elemIcon} | ${catName} | ${cost} | ${power} | ${desc} |`);
 
     // Group pets by skill_type, sort pets by uid numeric
     const byType = {};
@@ -621,12 +621,11 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
         return `![pet:${r.pet_uid}] ${name}${lvStr}`;
       });
       for (let i = 0; i < petCells.length; i += COLS) {
-        const chunk = petCells.slice(i, i + COLS).join('　　');
-        const typeCell = i === 0 ? `**${label}**：` : '　';
+        const chunk = petCells.slice(i, i + COLS).join('\u3000\u3000');
+        const typeCell = i === 0 ? `**${label}**\uff1a` : '';
         w(`| | | | | | ${typeCell}${chunk} |`);
       }
-    }
-  }
+    }  }
 
   if (skillsAdded.length > 0) {
     w(`### 新增学习`);
@@ -644,18 +643,18 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
   if (skillsRemoved.length > 0) {
     w(`### 移除学习`);
     w();
-    const grouped = groupBySkillName(skillsRemoved);
-    const sorted = sortSkillGroups(Object.entries(grouped));
+    const grouped2 = groupBySkillName(skillsRemoved);
+    const sorted2 = sortSkillGroups(Object.entries(grouped2));
     w(`| 技能 | 属性 | 类型 | 能耗 | 威力 | 效果/精灵 |`);
     w(`|------|------|------|------|------|----------|`);
-    for (const [skillName, records] of sorted) {
+    for (const [skillName, records] of sorted2) {
       renderSkillLearningGroup(skillName, records, uid => oldPetNames[uid] || petNames[uid] || uid);
     }
     w();
   }
 }
 
-// --- Skill Balance ---
+// --- Skill Balance (6-column table) ---
 // Sort by element order → skill ID
 modifiedSkills.sort((a, b) => {
   const elemA = ELEMENT_SORT_ORDER[a.skill.element_id] || 99;
@@ -669,37 +668,41 @@ w(`## ⚔️ 技能调整（${modifiedSkills.length} 个）`);
 w();
 w(`> 以下调整可能包含前赛季遗漏的技能修正，已与游戏实际情况比对，如有出入以官方为准。`);
 w();
+w(`| 技能 | 属性 | 类型 | 能耗 | 威力 | 调整内容 |`);
+w(`|------|------|------|------|------|----------|`);
 for (const { skill, changes, relevantFields } of modifiedSkills) {
-  w(`### ${skillIconMd(skill.uid, skill.element_id)} ${skill.name}`);
-  w();
+  const elemIcon = skill.element_id && elementIcons[skill.element_id] ? `![element:${elementIcons[skill.element_id]}]` : '';
+  const catName = skill.category || '-';
+  // Cost/Power columns: show change or current value
+  const costCell = changes.cost ? `${changes.cost.old}→${changes.cost.new}` : String(skill.cost ?? '-');
+  const powerCell = changes.power ? `${changes.power.old}→${changes.power.new}` : String(skill.power ?? '-');
+  // Build adjustment description
+  const adjustParts = [];
   for (const field of relevantFields) {
     const { old: oldVal, new: newVal } = changes[field];
     switch (field) {
-      case 'cost':
-        w(`- **能耗**：${oldVal} → ${newVal}`);
-        break;
-      case 'power':
-        w(`- **威力**：${oldVal} → ${newVal}`);
-        break;
+      case 'cost': break; // shown in cost column
+      case 'power': break; // shown in power column
       case 'description':
-        w(`- **效果**：${oldVal}`);
-        w(`- **→**：${newVal}`);
+        adjustParts.push(`${(oldVal || '').replace(/\n/g, ' ')}<br>→ ${(newVal || '').replace(/\n/g, ' ')}`);
         break;
       case 'category':
-        w(`- **类型**：${oldVal} → ${newVal}`);
+        adjustParts.push(`类型：${oldVal} → ${newVal}`);
         break;
       case 'element_id':
-        w(`- **属性**：${elementNames[oldVal] || oldVal} → ${elementNames[newVal] || newVal}`);
+        adjustParts.push(`属性：${elementNames[oldVal] || oldVal} → ${elementNames[newVal] || newVal}`);
         break;
       case 'name':
-        w(`- **名称**：${oldVal} → ${newVal}`);
+        adjustParts.push(`名称：${oldVal} → ${newVal}`);
         break;
     }
   }
-  w();
+  const adjustCell = adjustParts.join('<br>') || '-';
+  w(`| ${skillIconMd(skill.uid, skill.element_id)} **${skill.name}** | ${elemIcon} | ${catName} | ${costCell} | ${powerCell} | ${adjustCell} |`);
 }
+w();
 
-// --- Pet Ability Changes ---
+// --- Pet Ability Changes (2-column table) ---
 if (abilityChangedPets.length > 0) {
   // Sort by pet_id (numeric)
   abilityChangedPets.sort((a, b) => (a.pet.pet_id || 0) - (b.pet.pet_id || 0));
@@ -707,28 +710,43 @@ if (abilityChangedPets.length > 0) {
   w();
   w(`> 以下调整可能包含前赛季遗漏的特性修正，已与游戏实际情况比对，如有出入以官方为准。`);
   w();
+  w(`| 精灵 | 特性调整 |`);
+  w(`|------|----------|`);
   // Group by ability_desc to merge evolution lines
   const abilityGroups = {};
+  const abilityNameOnlyChanges = [];
   for (const { pet, changes } of abilityChangedPets) {
     const descChange = changes.ability_desc;
     if (descChange) {
       const key = `${descChange.old}|||${descChange.new}`;
-      if (!abilityGroups[key]) abilityGroups[key] = { old: descChange.old, new: descChange.new, pets: [], petUids: [] };
+      if (!abilityGroups[key]) abilityGroups[key] = { old: descChange.old, new: descChange.new, pets: [], petUids: [], abilityName: pet.ability_name };
       abilityGroups[key].pets.push(pet.name);
       abilityGroups[key].petUids.push(pet.uid);
     } else if (changes.ability_name) {
-      w(`- ![pet:${pet.uid}] **${pet.name}**：特性名 ${changes.ability_name.old} → ${changes.ability_name.new}`);
+      abilityNameOnlyChanges.push({ pet, changes });
     }
   }
-  w();
-  for (const group of Object.values(abilityGroups)) {
-    const names = group.pets.length <= 3 ? group.pets.join('、') : `${group.pets.slice(0, 3).join('、')}等${group.pets.length}只`;
-    const icons = group.petUids.slice(0, 3).map(uid => `![pet:${uid}]`).join(' ');
-    w(`${icons} **${names}**`);
-    w(`- 旧：${group.old}`);
-    w(`- 新：${group.new}`);
-    w();
+  // Render name-only changes first
+  for (const { pet, changes } of abilityNameOnlyChanges) {
+    const abilIcon = abilityIcons[pet.uid] ? `![ability:${abilityIcons[pet.uid]}]` : '';
+    w(`| ![pet:${pet.uid}] | ${abilIcon} 特性名：${changes.ability_name.old} → ${changes.ability_name.new} |`);
   }
+  // Render grouped desc changes
+  for (const group of Object.values(abilityGroups)) {
+    // Show all pet icons, 3 per line
+    const allIcons = group.petUids.map(uid => `![pet:${uid}]`);
+    const iconLines = [];
+    for (let i = 0; i < allIcons.length; i += 3) {
+      iconLines.push(allIcons.slice(i, i + 3).join(' '));
+    }
+    const icons = iconLines.join('<br>');
+    // Use first pet's ability icon
+    const firstUid = group.petUids[0];
+    const abilIcon = abilityIcons[firstUid] ? `![ability:${abilityIcons[firstUid]}]` : '';
+    const abilityNameStr = group.abilityName ? `**「${group.abilityName}」** ` : '';
+    w(`| ${icons} | ${abilIcon} ${abilityNameStr}${group.old}<br>→ ${group.new} |`);
+  }
+  w();
 }
 
 // --- Footer ---
