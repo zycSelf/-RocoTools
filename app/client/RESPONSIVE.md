@@ -152,6 +152,25 @@ grid-cols-4 sm:grid-cols-6 lg:grid-cols-9
   - 技能列表：`hidden lg:block` 表格 + `lg:hidden` 卡片
   - 克制表：使用 `.scroll-x-mobile` 横滚
 
+### 公告多列表格（cols-N）
+
+公告 Markdown 渲染的表格根据列数自动添加 `cols-N` class，不同列数有不同的适配策略：
+
+| Class | 列数 | 策略 |
+|-------|------|------|
+| `cols-2` | 2列 | 第一列 sticky + 固定宽度 130px |
+| `cols-3` | 3列 | `width: max-content` + 每列 min-width 150px |
+| `cols-6` | 6列 | 第一列 sticky + 背景色覆盖 + 阴影分隔 |
+| `cols-8` | 8列 | 第一列 sticky + `width: max-content` + 背景色覆盖 + 阴影分隔 |
+
+**cols-8 适用场景**：精灵数值调整表格、精灵个体值补充表格（精灵 | HP | 速度 | 物攻 | 魔攻 | 物防 | 魔防 | 总计）
+
+**实现要点**：
+- 表格容器 `.table-wrap` 提供 `overflow-x: auto` 横向滚动
+- 第一列（精灵名）`position: sticky; left: 0` 固定在左侧
+- sticky 列需要独立背景色（覆盖斑马纹/hover），否则内容会穿透
+- `z-index: 5`（表头）> `z-index: 2`（数据行）确保层级正确
+
 ---
 
 ## 布局切换断点

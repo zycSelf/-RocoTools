@@ -202,7 +202,7 @@ function parseMarkdown(md) {
       if (!inTable) {
         if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
         inTable = true
-        html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
+        html += `<div class="table-wrap"><table class="cols-${cells.length}"><thead><tr>` + cells.map(c => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>'
         continue
       }
       html += '<tr>' + cells.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'
@@ -460,7 +460,44 @@ onMounted(async () => {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.78rem;
+}
+:deep(.prose-announcement table.cols-2 td:first-child),
+:deep(.prose-announcement table.cols-2 th:first-child) {
   white-space: nowrap;
+  width: 130px;
+  min-width: 130px;
+}
+:deep(.prose-announcement table.cols-2 td:nth-child(2)),
+:deep(.prose-announcement table.cols-2 th:nth-child(2)) {
+  white-space: normal;
+  min-width: 200px;
+  word-break: break-word;
+}
+:deep(.prose-announcement table:not(.cols-2) td) {
+  white-space: nowrap;
+}
+:deep(.prose-announcement table.cols-3) {
+  width: max-content;
+  min-width: 100%;
+}
+:deep(.prose-announcement table.cols-3 td) {
+  min-width: 150px;
+}
+:deep(.prose-announcement table.cols-8) {
+  width: max-content;
+  min-width: 100%;
+}
+:deep(.prose-announcement table.cols-8 th:first-child),
+:deep(.prose-announcement table.cols-8 td:first-child) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 90px;
+}
+:deep(.prose-announcement table.cols-8 th:first-child) {
+  z-index: 5;
 }
 :deep(.prose-announcement th) {
   font-weight: 600;
@@ -491,43 +528,68 @@ onMounted(async () => {
 :deep(.prose-dark td) {
   border-bottom: 1px solid #1e2433;
 }
-/* Sticky first column */
-:deep(.prose-announcement th:first-child),
-:deep(.prose-announcement td:first-child) {
+/* Sticky first column (for 2-col, 6-col and 8-col tables) */
+:deep(.prose-announcement table.cols-2 th:first-child),
+:deep(.prose-announcement table.cols-2 td:first-child),
+:deep(.prose-announcement table.cols-6 th:first-child),
+:deep(.prose-announcement table.cols-6 td:first-child) {
   position: sticky;
   left: 0;
   z-index: 2;
   font-weight: 600;
 }
-:deep(.prose-announcement th:first-child) {
+:deep(.prose-announcement table.cols-2 th:first-child) {
   z-index: 5;
 }
-:deep(.prose-light th:first-child),
-:deep(.prose-light td:first-child) {
+:deep(.prose-announcement table.cols-6 th:first-child) {
+  z-index: 5;
+}
+:deep(.prose-light table.cols-2 th:first-child),
+:deep(.prose-light table.cols-2 td:first-child),
+:deep(.prose-light table.cols-6 th:first-child),
+:deep(.prose-light table.cols-6 td:first-child),
+:deep(.prose-light table.cols-8 th:first-child),
+:deep(.prose-light table.cols-8 td:first-child) {
   background: #fff;
   box-shadow: 2px 0 4px -1px rgba(0, 0, 0, 0.06);
 }
-:deep(.prose-dark th:first-child),
-:deep(.prose-dark td:first-child) {
+:deep(.prose-dark table.cols-2 th:first-child),
+:deep(.prose-dark table.cols-2 td:first-child),
+:deep(.prose-dark table.cols-6 th:first-child),
+:deep(.prose-dark table.cols-6 td:first-child),
+:deep(.prose-dark table.cols-8 th:first-child),
+:deep(.prose-dark table.cols-8 td:first-child) {
   background: #1f2937;
   box-shadow: 2px 0 4px -1px rgba(0, 0, 0, 0.3);
 }
-:deep(.prose-light th:first-child) {
+:deep(.prose-light table.cols-2 th:first-child),
+:deep(.prose-light table.cols-6 th:first-child),
+:deep(.prose-light table.cols-8 th:first-child) {
   background: #fdf6e3;
 }
-:deep(.prose-dark th:first-child) {
+:deep(.prose-dark table.cols-2 th:first-child),
+:deep(.prose-dark table.cols-6 th:first-child),
+:deep(.prose-dark table.cols-8 th:first-child) {
   background: #252d3a;
 }
-:deep(.prose-light tr:nth-child(even) td:first-child) {
+:deep(.prose-light table.cols-2 tr:nth-child(even) td:first-child),
+:deep(.prose-light table.cols-6 tr:nth-child(even) td:first-child),
+:deep(.prose-light table.cols-8 tr:nth-child(even) td:first-child) {
   background: #fafafa;
 }
-:deep(.prose-dark tr:nth-child(even) td:first-child) {
+:deep(.prose-dark table.cols-2 tr:nth-child(even) td:first-child),
+:deep(.prose-dark table.cols-6 tr:nth-child(even) td:first-child),
+:deep(.prose-dark table.cols-8 tr:nth-child(even) td:first-child) {
   background: #1a2332;
 }
-:deep(.prose-light tr:hover td:first-child) {
+:deep(.prose-light table.cols-2 tr:hover td:first-child),
+:deep(.prose-light table.cols-6 tr:hover td:first-child),
+:deep(.prose-light table.cols-8 tr:hover td:first-child) {
   background: rgba(214, 159, 35, 0.05);
 }
-:deep(.prose-dark tr:hover td:first-child) {
+:deep(.prose-dark table.cols-2 tr:hover td:first-child),
+:deep(.prose-dark table.cols-6 tr:hover td:first-child),
+:deep(.prose-dark table.cols-8 tr:hover td:first-child) {
   background: rgba(255, 202, 40, 0.05);
 }
 /* Zebra striping */
@@ -638,6 +700,21 @@ onMounted(async () => {
   object-fit: contain;
   border-radius: 6px;
   margin: 0 3px;
+  flex-shrink: 0;
+}
+:deep(.prose-announcement .shiny-wrap) {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 2px;
+  white-space: nowrap;
+}
+:deep(.prose-announcement table.cols-2 td:first-child .shiny-wrap) {
+  font-size: 0;
+  gap: 0;
+}
+:deep(.prose-announcement table.cols-2 td:first-child .shiny-wrap .inline-img) {
+  font-size: 0.78rem;
 }
 :deep(.prose-light .skill-icon) {
   background: rgba(0, 0, 0, 0.03);

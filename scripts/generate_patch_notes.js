@@ -299,35 +299,56 @@ w();
 
 // --- New Pets (each category is its own ## section, no top-level heading) ---
 
-// Helper: render one pet group (evolution line)
-function renderNewPetGroup(group, tag) {
-  const first = group[0];
-  const elemName = elementNames[first.element_id] || '';
-  const subElemName = first.sub_element_id ? `/${elementNames[first.sub_element_id] || ''}` : '';
-  const tagStr = tag ? `　\`${tag}\`` : '';
-  const chain = group.map(p => `![pet:${p.uid}] **${p.name}**`).join(' → ');
+// Helper: render a section of pets as a compact table
+// Each group = one evolution line; renders as one table row per group
+function renderNewPetSection(groups, tag) {
+  w(`| <div style="min-width:130px;display:inline-block">图鉴</div> | <div style="min-width:360px;display:inline-block">精灵信息</div> |`);
+  w(`|------|---------|`);
+  for (const group of groups) {
+    const first = group[0];
+    const elemName = elementNames[first.element_id] || '';
+    const elemIcon = first.element_id && elementIcons[first.element_id] ? `![element:${elementIcons[first.element_id]}]` : '';
+    const subElemName = first.sub_element_id ? (elementNames[first.sub_element_id] || '') : '';
+    const subElemIcon = first.sub_element_id && elementIcons[first.sub_element_id] ? `![element:${elementIcons[first.sub_element_id]}]` : '';
+    const elemDisplay = subElemName
+      ? `${elemIcon}${elemName} / ${subElemIcon}${subElemName}`
+      : `${elemIcon}${elemName}`;
+    const tagStr = tag ? ` \`${tag}\`` : '';
 
-  w(`### ${chain}（${elemName}${subElemName}系）${tagStr}`);
-  w();
+    // Final form = highest total
+    const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
 
-  // Final form = highest total
-  const finalForm = group.reduce((a, b) => (b.total > a.total ? b : a), group[0]);
+    // 进化链名称
+    const chain = group.map(p => `**${p.name}**`).join(' → ');
 
-  // 特性
-  if (finalForm.ability_name) {
-    const abilityIconStr = abilityIcons[finalForm.uid] ? `![ability:${abilityIcons[finalForm.uid]}] ` : '';
-    w(`**特性${abilityIconStr}「${finalForm.ability_name}」**：${finalForm.ability_desc || ''}`);
-    w();
+    // 特性
+    let abilityStr = '';
+    if (finalForm.ability_name) {
+      const abilityIconStr = abilityIcons[finalForm.uid] ? `![ability:${abilityIcons[finalForm.uid]}]` : '';
+      abilityStr = `**特性** ${abilityIconStr} **「${finalForm.ability_name}」** ${finalForm.ability_desc || ''}`;
+    }
+
+    // 数值
+    const statsStr = `HP **${finalForm.hp}** / 速度 **${finalForm.speed}** / 物攻 **${finalForm.atk}** / 魔攻 **${finalForm.matk}** / 物防 **${finalForm.def}** / 魔防 **${finalForm.mdef}** 　总计 **${finalForm.total}**`;
+
+    // 图鉴图（常规 + 异色，同一行）
+    const defaultThumb = petThumbs[finalForm.uid] || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
+    const thumbCell = `![img:${defaultThumb}] ![shiny:${finalForm.uid}]`;
+
+    // 信息列：名称行 + 特性行 + 数值行（用 <br> 换行）
+    const nameRow = `${chain}（${elemDisplay}系）${tagStr}`;
+    const infoLines = [nameRow];
+    if (abilityStr) infoLines.push(abilityStr);
+    infoLines.push(statsStr);
+
+    w(`| ${thumbCell} | ${infoLines.join('<br>')} |`);
   }
-
-  // 六维
-  w(`**基础数值**：HP ${finalForm.hp} / 速度 ${finalForm.speed} / 物攻 ${finalForm.atk} / 魔攻 ${finalForm.matk} / 物防 ${finalForm.def} / 魔防 ${finalForm.mdef}　总计 **${finalForm.total}**`);
   w();
+}
 
-  // 立绘（常规 + 异色，异色图片由前端动态判断是否显示）
-  const defaultThumb = petThumbs[finalForm.uid] || `/public/pets/thumbs/${finalForm.uid}_default.webp`;
-  w(`常规：![img:${defaultThumb}]　![shiny:${finalForm.uid}]`);
-  w();
+// Legacy single-group wrapper (for shiny-only section)
+function renderNewPetGroup(group, tag) {
+  renderNewPetSection([group], tag);
 }
 
 // Group new pets by pet_id (evolution line)
@@ -359,21 +380,21 @@ seasonGroups.sort(sortByPetId);
 if (legendGroups.length) {
   w(`## ⭐ 传说精灵（${legendGroups.length} 只）`);
   w();
-  for (const g of legendGroups) renderNewPetGroup(g, '传说');
+  renderNewPetSection(legendGroups, '传说');
 }
 
 // --- 通行证精灵 ---
 if (passGroups.length) {
   w(`## 🎫 通行证精灵（${passGroups.length} 只）`);
   w();
-  for (const g of passGroups) renderNewPetGroup(g, '通行证');
+  renderNewPetSection(passGroups, '通行证');
 }
 
 // --- 赛季奇遇精灵 ---
 if (seasonGroups.length) {
   w(`## 🌟 赛季奇遇精灵（${seasonGroups.length} 只）`);
   w();
-  for (const g of seasonGroups) renderNewPetGroup(g, null);
+  renderNewPetSection(seasonGroups, null);
 }
 
 // --- 赛季奇遇异色精灵（老精灵新增异色）---
@@ -386,29 +407,41 @@ if (newShinyOnlyIds.length > 0) {
   });
   w(`## ✨ 赛季奇遇异色精灵（${newShinyOnlyIds.length} 只）`);
   w();
+  let _shinyTableStarted = false;
   for (const id of newShinyOnlyIds) {
     const pet = db2.prepare('SELECT * FROM pets WHERE uid=? OR pet_id=? LIMIT 1').get(id, stripPrefix(id));
     if (!pet) continue;
     const elemName = elementNames[pet.element_id] || '';
-    const subElemName = pet.sub_element_id ? `/${elementNames[pet.sub_element_id] || ''}` : '';
-    const defaultThumb = petThumbs[pet.uid] || `/public/pets/thumbs/${pet.uid}_default.webp`;
-    const shinyThumb = `/public/pets/shiny/${pet.uid}_shiny.webp`;
-    w(`### ![pet:${pet.uid}] **${pet.name}**（${elemName}${subElemName}系）`);
-    w();
+    const subElemName = pet.sub_element_id ? (elementNames[pet.sub_element_id] || '') : '';
+    const elemIcon2 = pet.element_id && elementIcons[pet.element_id] ? `![element:${elementIcons[pet.element_id]}]` : '';
+    const subElemIcon2 = pet.sub_element_id && elementIcons[pet.sub_element_id] ? `![element:${elementIcons[pet.sub_element_id]}]` : '';
+    const elemDisplay2 = subElemName
+      ? `${elemIcon2}${elemName} / ${subElemIcon2}${subElemName}`
+      : `${elemIcon2}${elemName}`;
+    const defaultThumb2 = petThumbs[pet.uid] || `/public/pets/thumbs/${pet.uid}_default.webp`;
+    let abilityStr2 = '';
     if (pet.ability_name) {
-      const abilityIconStr = abilityIcons[pet.uid] ? `![ability:${abilityIcons[pet.uid]}] ` : '';
-      w(`**特性${abilityIconStr}「${pet.ability_name}」**：${pet.ability_desc || ''}`);
-      w();
+      const abilityIconStr = abilityIcons[pet.uid] ? `![ability:${abilityIcons[pet.uid]}]` : '';
+      abilityStr2 = `**特性** ${abilityIconStr} **「${pet.ability_name}」** ${pet.ability_desc || ''}`;
     }
-    w(`**基础数值**：HP ${pet.hp} / 速度 ${pet.speed} / 物攻 ${pet.atk} / 魔攻 ${pet.matk} / 物防 ${pet.def} / 魔防 ${pet.mdef}　总计 **${pet.total}**`);
-    w();
-    w(`常规：![img:${defaultThumb}]　![shiny:${pet.uid}]`);
-    w();
+    const statsStr2 = `HP **${pet.hp}** / 速度 **${pet.speed}** / 物攻 **${pet.atk}** / 魔攻 **${pet.matk}** / 物防 **${pet.def}** / 魔防 **${pet.mdef}** 　总计 **${pet.total}**`;
+    const nameRow2 = `**${pet.name}**（${elemDisplay2}系）`;
+    const infoLines2 = [nameRow2];
+    if (abilityStr2) infoLines2.push(abilityStr2);
+    infoLines2.push(statsStr2);
+    // 图鉴列统一格式：常规图 + 异色图（同一行），与其他表格对齐
+    const thumbCell2 = `![img:${defaultThumb2}] ![shiny:${pet.uid}]`;
+    if (!_shinyTableStarted) {
+      w(`| <div style="min-width:130px;display:inline-block">图鉴</div> | <div style="min-width:360px;display:inline-block">精灵信息</div> |`);
+      w(`|------|---------|`);
+      _shinyTableStarted = true;
+    }
+    w(`| ${thumbCell2} | ${infoLines2.join('<br>')} |`);
   }
 }
 
 // --- 全部新增精灵
-// --- 全部新增精灵（简单列表，不展示特性数值）---
+// --- 全部新增精灵（表格形式，每行3只，头像+名称+属性图标）---
 w(`## 📋 全部新增精灵（${newPets.length} 只）`);
 w();
 // Sort by pet_id then uid for consistent ordering
@@ -417,15 +450,29 @@ const sortedNewPets = [...newPets].sort((a, b) => {
   if (a.pet_id > b.pet_id) return 1;
   return a.uid < b.uid ? -1 : 1;
 });
-for (const p of sortedNewPets) {
-  const elemName = elementNames[p.element_id] || '';
-  const subElemName = p.sub_element_id ? `/${elementNames[p.sub_element_id] || ''}` : '';
+const ALL_PET_COLS = 3;
+// Build cells
+const allPetCells = sortedNewPets.map(p => {
+  const elemIcon = p.element_id && elementIcons[p.element_id] ? `![element:${elementIcons[p.element_id]}]` : '';
+  const subElemIcon = p.sub_element_id && elementIcons[p.sub_element_id] ? `![element:${elementIcons[p.sub_element_id]}]` : '';
+  const elemStr = subElemIcon ? `${elemIcon}${subElemIcon}` : elemIcon;
   const tags = [];
   if (groupMatchesSet([p], s2LegendIds)) tags.push('传说');
   else if (groupMatchesSet([p], s2PassIds)) tags.push('通行证');
   else if (groupMatchesSet([p], s2SeasonIds)) tags.push('赛季奇遇');
-  const tagStr = tags.length ? `　\`${tags[0]}\`` : '';
-  w(`- ![pet:${p.uid}] **${p.name}**（${elemName}${subElemName}系）${tagStr}`);
+  const tagStr = tags.length ? ` \`${tags[0]}\`` : '';
+  return `![pet:${p.uid}] **${p.name}** ${elemStr}${tagStr}`;
+});
+// Table header
+w(`|` + ' 精灵 |'.repeat(ALL_PET_COLS));
+w(`|` + '------|'.repeat(ALL_PET_COLS));
+// Table rows
+for (let i = 0; i < allPetCells.length; i += ALL_PET_COLS) {
+  const row = [];
+  for (let j = 0; j < ALL_PET_COLS; j++) {
+    row.push(allPetCells[i + j] || '');
+  }
+  w(`| ${row.join(' | ')} |`);
 }
 w();
 
@@ -501,66 +548,108 @@ if (skillsAdded.length > 0 || skillsRemoved.length > 0) {
   w();
   w(`> 以下变动可能包含前赛季遗漏的技能学习面补充，已与游戏实际情况比对，如有出入以官方为准。`);
   w();
-  
+
+  // Skill detail lookup by name
+  const skillDetailByName = {};
+  db2.prepare('SELECT * FROM skills').all().forEach(r => { skillDetailByName[r.name] = r; });
+
+  // SKILL_TYPE labels
+  const SKILL_TYPE_LABELS = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石' };
+
+  // Group by skill name → { skillName, records: [{pet_uid, skill_type, level}] }
+  function groupBySkillName(records) {
+    const grouped = {};
+    for (const r of records) {
+      if (!grouped[r.name]) grouped[r.name] = [];
+      grouped[r.name].push(r);
+    }
+    return grouped;
+  }
+
+  // Sort skill groups: by element order → skill uid numeric
+  function sortSkillGroups(entries) {
+    return entries.sort((a, b) => {
+      const sA = skillDetailByName[a[0]];
+      const sB = skillDetailByName[b[0]];
+      const elemA = ELEMENT_SORT_ORDER[sA?.element_id] ?? 99;
+      const elemB = ELEMENT_SORT_ORDER[sB?.element_id] ?? 99;
+      if (elemA !== elemB) return elemA - elemB;
+      const numA = parseInt(sA?.uid?.replace(/\D/g, '') || '0');
+      const numB = parseInt(sB?.uid?.replace(/\D/g, '') || '0');
+      return numA - numB;
+    });
+  }
+
+  // Render one skill-group block
+  function renderSkillLearningGroup(skillName, records, petNamesFn) {
+    const skill = skillDetailByName[skillName];
+    const skillUid = skill?.uid || '';
+    const elemId = skill?.element_id;
+    const elemIcon = elemId && elementIcons[elemId] ? `![element:${elementIcons[elemId]}]` : '';
+    const elemName = elemId ? (elementNames[elemId] || '') : '';
+    const catName = skill?.category || '-';
+    const cost = skill?.cost ?? '-';
+    const power = skill?.power ?? '-';
+    const desc = (skill?.description || '').replace(/\n/g, ' ');
+    const iconMd = skillIconMd(skillUid, elemId);
+
+    // Table row: skill icon+name | element | type | cost | power | desc
+    w(`| ${iconMd} **${skillName}** | ${elemIcon} ${elemName} | ${catName} | ${cost} | ${power} | ${desc} |`);
+
+    // Group pets by skill_type, sort pets by uid numeric
+    const byType = {};
+    for (const r of records) {
+      const t = r.skill_type || 'skills';
+      if (!byType[t]) byType[t] = [];
+      byType[t].push(r);
+    }
+    // Output pet list as indented lines below the table row (outside table)
+    // We collect all pet lines and output after the table separator trick:
+    // Actually we output them as additional table rows with merged first cell
+    for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
+      if (!byType[type]) continue;
+      const label = SKILL_TYPE_LABELS[type] || type;
+      const sorted = byType[type].sort((a, b) => {
+        const numA = parseInt(a.pet_uid.replace(/\D/g, '') || '0');
+        const numB = parseInt(b.pet_uid.replace(/\D/g, '') || '0');
+        return numA - numB;
+      });
+      const COLS = 4;
+      const petCells = sorted.map(r => {
+        const name = petNamesFn(r.pet_uid);
+        const lvStr = (type === 'skills' && r.level != null) ? `(Lv${r.level})` : '';
+        return `![pet:${r.pet_uid}] ${name}${lvStr}`;
+      });
+      for (let i = 0; i < petCells.length; i += COLS) {
+        const chunk = petCells.slice(i, i + COLS).join('　　');
+        const typeCell = i === 0 ? `**${label}**：` : '　';
+        w(`| | | | | | ${typeCell}${chunk} |`);
+      }
+    }
+  }
+
   if (skillsAdded.length > 0) {
     w(`### 新增学习`);
     w();
-    const grouped = groupByPet(skillsAdded);
-    const SKILL_TYPE_LABELS_SHORT = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
-    // Sort by pet_id numeric part
-    const sortedAddedEntries = Object.entries(grouped).sort((a, b) => {
-      const numA = parseInt(a[0].replace(/\D/g, '') || '0');
-      const numB = parseInt(b[0].replace(/\D/g, '') || '0');
-      return numA - numB;
-    });
-    for (const [uid, skills] of sortedAddedEntries) {
-      const name = petNames[uid] || uid;
-      // Group by skill_type
-      const byType = {};
-      for (const s of skills) {
-        const t = s.skill_type || 'skills';
-        if (!byType[t]) byType[t] = [];
-        byType[t].push(s);
-      }
-      const parts = [];
-      for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
-        if (!byType[type]) continue;
-        const label = SKILL_TYPE_LABELS_SHORT[type];
-        const items = byType[type].map(s => s.level != null ? `${s.name}(Lv${s.level})` : s.name).join('、');
-        parts.push(`${label}：${items}`);
-      }
-      w(`- ![pet:${uid}] **${name}**：${parts.join('；')}`);
+    const grouped = groupBySkillName(skillsAdded);
+    const sorted = sortSkillGroups(Object.entries(grouped));
+    w(`| 技能 | 属性 | 类型 | 能耗 | 威力 | 效果/精灵 |`);
+    w(`|------|------|------|------|------|----------|`);
+    for (const [skillName, records] of sorted) {
+      renderSkillLearningGroup(skillName, records, uid => petNames[uid] || uid);
     }
     w();
   }
-  
+
   if (skillsRemoved.length > 0) {
     w(`### 移除学习`);
     w();
-    const grouped = groupByPet(skillsRemoved);
-    const SKILL_TYPE_LABELS_SHORT2 = { skills: '精灵技能', bloodline_skills: '血脉技能', learnable_stones: '技能石技能' };
-    // Sort by pet_id numeric part
-    const sortedRemovedEntries = Object.entries(grouped).sort((a, b) => {
-      const numA = parseInt(a[0].replace(/\D/g, '') || '0');
-      const numB = parseInt(b[0].replace(/\D/g, '') || '0');
-      return numA - numB;
-    });
-    for (const [uid, skills] of sortedRemovedEntries) {
-      const name = oldPetNames[uid] || petNames[uid] || uid;
-      const byType = {};
-      for (const s of skills) {
-        const t = s.skill_type || 'skills';
-        if (!byType[t]) byType[t] = [];
-        byType[t].push(s);
-      }
-      const parts = [];
-      for (const type of ['skills', 'bloodline_skills', 'learnable_stones']) {
-        if (!byType[type]) continue;
-        const label = SKILL_TYPE_LABELS_SHORT2[type];
-        const items = byType[type].map(s => s.level != null ? `${s.name}(Lv${s.level})` : s.name).join('、');
-        parts.push(`${label}：${items}`);
-      }
-      w(`- ![pet:${uid}] **${name}**：${parts.join('；')}`);
+    const grouped = groupBySkillName(skillsRemoved);
+    const sorted = sortSkillGroups(Object.entries(grouped));
+    w(`| 技能 | 属性 | 类型 | 能耗 | 威力 | 效果/精灵 |`);
+    w(`|------|------|------|------|------|----------|`);
+    for (const [skillName, records] of sorted) {
+      renderSkillLearningGroup(skillName, records, uid => oldPetNames[uid] || petNames[uid] || uid);
     }
     w();
   }

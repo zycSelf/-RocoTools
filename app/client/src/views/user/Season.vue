@@ -232,7 +232,7 @@ function parseMarkdown(md) {
       if (!inTable) {
         if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false }
         inTable = true
-        html += '<div class="table-wrap"><table><thead><tr>' + cells.map(c => `<th>${inlineFormat(c)}</th>`).join('') + '</tr></thead><tbody>'
+        html += `<div class="table-wrap"><table class="cols-${cells.length}"><thead><tr>` + cells.map(c => `<th>${inlineFormat(c)}</th>`).join('') + '</tr></thead><tbody>'
         continue
       }
       html += '<tr>' + cells.map(c => `<td>${inlineFormat(c)}</td>`).join('') + '</tr>'; continue
@@ -370,7 +370,21 @@ onMounted(async () => {
 :deep(.prose-announcement .table-wrap) { overflow-x: auto; margin: 0.75rem 0; border-radius: 8px; border: 1px solid; }
 :deep(.prose-light .table-wrap) { border-color: #e5e7eb; }
 :deep(.prose-dark .table-wrap) { border-color: #2d3548; }
-:deep(.prose-announcement table) { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+:deep(.prose-announcement table) { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+:deep(.prose-announcement table.cols-2 td:first-child), :deep(.prose-announcement table.cols-2 th:first-child) { white-space: nowrap; width: 130px; min-width: 130px; }
+:deep(.prose-announcement table.cols-2 td:nth-child(2)), :deep(.prose-announcement table.cols-2 th:nth-child(2)) { white-space: normal; min-width: 200px; word-break: break-word; }
+:deep(.prose-announcement table:not(.cols-2) td) { white-space: nowrap; }
+:deep(.prose-announcement table.cols-3) { width: max-content; min-width: 100%; }
+:deep(.prose-announcement table.cols-3 td) { min-width: 150px; }
+:deep(.prose-announcement table.cols-8) { width: max-content; min-width: 100%; }
+:deep(.prose-announcement table.cols-8 th:first-child), :deep(.prose-announcement table.cols-8 td:first-child) { position: sticky; left: 0; z-index: 2; font-weight: 600; white-space: nowrap; min-width: 90px; }
+:deep(.prose-announcement table.cols-8 th:first-child) { z-index: 5; }
+:deep(.prose-light table.cols-8 th:first-child) { background: #fdf6e3; }
+:deep(.prose-light table.cols-8 td:first-child) { background: #fff; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.06); }
+:deep(.prose-dark table.cols-8 th:first-child) { background: #252d3a; }
+:deep(.prose-dark table.cols-8 td:first-child) { background: #1f2937; box-shadow: 2px 0 4px -1px rgba(0,0,0,0.3); }
+:deep(.prose-light table.cols-8 tr:nth-child(even) td:first-child) { background: #fafafa; }
+:deep(.prose-dark table.cols-8 tr:nth-child(even) td:first-child) { background: #1a2332; }
 :deep(.prose-announcement th) { font-weight: 600; padding: 0.45rem 0.6rem; text-align: left; }
 :deep(.prose-light th) { background: #fdf6e3; color: #92700C; border-bottom: 2px solid rgba(214,159,35,0.3); }
 :deep(.prose-dark th) { background: #252d3a; color: #FFCA28; border-bottom: 2px solid rgba(255,202,40,0.2); }
@@ -393,5 +407,8 @@ onMounted(async () => {
 :deep(.prose-announcement .skill-icon) { width: 20px; height: 20px; }
 :deep(.prose-announcement .element-icon) { width: 20px; height: 20px; }
 :deep(.prose-announcement .ability-icon) { width: 2em; height: 2em; vertical-align: -0.5em; object-fit: contain; margin: 0 2px; }
-:deep(.prose-announcement .inline-img) { display: inline-block; vertical-align: middle; width: 56px; height: 56px; object-fit: contain; border-radius: 6px; margin: 0 3px; }
+:deep(.prose-announcement .inline-img) { display: inline-block; vertical-align: middle; width: 56px; height: 56px; object-fit: contain; border-radius: 6px; margin: 0 3px; flex-shrink: 0; }
+:deep(.prose-announcement .shiny-wrap) { display: inline-flex; align-items: center; vertical-align: middle; gap: 2px; white-space: nowrap; }
+:deep(.prose-announcement table.cols-2 td:first-child .shiny-wrap) { font-size: 0; gap: 0; }
+:deep(.prose-announcement table.cols-2 td:first-child .shiny-wrap .inline-img) { font-size: 0.78rem; }
 </style>
