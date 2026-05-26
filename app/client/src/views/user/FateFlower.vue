@@ -267,10 +267,10 @@
 
               <!-- Pets grid -->
               <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-                <router-link
+                <div
                   v-for="(cp, idx) in group.pets"
                   :key="cp.uid"
-                  :to="'/pets/' + cp.uid"
+                  @click="openSkillModal(cp)"
                   class="counter-pick-card group"
                 >
                   <!-- Rank badge -->
@@ -316,7 +316,7 @@
                     <div class="h-full rounded-full bg-gradient-to-r from-blue-400 to-purple-400"
                       :style="{ width: Math.max(10, Math.min(100, cp.total_score / (group.pets[0]?.total_score || 1) * 100)) + '%' }"></div>
                   </div>
-                </router-link>
+                </div>
               </div>
             </div>
           </template>
@@ -333,6 +333,112 @@
         <div class="animate-pulse">加载精灵信息...</div>
       </div>
     </template>
+
+    <!-- Skill Recommendation Modal -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="skillModalVisible" class="fixed inset-0 z-50 flex items-center justify-center p-4" @click.self="skillModalVisible = false">
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <!-- Modal header -->
+            <div class="flex items-center gap-3 p-4 sm:p-5 border-b border-gray-200 dark:border-white/10 flex-shrink-0">
+              <img v-if="skillModalPet?.image_url" :src="skillModalPet.image_url" class="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
+              <div class="flex-1 min-w-0">
+                <h3 class="font-roco text-base sm:text-lg truncate">{{ skillModalPet?.name }} - 推荐技能</h3>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <img v-if="skillModalPet?.element_icon" :src="skillModalPet.element_icon" class="w-4 h-4" />
+                  <span class="text-xs text-muted">{{ skillModalPet?.element_name }}</span>
+                  <template v-if="skillModalPet?.sub_element_icon">
+                    <span class="text-muted">/</span>
+                    <img :src="skillModalPet.sub_element_icon" class="w-4 h-4" />
+                    <span class="text-xs text-muted">{{ skillModalPet?.sub_element_name }}</span>
+                  </template>
+                </div>
+              </div>
+              <router-link :to="'/pets/' + skillModalPet?.uid" class="text-xs sm:text-sm text-primary-500 hover:text-primary-600 font-medium whitespace-nowrap">
+                前往详情 →
+              </router-link>
+              <button @click="skillModalVisible = false" class="w-7 h-7 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-muted hover:text-foreground cursor-pointer flex-shrink-0">
+                ✕
+              </button>
+            </div>
+
+            <!-- Skill tabs -->
+            <div class="flex items-center gap-1 px-4 sm:px-5 pt-3 flex-shrink-0">
+              <button v-for="tab in skillModalTabs" :key="tab.key"
+                @click="skillModalActiveTab = tab.key"
+                class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors cursor-pointer"
+                :class="skillModalActiveTab === tab.key ? 'bg-primary-100 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400' : 'text-muted hover:bg-gray-100 dark:hover:bg-white/5'">
+                {{ tab.label }} ({{ tab.count }})
+              </button>
+            </div>
+
+            <!-- Skill list -->
+            <div class="flex-1 overflow-y-auto p-4 sm:p-5">
+              <div v-if="skillModalLoading" class="text-center py-8 text-muted text-sm animate-pulse">
+                加载技能中...
+              </div>
+              <div v-else-if="skillModalCurrentSkills.length" class="space-y-2">
+                <div v-for="skill in skillModalCurrentSkills" :key="skill.id || skill.name"
+                  class="flex items-start gap-2 md:gap-3 p-2.5 md:p-3 rounded-lg bg-gray-50 dark:bg-white/5">
+                  <!-- Skill icon -->
+                  <img v-if="skill.skill_icon" :src="skill.skill_icon"
+                    class="w-8 h-8 md:w-9 md:h-9 object-contain rounded flex-shrink-0 mt-0.5" loading="lazy" />
+                  <img v-else-if="elemMap[skill.element]?.icon" :src="elemMap[skill.element].icon"
+                    class="w-8 h-8 md:w-9 md:h-9 object-contain rounded flex-shrink-0 mt-0.5" loading="lazy" />
+                  <div v-else class="w-8 h-8 md:w-9 md:h-9 rounded bg-gray-200 dark:bg-white/10 flex-shrink-0"></div>
+
+                  <!-- Skill body -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <router-link v-if="skill.skill_ref_uid" :to="'/skills/' + skill.skill_ref_uid"
+                        class="font-medium text-sm hover:text-primary-500 transition-colors">{{ skill.name }}</router-link>
+                      <span v-else class="font-medium text-sm">{{ skill.name }}</span>
+                      <span v-if="elemMap[skill.element]" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                        :style="{ background: elemMap[skill.element].color + '18', color: elemMap[skill.element].color }">
+                        <img :src="elemMap[skill.element].icon" class="w-4 h-4" />
+                        <span class="hidden sm:inline">{{ skill.element }}</span>
+                      </span>
+                      <span v-if="skill.type" class="text-xs font-medium px-1.5 py-0.5 rounded"
+                        :style="{ background: categoryColor(skill.type) + '15', color: categoryColor(skill.type) }">
+                        {{ skill.type }}
+                      </span>
+                      <!-- Extra info per tab -->
+                      <span v-if="skillModalActiveTab === 'skills' && skill.level" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
+                        Lv.{{ skill.level }}
+                      </span>
+                      <span v-if="skillModalActiveTab === 'bloodline' && skill.element" class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                        需血脉：{{ skill.element }}
+                      </span>
+                    </div>
+                    <SkillDescription v-if="skill.description" :text="skill.description" class="text-xs text-muted mt-1 line-clamp-2 sm:line-clamp-none" />
+                  </div>
+
+                  <!-- Right side data -->
+                  <div class="flex items-center gap-2 md:gap-3 flex-shrink-0 text-xs text-center">
+                    <div v-if="skillModalActiveTab === 'skills' && skill.level" class="w-8 md:w-10">
+                      <div class="text-muted text-[10px]">等级</div>
+                      <div class="font-medium text-sm">{{ skill.level }}</div>
+                    </div>
+                    <div class="w-8 md:w-10">
+                      <div class="text-muted text-[10px]">能耗</div>
+                      <div class="font-medium text-sm">{{ skill.cost != null ? skill.cost : '-' }}</div>
+                    </div>
+                    <div class="w-8 md:w-10">
+                      <div class="text-muted text-[10px]">威力</div>
+                      <div class="font-medium text-sm">{{ skill.power || '-' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="text-center py-8 text-muted text-sm">
+                该分类下暂无技能
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Rules Modal -->
     <Teleport to="body">
@@ -567,6 +673,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { eventsApi, petsApi, elementsApi, pikaApi } from '@/api'
 import SkillTable from '@/components/user/SkillTable.vue'
+import SkillDescription from '@/components/user/SkillDescription.vue'
+import { categoryColor } from '@/constants/categoryColors'
 
 const router = useRouter()
 const route = useRoute()
@@ -581,6 +689,56 @@ const fateNature = ref('')
 const counterPicks = ref(null)
 const counterLoading = ref(false)
 const showRulesModal = ref(false)
+
+// Skill recommendation modal state
+const skillModalVisible = ref(false)
+const skillModalPet = ref(null)
+const skillModalLoading = ref(false)
+const skillModalData = ref(null) // { skills, bloodline_skills, learnable_stones }
+const skillModalActiveTab = ref('skills')
+
+const skillModalTabs = computed(() => {
+  if (!skillModalData.value) return []
+  const tabs = []
+  const d = skillModalData.value
+  if (d.skills?.length) tabs.push({ key: 'skills', label: '升级学习', count: d.skills.length })
+  if (d.bloodline_skills?.length) tabs.push({ key: 'bloodline', label: '血脉技能', count: d.bloodline_skills.length })
+  if (d.learnable_stones?.length) tabs.push({ key: 'stones', label: '技能石学习', count: d.learnable_stones.length })
+  return tabs
+})
+
+const skillModalCurrentSkills = computed(() => {
+  if (!skillModalData.value) return []
+  if (skillModalActiveTab.value === 'skills') return skillModalData.value.skills || []
+  if (skillModalActiveTab.value === 'bloodline') return skillModalData.value.bloodline_skills || []
+  if (skillModalActiveTab.value === 'stones') return skillModalData.value.learnable_stones || []
+  return []
+})
+
+async function openSkillModal(pet) {
+  skillModalPet.value = pet
+  skillModalVisible.value = true
+  skillModalLoading.value = true
+  skillModalData.value = null
+  skillModalActiveTab.value = 'skills'
+  try {
+    const detail = await petsApi.get(pet.uid)
+    skillModalData.value = {
+      skills: detail.skills || [],
+      bloodline_skills: detail.bloodline_skills || [],
+      learnable_stones: detail.learnable_stones || [],
+    }
+    // Auto-select first non-empty tab
+    if (!detail.skills?.length && detail.bloodline_skills?.length) {
+      skillModalActiveTab.value = 'bloodline'
+    } else if (!detail.skills?.length && !detail.bloodline_skills?.length && detail.learnable_stones?.length) {
+      skillModalActiveTab.value = 'stones'
+    }
+  } catch (err) {
+    console.error('[FateFlower] Load pet skills failed:', err)
+  }
+  skillModalLoading.value = false
+}
 
 // Extract all unique pets from fate_flower events
 const allPets = computed(() => {
