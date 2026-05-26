@@ -269,37 +269,37 @@
               </div>
 
               <!-- Pets grid -->
-              <div class="flex flex-wrap gap-2 sm:gap-2.5">
+              <div class="flex flex-wrap gap-2.5 sm:gap-3">
                 <div
                   v-for="cp in group.pets"
                   :key="cp.uid"
                   @click="openSkillModal(cp)"
-                  class="counter-pick-card group w-[72px] sm:w-[84px]"
+                  class="counter-pick-card group w-[88px] sm:w-[100px]"
                 >
                   <!-- Pet image -->
-                  <img :src="cp.image_url" class="w-12 h-12 sm:w-14 sm:h-14 object-contain mx-auto" :alt="cp.name" />
+                  <img :src="cp.image_url" class="w-14 h-14 sm:w-16 sm:h-16 object-contain mx-auto" :alt="cp.name" />
                   <!-- Pet name -->
-                  <div class="text-[10px] sm:text-xs font-medium text-center mt-0.5 truncate w-full">{{ cp.name }}</div>
+                  <div class="text-xs sm:text-sm font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
                   <!-- Element badges -->
                   <div class="flex items-center justify-center gap-0.5 mt-0.5">
-                    <img v-if="cp.element_icon" :src="cp.element_icon" class="w-3 h-3" :title="cp.element_name" />
-                    <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-3 h-3" :title="cp.sub_element_name" />
+                    <img v-if="cp.element_icon" :src="cp.element_icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4" :title="cp.element_name" />
+                    <img v-if="cp.sub_element_icon" :src="cp.sub_element_icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4" :title="cp.sub_element_name" />
                   </div>
                   <!-- Bonus tags -->
-                  <div class="flex items-center gap-0.5 mt-0.5 flex-wrap justify-center">
-                    <span v-if="cp.se_attack_score" class="px-0.5 py-0 rounded text-[8px] leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
+                  <div class="flex items-center gap-0.5 mt-1 flex-wrap justify-center">
+                    <span v-if="cp.se_attack_score" class="px-1 py-0 rounded text-[9px] leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
                       {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}
                     </span>
-                    <span v-if="cp.counter_status_bonus" class="px-0.5 py-0 rounded text-[8px] leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
+                    <span v-if="cp.counter_status_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
                       {{ cp.counter_status_bonus >= 2 ? '⚡克' : '⚡' }}
                     </span>
-                    <span v-if="cp.counter_defense_bonus" class="px-0.5 py-0 rounded text-[8px] leading-tight bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400">
+                    <span v-if="cp.counter_defense_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400">
                       🛡️
                     </span>
-                    <span v-if="cp.counter_attack_bonus" class="px-0.5 py-0 rounded text-[8px] leading-tight bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
+                    <span v-if="cp.counter_attack_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400">
                       🔰
                     </span>
-                    <span v-if="cp.boss_weak_bonus" class="px-0.5 py-0 rounded text-[8px] leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                    <span v-if="cp.boss_weak_bonus" class="px-1 py-0 rounded text-[9px] leading-tight bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
                       💢
                     </span>
                   </div>
