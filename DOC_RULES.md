@@ -7,7 +7,7 @@
 
 ## 上次整理时间
 
-**2026-05-26 19:24 CST**
+**2026-05-27 10:55 CST**
 
 ---
 
@@ -50,6 +50,7 @@
 | 文件 | 用途 | 整理规则 |
 |------|------|----------|
 | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | 工程架构设计图（Mermaid 图：系统/数据流/ER/路由/部署） | 架构变更（新增表/路由/服务）时更新 |
+| [docs/counter-picks.md](./docs/counter-picks.md) | 反制推荐模块开发规则与算法原理（标签体系/克制倍率/评分权重） | 反制推荐算法或标签规则变更时更新 |
 | [docs/PATCH_NOTES_TABLE_RULES.md](./docs/PATCH_NOTES_TABLE_RULES.md) | 公告表格展示规范（列数/排序/图标/样式/各模块格式） | 公告脚本表格格式变更时更新 |
 | [docs/TEXT_HIGHLIGHT_COLORS.md](./docs/TEXT_HIGHLIGHT_COLORS.md) | 文本高亮颜色规范（属性色号/关键词映射） | 新增高亮关键词或修改颜色时更新 |
 

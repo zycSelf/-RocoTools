@@ -416,7 +416,8 @@ function getCounterPicks(petUid, natureOverride) {
   }
 
   // Determine which elements are super-effective against the target pet
-  const targetWeakTo = new Set();
+  // Map<elementName, multiplier> where multiplier = 2 (single SE) or 3 (double SE)
+  const targetWeakTo = new Map();
   const targetElemIds = [pet.element_id];
   if (pet.sub_element_id) targetElemIds.push(pet.sub_element_id);
   for (const defId of targetElemIds) {
@@ -425,7 +426,12 @@ function getCounterPicks(petUid, natureOverride) {
     // Elements that are strong against this defender element
     for (const e of elements) {
       if (e.strong_against?.some(sa => sa.id === defId || sa.name === defElem.name)) {
-        targetWeakTo.add(e.name);
+        // If already in map (hits both elements), upgrade to ×3
+        if (targetWeakTo.has(e.name)) {
+          targetWeakTo.set(e.name, 3);
+        } else {
+          targetWeakTo.set(e.name, 2);
+        }
       }
     }
   }
@@ -613,20 +619,22 @@ function getCounterPicks(petUid, natureOverride) {
   // We store ALL SE skills per pet, then pick the best one during scoring (needs pet's atk/matk)
   const superEffectiveSkillsByPet = new Map(); // pet_uid -> [{ power, type, hasCounter, cost }]
   if (targetWeakTo.size > 0) {
-    const placeholders = Array.from(targetWeakTo).map(() => '?').join(',');
+    const weakToNames = Array.from(targetWeakTo.keys());
+    const placeholders = weakToNames.map(() => '?').join(',');
     const seRows = db.prepare(`
-      SELECT pet_uid, power, type, cost, description FROM pet_skills
+      SELECT pet_uid, power, type, cost, element, description FROM pet_skills
       WHERE element IN (${placeholders}) AND power > 0 AND (type = '物攻' OR type = '魔攻')
         AND skill_type != 'bloodline_skills'
         AND pet_uid IN (SELECT uid FROM pets WHERE is_final_form = 1)
       ORDER BY power DESC
-    `).all(...Array.from(targetWeakTo));
+    `).all(...weakToNames);
     for (const row of seRows) {
       const hasCounter = row.description && (row.description.includes('应对状态') || row.description.includes('应对防御'));
       if (!superEffectiveSkillsByPet.has(row.pet_uid)) {
         superEffectiveSkillsByPet.set(row.pet_uid, []);
       }
-      superEffectiveSkillsByPet.get(row.pet_uid).push({ power: row.power, type: row.type, hasCounter, cost: row.cost || 0 });
+      // Store element to look up multiplier during scoring
+      superEffectiveSkillsByPet.get(row.pet_uid).push({ power: row.power, type: row.type, hasCounter, cost: row.cost || 0, element: row.element });
     }
   }
 
@@ -684,7 +692,8 @@ function getCounterPicks(petUid, natureOverride) {
   const bossMdefStat = pet.mdef;
   // Attacker preference: which type of attacker is more effective against the boss
   // This gives a bonus to candidates whose attack type matches the boss's weaker defense
-  const bossWeakerDef = bossDefStat <= bossMdefStat ? 'physical' : 'magical';
+  // Only mark a weaker defense if there's a meaningful difference (not equal)
+  const bossWeakerDef = bossDefStat === bossMdefStat ? null : (bossDefStat < bossMdefStat ? 'physical' : 'magical');
 
   // --- Determine which status effects the boss uses (from skills/ability descriptions) ---
   // If the boss's skills or ability mention status keywords, candidates whose MAIN element
@@ -792,6 +801,7 @@ function getCounterPicks(petUid, natureOverride) {
     // --- SE Attack Score ---
     // hasCounter bonus only applies when boss has status skills
     let seAttackScore = 0;
+    let bestSeMultiplier = 0; // 0=no SE, 2=×2, 3=×3
     const seSkills = superEffectiveSkillsByPet.get(p.uid);
     if (seSkills && seSkills.length > 0) {
       const petAtk = p.atk;
@@ -808,17 +818,23 @@ function getCounterPicks(petUid, natureOverride) {
         const counterBonus = (sk.hasCounter && hasStatusSkills) ? true : false;
         // Cost > 4: downgrade (only for high-power skills with power > 80)
         const costPenalty = (sk.cost > 4 && sk.power >= 70) ? true : false;
-        skillScores.push({ effPower, hasCounter: counterBonus, costPenalty });
+        // Multiplier bonus: ×3 SE gets 1.5x coefficient vs ×2 SE (1.0x)
+        const seMultiplier = targetWeakTo.get(sk.element) || 2;
+        const multiplierCoeff = seMultiplier >= 3 ? 1.5 : 1.0;
+        skillScores.push({ effPower, hasCounter: counterBonus, costPenalty, multiplierCoeff });
       }
 
       skillScores.sort((a, b) => {
-        if (a.hasCounter !== b.hasCounter && Math.min(a.effPower, b.effPower) >= Math.max(a.effPower, b.effPower) * 0.8) {
+        // Sort by effective score (effPower × multiplierCoeff) to prioritize ×3 SE skills
+        const aScore = a.effPower * a.multiplierCoeff;
+        const bScore = b.effPower * b.multiplierCoeff;
+        if (a.hasCounter !== b.hasCounter && Math.min(aScore, bScore) >= Math.max(aScore, bScore) * 0.8) {
           return a.hasCounter ? -1 : 1;
         }
-        return b.effPower - a.effPower;
+        return bScore - aScore;
       });
 
-      function calcSkillScore(effPower, hasCounter, costPenalty) {
+      function calcSkillScore(effPower, hasCounter, costPenalty, multiplierCoeff = 1.0) {
         // High power (>=70): big bonus; hasCounter adds extra when boss has status
         // costPenalty: cost > 4 for high-power skills → downgrade one tier
         let score;
@@ -829,6 +845,8 @@ function getCounterPicks(petUid, natureOverride) {
         else return 0;
         // Downgrade by 0.5 if cost > 4 (only affects high-power skills power >= 70)
         if (costPenalty) score = Math.max(0.5, score - 0.5);
+        // Apply SE multiplier coefficient: ×3 SE gets 1.5x, ×2 SE gets 1.0x
+        score *= multiplierCoeff;
         return score;
       }
 
@@ -836,11 +854,13 @@ function getCounterPicks(petUid, natureOverride) {
         seAttackScore = 0;
       } else {
         const best = skillScores[0];
-        seAttackScore = calcSkillScore(best.effPower, best.hasCounter, best.costPenalty);
+        seAttackScore = calcSkillScore(best.effPower, best.hasCounter, best.costPenalty, best.multiplierCoeff);
+        // Track the best SE multiplier for display purposes
+        bestSeMultiplier = best.multiplierCoeff >= 1.5 ? 3 : 2;
 
         if (skillScores.length >= 2) {
           const second = skillScores[1];
-          seAttackScore += calcSkillScore(second.effPower, second.hasCounter, second.costPenalty) * 0.5;
+          seAttackScore += calcSkillScore(second.effPower, second.hasCounter, second.costPenalty, second.multiplierCoeff) * 0.5;
         }
       }
     }
@@ -886,7 +906,7 @@ function getCounterPicks(petUid, natureOverride) {
             // No element (e.g. 等价交换 is 防御 type) → treat as neutral
             if (bestCat === 'resisted') bestCat = 'neutral';
           } else if (targetWeakTo.has(ls.element)) {
-            bestCat = 'se'; // Counters boss
+            bestCat = 'se'; // Counters boss (×2 or ×3)
             break; // Can't get better than this
           } else if (!bossResists.has(ls.element)) {
             if (bestCat !== 'se') bestCat = 'neutral';
@@ -943,6 +963,7 @@ function getCounterPicks(petUid, natureOverride) {
       resisted_elements: resistedElements,
       resist_count: resistedElements.length,
       se_attack_score: seAttackScore,
+      best_se_multiplier: bestSeMultiplier,
       counter_status_bonus: counterStatusBonus,
       counter_defense_bonus: counterDefenseBonus,
       counter_attack_bonus: counterAttackBonus,
@@ -979,6 +1000,7 @@ function getCounterPicks(petUid, natureOverride) {
     total: p.total,
     resisted_elements: p.resisted_elements,
     se_attack_score: p.se_attack_score,
+    best_se_multiplier: p.best_se_multiplier,
     counter_status_bonus: p.counter_status_bonus,
     counter_defense_bonus: p.counter_defense_bonus,
     counter_attack_bonus: p.counter_attack_bonus,
@@ -1000,7 +1022,7 @@ function getCounterPicks(petUid, natureOverride) {
       has_status_skills: hasStatusSkills,
       has_defense_skills: hasDefenseSkills,
       has_attack_skills: true,
-      target_weak_to: Array.from(targetWeakTo),
+      target_weak_to: Array.from(targetWeakTo.entries()).map(([name, multiplier]) => ({ name, multiplier })),
       boss_weaker_def: bossWeakerDef,
       boss_def: bossDefStat,
       boss_mdef: bossMdefStat,

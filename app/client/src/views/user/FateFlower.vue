@@ -177,7 +177,7 @@
           <h3 class="font-roco text-sm sm:text-base mb-3 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
             反制推荐
-            <span class="text-xs font-normal text-muted">（最适合应对该花种精灵的精灵）</span>
+            <span class="text-xs font-normal text-muted">（最适合应对该花种精灵的精灵，仅作参考）</span>
           </h3>
 
           <!-- Attack profile summary -->
@@ -209,10 +209,12 @@
               <div class="flex items-center gap-1.5">
                 <span class="text-muted">弱点：</span>
                 <div class="flex items-center gap-1">
-                  <template v-for="elemName in counterPicks.attack_profile.target_weak_to" :key="elemName">
-                    <span v-if="elemMap[elemName]" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded"
-                      :style="{ background: elemMap[elemName].color + '15', color: elemMap[elemName].color }">
-                      <img :src="elemMap[elemName].icon" class="w-3 h-3" />
+                  <template v-for="item in counterPicks.attack_profile.target_weak_to" :key="item.name || item">
+                    <span v-if="elemMap[item.name || item]" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded"
+                      :style="{ background: elemMap[item.name || item].color + '15', color: elemMap[item.name || item].color }"
+                      :title="(item.multiplier === 3 ? '×3双重克制' : '×2克制')">
+                      <img :src="elemMap[item.name || item].icon" class="w-3 h-3" />
+                      <span class="text-[9px] font-bold">×{{ item.multiplier || 2 }}</span>
                     </span>
                   </template>
                 </div>
@@ -229,14 +231,17 @@
                 💢 {{ counterPicks.attack_profile.boss_weaker_def === 'physical' ? '物防较低' : '魔防较低' }}
                 ({{ counterPicks.attack_profile.boss_def }}/{{ counterPicks.attack_profile.boss_mdef }})
               </span>
+              <span v-else-if="counterPicks.attack_profile.boss_def != null" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] sm:text-xs bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400">
+                ⚖️ 双防均衡 ({{ counterPicks.attack_profile.boss_def }}/{{ counterPicks.attack_profile.boss_mdef }})
+              </span>
             </div>
             <!-- Tag legend -->
             <div class="flex items-center gap-2 sm:gap-3 mt-2 pt-2 border-t border-blue-200/50 dark:border-blue-500/20 flex-wrap">
               <span class="text-[10px] text-muted mr-0.5">图例：</span>
-              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 text-[9px]">⚔️💥</span> 高威力克制+应对</span>
+              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-200 text-red-700 dark:bg-red-500/30 dark:text-red-300 text-[9px] font-bold">⚔️×3</span> 三倍克制</span>
+              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 text-[9px]">⚔️×2</span> 双倍克制</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 text-[9px] font-bold">🌟</span> 贪婪</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400 text-[9px] font-bold">🌟</span> 驱散减益</span>
-              <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 text-[9px]">⚔️</span> 克制技能</span>
               <span v-if="counterPicks.attack_profile.has_status_skills" class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 text-[9px]">⚡</span> 应对状态</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 text-[9px]">💚⚔️</span> 克制续航</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 text-[9px]">💚</span> 续航</span>
@@ -274,6 +279,14 @@
                     <img v-if="elemMap[elemName]" :src="elemMap[elemName].icon" class="w-3.5 h-3.5 sm:w-4 sm:h-4" :title="'抵抗' + elemName" />
                   </template>
                 </div>
+                <!-- Attack type indicator (separate row) -->
+                <div class="mt-1 text-center text-[10px] sm:text-xs leading-tight">
+                  <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded"
+                    :class="cp.atk === cp.matk ? 'bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400' : cp.atk > cp.matk ? 'bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400' : 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400'">
+                    <span class="opacity-70">{{ cp.atk }}/{{ cp.matk }}</span>
+                    <span class="font-medium">{{ cp.atk === cp.matk ? '双攻均衡' : cp.atk > cp.matk ? '推荐物攻' : '推荐魔攻' }}</span>
+                  </span>
+                </div>
                 <!-- Bonus tags -->
                 <div class="flex items-center gap-0.5 mt-1.5 flex-wrap justify-center">
                   <span v-if="cp.greedy_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400 font-bold" title="可学习贪婪(100%吸血)，最高优先级">
@@ -285,8 +298,8 @@
                   <span v-if="cp.meteor_rabbit_bonus" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400 font-bold" title="特性「陨落」：回合结束效果不触发，完美免疫灼烧/中毒结算">
                     🌟陨
                   </span>
-                  <span v-if="cp.se_attack_score" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">
-                    {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}
+                  <span v-if="cp.se_attack_score" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight" :class="cp.best_se_multiplier >= 3 ? 'bg-red-200 text-red-700 dark:bg-red-500/30 dark:text-red-300 font-bold' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'" :title="cp.best_se_multiplier >= 3 ? '×3双重克制技能' : '×2克制技能'">
+                    {{ cp.se_attack_score >= 2.5 ? '⚔️💥' : cp.se_attack_score >= 1.5 ? '⚔️' : '🗡️' }}×{{ cp.best_se_multiplier || 2 }}
                   </span>
                   <span v-if="cp.counter_status_bonus && counterPicks.attack_profile.has_status_skills" class="px-1 py-0.5 rounded text-[10px] sm:text-xs leading-tight bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
                     {{ cp.counter_status_bonus >= 2 ? '⚡克' : '⚡' }}
@@ -401,8 +414,8 @@
                         {{ skill.type }}
                       </span>
                       <!-- Recommendation reason tags -->
-                      <span v-if="isSkillSuperEffective(skill)" class="text-[10px] px-1 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 font-medium">
-                        ⚔️ 克制属性
+                      <span v-if="getSkillSeMultiplier(skill)" class="text-[10px] px-1 py-0.5 rounded font-medium" :class="getSkillSeMultiplier(skill) >= 3 ? 'bg-red-200 text-red-700 dark:bg-red-500/30 dark:text-red-300 font-bold' : 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'">
+                        ⚔️×{{ getSkillSeMultiplier(skill) }}
                       </span>
                       <span v-if="skill.description && skill.description.includes('应对攻击')" class="text-[10px] px-1 py-0.5 rounded bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400 font-medium">
                         🔰 应对攻击
@@ -503,7 +516,7 @@ const skillModalActiveTab = ref('skills')
 function filterRelevantSkills(allSkills, petDetail, isBloodline = false) {
   if (!counterPicks.value?.attack_profile) return allSkills
   const profile = counterPicks.value.attack_profile
-  const weakTo = new Set(profile.target_weak_to || [])
+  const weakTo = new Set((profile.target_weak_to || []).map(item => item.name || item))
 
   const relevant = allSkills.filter(skill => {
     const desc = skill.description || ''
@@ -586,8 +599,18 @@ function calcEffectivePower(skill, petAtk, petMatk, maxStat) {
 // Check if a skill is super-effective against the boss
 function isSkillSuperEffective(skill) {
   if (!counterPicks.value?.attack_profile) return false
-  const weakTo = new Set(counterPicks.value.attack_profile.target_weak_to || [])
+  const weakTo = new Set((counterPicks.value.attack_profile.target_weak_to || []).map(item => item.name || item))
   return (skill.type === '物攻' || skill.type === '魔攻') && skill.power > 0 && weakTo.has(skill.element)
+}
+
+// Get the SE multiplier for a skill (0 = not SE, 2 = ×2, 3 = ×3)
+function getSkillSeMultiplier(skill) {
+  if (!counterPicks.value?.attack_profile) return 0
+  if (!(skill.type === '物攻' || skill.type === '魔攻') || !skill.power || skill.power <= 0) return 0
+  const weakToList = counterPicks.value.attack_profile.target_weak_to || []
+  const match = weakToList.find(item => (item.name || item) === skill.element)
+  if (!match) return 0
+  return match.multiplier || 2
 }
 
 const skillModalTabs = computed(() => {

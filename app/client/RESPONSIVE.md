@@ -158,18 +158,28 @@ grid-cols-4 sm:grid-cols-6 lg:grid-cols-9
 
 | Class | 列数 | 策略 |
 |-------|------|------|
-| `cols-2` | 2列 | 第一列 sticky + 固定宽度 130px |
-| `cols-3` | 3列 | `width: max-content` + 每列 min-width 150px |
-| `cols-6` | 6列 | 第一列 sticky + 背景色覆盖 + 阴影分隔 |
-| `cols-8` | 8列 | 第一列 sticky + `width: max-content` + 背景色覆盖 + 阴影分隔 |
+| `cols-2` | 2列 | `table-layout: fixed`，第一列 130px sticky + nowrap，第二列 normal + padding-left |
+| `cols-3` | 3列 | `width: max-content` + 每列 min-width 150px，无 sticky |
+| `cols-6` | 6列 | `width: max-content`，第一列 sticky + 背景色，最后一列允许换行(max-width:400px)，第4/5列 min-width:45px |
+| `cols-8` | 8列 | `width: max-content`，第一列 sticky + min-width:90px + 背景色覆盖 |
+
+**cols-2 适用场景**：精灵图鉴表格（图鉴 | 精灵信息），`table-layout: fixed` 确保列宽固定，`.ability-icon` 在此表格中缩小为 1.2em
+
+**cols-6 适用场景**：技能学习面变动表格（技能 | 属性 | 类型 | 能耗 | 威力 | 效果/精灵），最后一列允许换行展示精灵列表
 
 **cols-8 适用场景**：精灵数值调整表格、精灵个体值补充表格（精灵 | HP | 速度 | 物攻 | 魔攻 | 物防 | 魔防 | 总计）
+
+**white-space 规则**：
+- `cols-2`：第一列 nowrap，第二列 normal（允许换行）
+- `cols-6`：最后一列 normal（允许换行），其余 nowrap
+- 其他表格（cols-3/cols-8 等）：全部 nowrap
 
 **实现要点**：
 - 表格容器 `.table-wrap` 提供 `overflow-x: auto` 横向滚动
 - 第一列（精灵名）`position: sticky; left: 0` 固定在左侧
 - sticky 列需要独立背景色（覆盖斑马纹/hover），否则内容会穿透
 - `z-index: 5`（表头）> `z-index: 2`（数据行）确保层级正确
+- 表头撑宽用 `<div style="min-width:Npx;display:inline-block">`（inline-block 让 min-width 在 nowrap 下生效）
 
 ---
 
