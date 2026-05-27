@@ -34,6 +34,7 @@ const libraryRouter = require('./library');
 const mediaRouter = require('./media');
 const exportRouter = require('./export');
 const petSkillsRouter = require('./petSkills');
+const crawlRouter = require('./crawl');
 
 // ============================================================
 // 公开 API（不需要鉴权）
@@ -114,6 +115,9 @@ router.use(exportRouter);
 
 // 精灵技能 / 蛋组 / 特性管理
 router.use(petSkillsRouter);
+
+// BWIKI 爬取（预览 + 应用）
+router.use(crawlRouter);
 
 // ============================================================
 // 站点设置管理

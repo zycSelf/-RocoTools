@@ -5,6 +5,13 @@
     <div class="flex items-center gap-3 mb-4">
       <h1 class="font-roco text-xl md:text-2xl text-primary-500">{{ isNew ? '新增精灵' : pet.name }}</h1>
       <span v-if="!isNew" class="text-xs text-muted">{{ pet.uid }}</span>
+      <button v-if="!isNew" @click="crawlFromBwiki" :disabled="crawling || crawlCooldown > 0"
+        class="ml-auto px-3 py-1.5 text-xs rounded-lg font-medium transition-colors"
+        :class="crawling || crawlCooldown > 0
+          ? 'bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-wait'
+          : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30'">
+        {{ crawling ? '🔄 爬取中...' : crawlCooldown > 0 ? `⏳ ${crawlCooldown >= 60 ? Math.floor(crawlCooldown / 60) + ':' + String(crawlCooldown % 60).padStart(2, '0') : crawlCooldown + 's'}` : '🌐 从BWIKI爬取' }}
+      </button>
     </div>
 
     <!-- 形态切换 -->
@@ -772,6 +779,233 @@
       <p v-if="form.is_final_form && !levelUpSkills.length" class="text-[10px] text-muted mt-1">提示：请先在技能配置中添加精灵技能，才能选择技能成就</p>
     </div>
 
+    <!-- BWIKI 爬取预览弹窗 -->
+    <div v-if="crawlPreview && !crawlIsMinimized" class="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8"
+      @click.self="minimizeCrawl">
+      <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+      <div class="relative w-full max-w-5xl mx-4 max-h-[calc(100vh-4rem)] bg-white dark:bg-[#1E2433] rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+        <!-- Header -->
+        <div class="flex-shrink-0 bg-white dark:bg-[#1E2433] border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="font-roco text-lg text-primary-500">BWIKI 爬取预览</h2>
+            <p class="text-xs text-muted mt-0.5">以下为从 BWIKI 爬取到的数据，请核对后选择要覆盖的内容</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="applyCrawlSelected" :disabled="crawlApplying || !crawlHasSelection"
+              class="px-4 py-2 text-xs font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {{ crawlApplying ? '应用中...' : '✅ 应用选中项' }}
+            </button>
+            <button @click="minimizeCrawl"
+              class="px-3 py-2 text-xs rounded-lg border border-border hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+              title="最小化到悬浮按钮">
+              ⬇️ 最小化
+            </button>
+            <button @click="closeCrawl"
+              class="px-3 py-2 text-xs rounded-lg border border-border hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+              关闭
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable content area -->
+        <div class="flex-1 overflow-y-auto">
+
+        <!-- Errors -->
+        <div v-if="crawlPreview.errors && crawlPreview.errors.length" class="px-6 pt-4">
+          <div class="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg p-3">
+            <p class="text-xs font-medium text-red-600 dark:text-red-400 mb-1">爬取错误：</p>
+            <p v-for="e in crawlPreview.errors" :key="e.uid" class="text-xs text-red-500">
+              {{ e.name }} ({{ e.uid }}): {{ e.error }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Variant tabs -->
+        <div v-if="crawlPreview.crawled.length > 1" class="px-6 pt-4">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button v-for="(v, idx) in crawlPreview.variants" :key="v.uid"
+              @click="crawlActiveVariant = idx"
+              class="px-2.5 py-1 rounded-lg text-xs transition-colors"
+              :class="crawlActiveVariant === idx
+                ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-400 font-medium'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10'">
+              {{ v.name }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Content for active variant -->
+        <div v-if="activeCrawled" class="px-6 py-4 space-y-4">
+          <!-- Stats comparison -->
+          <div class="border border-border rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <input type="checkbox" :id="'crawl-stats-' + crawlActiveVariant"
+                v-model="crawlSelections[crawlActiveVariant].stats"
+                class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+              <label :for="'crawl-stats-' + crawlActiveVariant" class="font-medium text-sm">
+                种族值
+                <span v-if="activeCrawled.total" class="text-primary-500 font-bold ml-1">{{ activeCrawled.total }}</span>
+              </label>
+              <span v-if="activeCurrent.total && activeCrawled.total && activeCurrent.total !== activeCrawled.total"
+                class="text-xs text-muted line-through ml-1">{{ activeCurrent.total }}</span>
+            </div>
+            <div class="space-y-2">
+              <div v-for="s in ['hp','atk','matk','def','mdef','speed']" :key="s" class="flex items-center gap-2">
+                <span class="text-xs text-muted w-8 text-right">{{ statLabel(s) }}</span>
+                <div class="flex-1 h-4 rounded-full bg-gray-100 dark:bg-white/5 overflow-hidden relative">
+                  <!-- Current value bar (faded) -->
+                  <div v-if="activeCurrent[s] && activeCurrent[s] !== (activeCrawled[s] || 0)"
+                    class="absolute inset-y-0 left-0 rounded-full bg-gray-300 dark:bg-white/15 opacity-50"
+                    :style="{ width: ((activeCurrent[s] || 0) / 200 * 100) + '%' }"></div>
+                  <!-- Crawled value bar -->
+                  <div class="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                    :class="activeCurrent[s] !== (activeCrawled[s] || 0) ? 'bg-green-500/70' : 'bg-primary-500/70'"
+                    :style="{ width: ((activeCrawled[s] || 0) / 200 * 100) + '%' }"></div>
+                </div>
+                <span class="text-xs font-medium w-7"
+                  :class="activeCurrent[s] !== (activeCrawled[s] || 0) ? 'text-green-600 dark:text-green-400 font-bold' : ''">
+                  {{ activeCrawled[s] || '-' }}
+                </span>
+                <span v-if="activeCurrent[s] && activeCurrent[s] !== (activeCrawled[s] || 0)"
+                  class="text-[10px] text-muted line-through w-6">{{ activeCurrent[s] }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ability -->
+          <div v-if="activeCrawled.ability_name" class="border border-border rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <input type="checkbox" :id="'crawl-ability-' + crawlActiveVariant"
+                v-model="crawlSelections[crawlActiveVariant].ability"
+                class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+              <label :for="'crawl-ability-' + crawlActiveVariant" class="font-medium text-sm">特性</label>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-muted">名称：</span>
+                <span :class="activeCurrent.ability_name !== activeCrawled.ability_name ? 'text-green-600 dark:text-green-400 font-bold' : ''">
+                  {{ activeCrawled.ability_name }}
+                </span>
+                <span v-if="activeCurrent.ability_name !== activeCrawled.ability_name" class="text-muted line-through ml-1">{{ activeCurrent.ability_name }}</span>
+              </div>
+              <div>
+                <span class="text-muted">描述：</span>
+                <span :class="activeCurrent.ability_desc !== activeCrawled.ability_desc ? 'text-green-600 dark:text-green-400 font-bold' : ''">
+                  {{ activeCrawled.ability_desc }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detail (height, weight) -->
+          <div v-if="activeCrawled.height || activeCrawled.weight" class="border border-border rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <input type="checkbox" :id="'crawl-detail-' + crawlActiveVariant"
+                v-model="crawlSelections[crawlActiveVariant].detail"
+                class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+              <label :for="'crawl-detail-' + crawlActiveVariant" class="font-medium text-sm">身高体重</label>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-xs">
+              <div v-if="activeCrawled.height">
+                <span class="text-muted">身高：</span>
+                <span :class="normalizeRangeStr(activeCurrent.height) !== normalizeRangeStr(activeCrawled.height) ? 'text-green-600 dark:text-green-400 font-bold' : ''">
+                  {{ formatCrawledRange(activeCrawled.height) }}m
+                </span>
+                <span v-if="normalizeRangeStr(activeCurrent.height) !== normalizeRangeStr(activeCrawled.height)" class="text-muted line-through ml-1">{{ activeCurrent.height || '无' }}</span>
+              </div>
+              <div v-if="activeCrawled.weight">
+                <span class="text-muted">体重：</span>
+                <span :class="normalizeRangeStr(activeCurrent.weight) !== normalizeRangeStr(activeCrawled.weight) ? 'text-green-600 dark:text-green-400 font-bold' : ''">
+                  {{ formatCrawledRange(activeCrawled.weight) }}kg
+                </span>
+                <span v-if="normalizeRangeStr(activeCurrent.weight) !== normalizeRangeStr(activeCrawled.weight)" class="text-muted line-through ml-1">{{ activeCurrent.weight || '无' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Skills -->
+          <div v-for="skillType in ['skills', 'bloodline_skills', 'learnable_stones']" :key="skillType">
+            <div v-if="activeCrawled[skillType] && activeCrawled[skillType].length" class="border border-border rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3">
+                <input type="checkbox" :id="'crawl-' + skillType + '-' + crawlActiveVariant"
+                  v-model="crawlSelections[crawlActiveVariant][skillType]"
+                  class="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500" />
+                <label :for="'crawl-' + skillType + '-' + crawlActiveVariant" class="font-medium text-sm">
+                  {{ skillType === 'skills' ? '精灵技能' : skillType === 'bloodline_skills' ? '血脉技能' : '技能石' }}
+                  <span class="text-muted font-normal">({{ activeCrawled[skillType].length }})</span>
+                </label>
+                <span v-if="activeCurrentSkillCount(skillType) !== activeCrawled[skillType].length"
+                  class="text-[10px] text-amber-600 dark:text-amber-400">
+                  当前 {{ activeCurrentSkillCount(skillType) }} 个
+                </span>
+                <span v-if="activeCrawled[skillType].some(s => !s._matched)"
+                  class="text-[10px] text-red-500">
+                  ⚠️ {{ activeCrawled[skillType].filter(s => !s._matched).length }} 个未匹配
+                </span>
+                <button @click="copySkillsToClipboard(skillType)"
+                  class="ml-auto text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20 transition-colors"
+                  title="复制已匹配的技能数据（排除未匹配项）">
+                  📋 复制
+                </button>
+              </div>
+              <div class="max-h-[500px] overflow-y-auto space-y-1.5">
+                <div v-for="(skill, sIdx) in activeCrawled[skillType]" :key="sIdx"
+                  class="flex items-start gap-2 p-2.5 rounded-lg transition-colors"
+                  :class="skill._matched
+                    ? 'bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/8'
+                    : 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'">
+                  <!-- Icon -->
+                  <img v-if="skill.skill_icon" :src="skill.skill_icon"
+                    class="w-8 h-8 object-contain rounded flex-shrink-0 mt-0.5" loading="lazy" />
+                  <img v-else-if="crawlElemMap[skill.element]?.icon" :src="crawlElemMap[skill.element].icon"
+                    class="w-8 h-8 object-contain rounded flex-shrink-0 mt-0.5" loading="lazy" />
+                  <div v-else class="w-8 h-8 rounded bg-gray-200 dark:bg-white/10 flex-shrink-0"></div>
+
+                  <!-- Main content -->
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="font-medium text-sm">{{ skill.name }}</span>
+                      <span v-if="crawlElemMap[skill.element]" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs"
+                        :style="{ background: crawlElemMap[skill.element].color + '18', color: crawlElemMap[skill.element].color }">
+                        <img :src="crawlElemMap[skill.element].icon" class="w-4 h-4" />
+                        {{ skill.element }}
+                      </span>
+                      <span v-else-if="skill.element" class="text-xs text-muted px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10">{{ skill.element }}</span>
+                      <span v-if="skill.type" class="text-xs font-medium px-1.5 py-0.5 rounded"
+                        :style="{ background: crawlCategoryColor(skill.type) + '15', color: crawlCategoryColor(skill.type) }">
+                        {{ skill.type }}
+                      </span>
+                      <span v-if="!skill._matched" class="text-[10px] text-red-500 font-medium px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-500/20">
+                        技能列表无匹配数据
+                      </span>
+                    </div>
+                    <p v-if="skill.description" class="text-xs text-muted mt-1 line-clamp-2">{{ skill.description }}</p>
+                  </div>
+
+                  <!-- Right side data -->
+                  <div class="flex items-center gap-2 flex-shrink-0 text-xs text-center">
+                    <div v-if="skill.level" class="w-8">
+                      <div class="text-muted text-[10px]">等级</div>
+                      <div class="font-medium">{{ skill.level }}</div>
+                    </div>
+                    <div class="w-8">
+                      <div class="text-muted text-[10px]">能耗</div>
+                      <div class="font-medium">{{ skill.cost != null ? skill.cost : '-' }}</div>
+                    </div>
+                    <div class="w-8">
+                      <div class="text-muted text-[10px]">威力</div>
+                      <div class="font-medium">{{ skill.power || '-' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div><!-- end scrollable content area -->
+      </div>
+    </div>
+
     <!-- 保存按钮 - 常驻底部 -->
     <div class="sticky bottom-0 z-30 -mx-4 px-4 py-3 bg-card/95 backdrop-blur-sm border-t border-border flex gap-3 items-center">
       <button @click="save" class="btn-primary shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" :disabled="saving">{{ saving ? '保存中...' : (isNew ? '✨ 创建精灵' : '💾 保存修改') }}</button>
@@ -1512,7 +1746,7 @@ async function pasteAllSkills() {
       skillsOk.value = false
       return
     }
-    // Support both "all_skills" format and single-tab format
+    // Support both "all_skills" format and single-tab format from crawl preview
     if (payload && payload.type === 'all_skills') {
       const sCount = (payload.skills || []).length
       const bCount = (payload.bloodline_skills || []).length
@@ -1533,8 +1767,26 @@ async function pasteAllSkills() {
       skillForms.learnable_stones = (payload.learnable_stones || []).map(mapSkill)
       skillsMsg.value = `已导入全部技能（精灵技能${sCount}个 + 血脉技能${bCount}个 + 技能石${lCount}个）`
       skillsOk.value = true
+    } else if (payload && payload.skill_type && Array.isArray(payload.skills)) {
+      // Single-category format from crawl preview: { skill_type, skills: [...] }
+      const targetTab = payload.skill_type
+      if (!['skills', 'bloodline_skills', 'learnable_stones'].includes(targetTab)) {
+        skillsMsg.value = '无效的技能分类: ' + targetTab
+        skillsOk.value = false
+        return
+      }
+      const mapSkill = (s) => ({
+        level: s.level || '', name: s.name || '', element: s.element || '',
+        type: s.type || '', cost: s.cost || 0, power: s.power || 0,
+        description: s.description || '', skill_ref_uid: s.skill_ref_uid || '', skill_icon: s.skill_icon || '',
+      })
+      skillForms[targetTab] = payload.skills.map(mapSkill)
+      activeSkillTab.value = targetTab
+      const label = targetTab === 'skills' ? '精灵技能' : targetTab === 'bloodline_skills' ? '血脉技能' : '技能石'
+      skillsMsg.value = `已导入 ${payload.skills.length} 个${label}（来自 ${payload._name || '爬取数据'}）`
+      skillsOk.value = true
     } else {
-      skillsMsg.value = '剪贴板中不是全部技能格式，请使用单分类粘贴按钮'
+      skillsMsg.value = '剪贴板中不是有效的技能格式，请使用单分类粘贴按钮'
       skillsOk.value = false
     }
   } catch (err) {
@@ -1847,6 +2099,201 @@ async function cleanupDuplicates() {
     await loadAchievements();
   } catch (err) {
     await modal.alert('清理失败', err.message);
+  }
+}
+
+// ============================================================
+// BWIKI 爬取预览
+// ============================================================
+import { useCrawlPreview } from '@/composables/useCrawlPreview'
+
+const {
+  crawlPreview, crawlSelections, crawlActiveVariant, isMinimized: crawlIsMinimized,
+  crawlCooldown, setCrawlData, minimize: minimizeCrawl, close: closeCrawl, startCooldown: startCrawlCooldown,
+  exportSkills,
+} = useCrawlPreview()
+
+const crawling = ref(false)
+const crawlApplying = ref(false)
+
+const STAT_LABELS = { hp: '生命', atk: '物攻', matk: '魔攻', def: '物防', mdef: '魔防', speed: '速度', total: '总计' }
+function statLabel(key) { return STAT_LABELS[key] || key }
+
+// Normalize range string for comparison: "0.63~0.91" and "0.63-0.91" → "0.63-0.91"
+function normalizeRangeStr(str) {
+  if (!str) return ''
+  const s = String(str).trim()
+  const m = s.match(/^([\d.]+)\s*[~\-]\s*([\d.]+)$/)
+  if (m) return parseFloat(m[1]).toFixed(2) + '-' + parseFloat(m[2]).toFixed(2)
+  const single = s.match(/^([\d.]+)$/)
+  if (single) return parseFloat(single[1]).toFixed(2) + '-' + parseFloat(single[1]).toFixed(2)
+  return s
+}
+
+// Format crawled range for display: "0.63~0.91" → "0.63~0.91"
+function formatCrawledRange(str) {
+  if (!str) return ''
+  const s = String(str).trim()
+  const m = s.match(/^([\d.]+)\s*[~\-]\s*([\d.]+)$/)
+  if (m) return m[1] + '~' + m[2]
+  return s
+}
+
+const activeCrawled = computed(() => {
+  if (!crawlPreview.value) return null
+  return crawlPreview.value.crawled[crawlActiveVariant.value] || null
+})
+
+const activeCurrent = computed(() => {
+  if (!crawlPreview.value) return {}
+  return crawlPreview.value.current[crawlActiveVariant.value] || {}
+})
+
+function activeCurrentSkillCount(skillType) {
+  const cur = activeCurrent.value
+  if (!cur) return 0
+  return (cur[skillType] || []).length
+}
+
+const crawlHasSelection = computed(() => {
+  return crawlSelections.value.some(s =>
+    s.stats || s.ability || s.detail || s.skills || s.bloodline_skills || s.learnable_stones
+  )
+})
+
+// Element map from crawl response for skill display
+const crawlElemMap = computed(() => {
+  if (!crawlPreview.value?.elemMap) return {}
+  return crawlPreview.value.elemMap
+})
+
+// Category color helper for crawl preview skills
+function crawlCategoryColor(type) {
+  const colors = { '物攻': '#EF4444', '魔攻': '#8B5CF6', '防御': '#3B82F6', '状态': '#10B981' }
+  return colors[type] || '#6B7280'
+}
+
+async function copySkillsToClipboard(skillType) {
+  if (!crawlPreview.value) return
+  const crawled = crawlPreview.value.crawled[crawlActiveVariant.value]
+  if (!crawled || !crawled[skillType]) return
+
+  // Only include matched skills (exclude red-background unmatched ones)
+  const matchedSkills = crawled[skillType].filter(s => s._matched)
+  if (!matchedSkills.length) {
+    msg.value = '没有已匹配的技能可复制'; ok.value = false
+    return
+  }
+
+  const exportData = {
+    _name: crawled._name,
+    _uid: crawled._uid,
+    skill_type: skillType,
+    skills: matchedSkills.map(s => ({
+      name: s.name,
+      skill_ref_uid: s.skill_ref_uid,
+      level: s.level || null,
+      element: s.element || null,
+      type: s.type || null,
+      cost: s.cost || 0,
+      power: s.power || 0,
+      description: s.description || '',
+    })),
+  }
+
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(exportData, null, 2))
+    msg.value = `已复制 ${matchedSkills.length} 个${skillType === 'skills' ? '精灵技能' : skillType === 'bloodline_skills' ? '血脉技能' : '技能石'}到剪贴板`
+    ok.value = true
+  } catch (e) {
+    msg.value = '复制失败: ' + e.message; ok.value = false
+  }
+}
+
+async function crawlFromBwiki() {
+  crawling.value = true
+  try {
+    const data = await adminApi.crawlPet(uid)
+    setCrawlData(data)
+    // Start cooldown after successful crawl (60 seconds)
+    startCrawlCooldown(60)
+  } catch (err) {
+    // If BWIKI returned 403 (rate limited by BWIKI)
+    if (err.message.includes('限频') || err.message.includes('403')) {
+      startCrawlCooldown(300)
+      modal.alert('BWIKI 限频', 'BWIKI 网站限频，请 5 分钟后重试。频繁请求会被封禁，请耐心等待。')
+    } else {
+      // If rate limited by our server, parse remaining seconds
+      const cooldownMatch = err.message.match(/(\d+)\s*秒/)
+      if (cooldownMatch) {
+        startCrawlCooldown(parseInt(cooldownMatch[1], 10))
+      }
+      modal.alert('爬取失败', err.message)
+    }
+  } finally {
+    crawling.value = false
+  }
+}
+
+async function applyCrawlSelected() {
+  if (!crawlPreview.value) return
+  crawlApplying.value = true
+  try {
+    const applyData = []
+    for (let i = 0; i < crawlPreview.value.crawled.length; i++) {
+      const sel = crawlSelections.value[i]
+      const crawled = crawlPreview.value.crawled[i]
+      const item = { uid: crawled._uid }
+      let hasData = false
+
+      if (sel.stats && (crawled.hp || crawled.atk || crawled.matk || crawled.def || crawled.mdef || crawled.speed)) {
+        item.stats = {
+          hp: crawled.hp, atk: crawled.atk, matk: crawled.matk,
+          def: crawled.def, mdef: crawled.mdef, speed: crawled.speed,
+          total: crawled.total,
+        }
+        if (sel.ability && crawled.ability_name) {
+          item.stats.ability_name = crawled.ability_name
+          item.stats.ability_desc = crawled.ability_desc || ''
+        }
+        hasData = true
+      } else if (sel.ability && crawled.ability_name) {
+        item.stats = { ability_name: crawled.ability_name, ability_desc: crawled.ability_desc || '' }
+        hasData = true
+      }
+
+      if (sel.detail && (crawled.height || crawled.weight)) {
+        item.detail = { height: crawled.height || null, weight: crawled.weight || null }
+        hasData = true
+      }
+
+      const skills = {}
+      if (sel.skills && crawled.skills?.length) skills.skills = crawled.skills
+      if (sel.bloodline_skills && crawled.bloodline_skills?.length) skills.bloodline_skills = crawled.bloodline_skills
+      if (sel.learnable_stones && crawled.learnable_stones?.length) skills.learnable_stones = crawled.learnable_stones
+      if (Object.keys(skills).length) {
+        item.skills = skills
+        hasData = true
+      }
+
+      if (hasData) applyData.push(item)
+    }
+
+    if (!applyData.length) {
+      modal.warning('无数据', '没有选中任何要应用的数据')
+      return
+    }
+
+    await adminApi.applyCrawlData(uid, applyData)
+    closeCrawl()
+    await modal.success('应用成功', `已更新 ${applyData.length} 个形态的数据`)
+    // Reload page data
+    loaded.value = false
+    await loadData()
+  } catch (err) {
+    modal.alert('应用失败', err.message)
+  } finally {
+    crawlApplying.value = false
   }
 }
 

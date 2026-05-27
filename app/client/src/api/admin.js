@@ -334,4 +334,17 @@ export const adminApi = {
     method: 'PUT',
     body: JSON.stringify({ value, description }),
   }),
+
+  // BWIKI 爬取（预览 + 应用）
+  crawlPet: (uid) => {
+    // Crawl needs longer timeout (up to 60s) since it fetches multiple pages from BWIKI
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 60000)
+    return adminRequest(`/crawl-pet/${uid}`, { method: 'POST', signal: controller.signal })
+      .finally(() => clearTimeout(timer))
+  },
+  applyCrawlData: (uid, applyData) => adminRequest(`/crawl-pet/${uid}/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ applyData }),
+  }),
 }

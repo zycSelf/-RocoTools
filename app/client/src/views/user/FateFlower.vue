@@ -181,8 +181,8 @@
           </h3>
 
           <!-- Attack profile summary -->
-          <div v-if="counterPicks" class="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30">
-            <div class="flex items-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm">
+          <div v-if="counterPicks" class="mb-4 p-2.5 sm:p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-0 text-xs sm:text-sm">
               <div class="flex items-center gap-1.5">
                 <span class="text-muted">攻击倾向：</span>
                 <span class="font-medium" :class="counterPicks.attack_profile.tendency === '物攻' ? 'text-red-500' : 'text-purple-500'">
@@ -192,7 +192,7 @@
                   ({{ counterPicks.attack_profile.tendency_values.atk }}/{{ counterPicks.attack_profile.tendency_values.matk }})
                 </span>
               </div>
-              <span class="text-muted">|</span>
+              <span class="hidden sm:inline text-muted mx-2">|</span>
               <div class="flex items-center gap-1.5">
                 <span class="text-muted">攻击属性：</span>
                 <div class="flex items-center gap-1">
@@ -205,10 +205,10 @@
                   </template>
                 </div>
               </div>
-              <span class="text-muted">|</span>
+              <span class="hidden sm:inline text-muted mx-2">|</span>
               <div class="flex items-center gap-1.5">
                 <span class="text-muted">弱点：</span>
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1 flex-wrap">
                   <template v-for="item in counterPicks.attack_profile.target_weak_to" :key="item.name || item">
                     <span v-if="elemMap[item.name || item]" class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded"
                       :style="{ background: elemMap[item.name || item].color + '15', color: elemMap[item.name || item].color }"
@@ -235,8 +235,8 @@
                 ⚖️ 双防均衡 ({{ counterPicks.attack_profile.boss_def }}/{{ counterPicks.attack_profile.boss_mdef }})
               </span>
             </div>
-            <!-- Tag legend -->
-            <div class="flex items-center gap-2 sm:gap-3 mt-2 pt-2 border-t border-blue-200/50 dark:border-blue-500/20 flex-wrap">
+            <!-- Tag legend (hidden on mobile, shown on sm+) -->
+            <div class="hidden sm:flex items-center gap-2 sm:gap-3 mt-2 pt-2 border-t border-blue-200/50 dark:border-blue-500/20 flex-wrap">
               <span class="text-[10px] text-muted mr-0.5">图例：</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-200 text-red-700 dark:bg-red-500/30 dark:text-red-300 text-[9px] font-bold">⚔️×3</span> 三倍克制</span>
               <span class="inline-flex items-center gap-0.5 text-[10px] sm:text-xs"><span class="px-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400 text-[9px]">⚔️×2</span> 双倍克制</span>
@@ -255,8 +255,8 @@
 
           <!-- Recommended pets sorted by score (flat list) -->
           <template v-else-if="counterPicks && counterPicks.pets && counterPicks.pets.length">
-            <!-- Pets grid: 5 per row -->
-            <div class="grid grid-cols-5 gap-2 sm:gap-3">
+            <!-- Pets grid: responsive columns -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
               <div
                 v-for="cp in counterPicks.pets"
                 :key="cp.uid"
@@ -264,9 +264,9 @@
                 class="counter-pick-card group flex flex-col items-center p-2 sm:p-2.5"
               >
                 <!-- Pet image -->
-                <img :src="cp.image_url" class="w-14 h-14 sm:w-16 sm:h-16 md:w-[4.5rem] md:h-[4.5rem] object-contain mx-auto" :alt="cp.name" />
+                <img :src="cp.image_url" class="w-16 h-16 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-[4.5rem] lg:h-[4.5rem] object-contain mx-auto" :alt="cp.name" />
                 <!-- Pet name -->
-                <div class="text-xs sm:text-sm font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
+                <div class="text-sm sm:text-xs md:text-sm font-medium text-center mt-1 truncate w-full">{{ cp.name }}</div>
                 <!-- Element badges -->
                 <div class="flex items-center justify-center gap-1 mt-1">
                   <img v-if="cp.element_icon" :src="cp.element_icon" class="w-4 h-4 sm:w-[1.1rem] sm:h-[1.1rem]" :title="cp.element_name" />

@@ -159,6 +159,18 @@
 
     <!-- 全局图片预览 -->
     <ImagePreview v-model="showPreview" :src="previewSrc" @close="closePreview" />
+
+    <!-- 全局悬浮按钮：BWIKI爬取预览最小化时显示（仅管理端） -->
+    <Transition name="fab">
+      <button v-if="isAdminRoute && crawlHasData && crawlIsMinimized"
+        @click="crawlRestore"
+        class="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+        :class="isDark ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'"
+        title="恢复 BWIKI 爬取预览">
+        <span class="text-xl">🌐</span>
+        <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 border-2 border-white dark:border-gray-800 animate-pulse"></span>
+      </button>
+    </Transition>
   </div>
 </template>
 
@@ -169,6 +181,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useModalState } from '@/composables/useModal'
 import { useImagePreview } from '@/composables/useImagePreview'
 import { usePageVisibility } from '@/composables/usePageVisibility'
+import { useCrawlPreview } from '@/composables/useCrawlPreview'
 import ModalDialog from '@/components/shared/ModalDialog.vue'
 import ImagePreview from '@/components/shared/ImagePreview.vue'
 
@@ -186,6 +199,9 @@ const { state: modalState, onConfirm: modalConfirm, onCancel: modalCancel } = us
 
 // 全局图片预览（仅管理端）
 const { showPreview, previewSrc, closePreview } = useImagePreview()
+
+// 全局爬取预览状态
+const { hasData: crawlHasData, isMinimized: crawlIsMinimized, restore: crawlRestore } = useCrawlPreview()
 
 // Page visibility recovery: auto-reload when returning from background after long idle
 usePageVisibility({
@@ -306,4 +322,10 @@ watch(mobileMenuOpen, (val) => {
     @apply hover:bg-white/5;
   }
 }
+</style>
+
+<style>
+/* FAB transition */
+.fab-enter-active, .fab-leave-active { transition: all 0.3s ease; }
+.fab-enter-from, .fab-leave-to { opacity: 0; transform: scale(0.5) translateY(20px); }
 </style>
