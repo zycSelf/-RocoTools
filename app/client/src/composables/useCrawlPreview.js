@@ -78,12 +78,13 @@ export function useCrawlPreview() {
           .map(s => ({
             name: s.name,
             skill_ref_uid: s.skill_ref_uid,
-            level: s.level || null,
+            level: s.level ? parseInt(String(s.level).replace(/^LV/i, ''), 10) || null : null,
             element: s.element || null,
             type: s.type || null,
             cost: s.cost || 0,
             power: s.power || 0,
             description: s.description || '',
+            skill_icon: s.skill_icon || '',
           }))
       }
     }

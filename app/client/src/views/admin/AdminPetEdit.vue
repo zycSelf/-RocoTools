@@ -1757,8 +1757,13 @@ async function pasteAllSkills() {
         return
       }
       // Replace all tabs
+      const parseLevel = (lv) => {
+        if (!lv) return ''
+        const n = parseInt(String(lv).replace(/^LV/i, ''), 10)
+        return isNaN(n) ? '' : n
+      }
       const mapSkill = (s) => ({
-        level: s.level || '', name: s.name || '', element: s.element || '',
+        level: parseLevel(s.level), name: s.name || '', element: s.element || '',
         type: s.type || '', cost: s.cost || 0, power: s.power || 0,
         description: s.description || '', skill_ref_uid: s.skill_ref_uid || '', skill_icon: s.skill_icon || '',
       })
@@ -1775,8 +1780,13 @@ async function pasteAllSkills() {
         skillsOk.value = false
         return
       }
+      const parseLevel = (lv) => {
+        if (!lv) return ''
+        const n = parseInt(String(lv).replace(/^LV/i, ''), 10)
+        return isNaN(n) ? '' : n
+      }
       const mapSkill = (s) => ({
-        level: s.level || '', name: s.name || '', element: s.element || '',
+        level: parseLevel(s.level), name: s.name || '', element: s.element || '',
         type: s.type || '', cost: s.cost || 0, power: s.power || 0,
         description: s.description || '', skill_ref_uid: s.skill_ref_uid || '', skill_icon: s.skill_icon || '',
       })
@@ -1837,8 +1847,13 @@ async function pasteSkills() {
     const sourceLabel = payload.tab === 'skills' ? '精灵技能' : payload.tab === 'bloodline_skills' ? '血脉技能' : '技能石技能'
     const targetLabel = currentTab === 'skills' ? '精灵技能' : currentTab === 'bloodline_skills' ? '血脉技能' : '技能石技能'
     // Replace current tab skills (not append, to avoid duplicates)
+    const parseLevel = (lv) => {
+      if (!lv) return ''
+      const n = parseInt(String(lv).replace(/^LV/i, ''), 10)
+      return isNaN(n) ? '' : n
+    }
     skillForms[currentTab] = payload.skills.map(s => ({
-      level: s.level || '',
+      level: parseLevel(s.level),
       name: s.name || '',
       element: s.element || '',
       type: s.type || '',
@@ -2192,12 +2207,13 @@ async function copySkillsToClipboard(skillType) {
     skills: matchedSkills.map(s => ({
       name: s.name,
       skill_ref_uid: s.skill_ref_uid,
-      level: s.level || null,
+      level: s.level ? parseInt(String(s.level).replace(/^LV/i, ''), 10) || null : null,
       element: s.element || null,
       type: s.type || null,
       cost: s.cost || 0,
       power: s.power || 0,
       description: s.description || '',
+      skill_icon: s.skill_icon || '',
     })),
   }
 
