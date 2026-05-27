@@ -1153,13 +1153,17 @@ const computedUid = computed(() => {
 function updateUid() {}
 
 // 图片插槽
-const imageSlots = computed(() => [
-  { type: 'pet_default', label: '立绘', url: pendingPreviews.value.pet_default || detail.value?.image_default },
-  { type: 'pet_shiny', label: '异色', url: pendingPreviews.value.pet_shiny || detail.value?.image_shiny },
-  { type: 'pet_fruit', label: '果实', url: pendingPreviews.value.pet_fruit || detail.value?.image_fruit },
-  { type: 'pet_egg', label: '精灵蛋', url: pendingPreviews.value.pet_egg || detail.value?.image_egg },
-  { type: 'pet_thumb', label: '缩略图', url: pendingPreviews.value.pet_thumb || pet.value?.thumb_url },
-])
+const imageSlots = computed(() => {
+  const bust = imageCacheBuster.value
+  const appendBust = (url) => url ? url + bust : url
+  return [
+    { type: 'pet_default', label: '立绘', url: pendingPreviews.value.pet_default || appendBust(detail.value?.image_default) },
+    { type: 'pet_shiny', label: '异色', url: pendingPreviews.value.pet_shiny || appendBust(detail.value?.image_shiny) },
+    { type: 'pet_fruit', label: '果实', url: pendingPreviews.value.pet_fruit || appendBust(detail.value?.image_fruit) },
+    { type: 'pet_egg', label: '精灵蛋', url: pendingPreviews.value.pet_egg || appendBust(detail.value?.image_egg) },
+    { type: 'pet_thumb', label: '缩略图', url: pendingPreviews.value.pet_thumb || appendBust(pet.value?.thumb_url) },
+  ]
+})
 
 const uploadSlots = computed(() => [
   { type: 'pet_default', label: '立绘' },
@@ -1175,7 +1179,7 @@ const currentPreviewUrl = computed(() => {
   return slot?.url || null
 })
 
-const abilityIconUrl = computed(() => pendingPreviews.value.pet_ability || detail.value?.ability_icon || null)
+const abilityIconUrl = computed(() => pendingPreviews.value.pet_ability || (detail.value?.ability_icon ? detail.value.ability_icon + imageCacheBuster.value : null))
 
 // Ability options for SearchSelect (with pet_count badge)
 const abilityOptions = computed(() =>
@@ -1271,6 +1275,9 @@ const pendingPreviews = ref({})
 // Count of pending images
 const pendingCount = computed(() => Object.keys(pendingImages.value).length)
 
+// Cache-busting: increment after image upload to force browser to re-fetch
+const imageCacheBuster = ref('')
+
 function handleImageUploaded(type, path) {
   msg.value = '上传成功'; ok.value = true
   if (isNew) {
@@ -1278,6 +1285,8 @@ function handleImageUploaded(type, path) {
     pendingImages.value[type] = { source: 'library', path }
     pendingPreviews.value[type] = path
   } else {
+    // Force cache bust so browser re-fetches the image with same URL
+    imageCacheBuster.value = '?t=' + Date.now()
     loadData()
   }
 }
