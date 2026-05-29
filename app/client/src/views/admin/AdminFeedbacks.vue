@@ -61,34 +61,53 @@
     </div>
 
     <!-- List -->
-    <div v-else class="space-y-3">
+    <div v-else class="space-y-2">
       <div v-for="item in items" :key="item.id"
-        class="card cursor-pointer transition-all hover:shadow-md"
+        class="rounded-xl border transition-all hover:shadow-md cursor-pointer overflow-hidden"
+        :class="isDark ? 'bg-surface-dark-card border-surface-dark-border' : 'bg-white border-gray-200'"
         @click="toggleExpand(item.id)">
-        <!-- Summary Row -->
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-1 flex-wrap">
-              <span class="text-sm">{{ typeIcon(item.type) }}</span>
-              <span class="text-xs px-1.5 py-0.5 rounded font-medium"
-                :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-              <span class="text-xs text-muted">{{ formatTime(item.created_at) }}</span>
+        <div class="flex">
+          <!-- Left type color bar -->
+          <div class="w-1 flex-shrink-0" :class="typeBarClass(item.type)"></div>
+          <!-- Content -->
+          <div class="flex-1 min-w-0 px-4 py-3">
+            <!-- Top row: type badge + status + time -->
+            <div class="flex items-center gap-2 mb-1.5">
+              <span class="text-xs px-1.5 py-0.5 rounded font-medium" :class="typeClass(item.type)">
+                {{ typeLabel(item.type) }}
+              </span>
+              <span class="text-xs px-1.5 py-0.5 rounded font-medium" :class="statusClass(item.status)">
+                {{ statusLabel(item.status) }}
+              </span>
+              <span class="text-xs text-muted ml-auto">{{ formatTime(item.created_at) }}</span>
+              <span class="text-xs text-muted">{{ expandedId === item.id ? '▲' : '▼' }}</span>
             </div>
-            <p class="text-sm truncate">{{ item.content }}</p>
-            <div class="flex items-center gap-3 mt-1.5 text-xs text-muted">
-              <span>📍 {{ item.page_url || '/' }}</span>
-              <span>{{ deviceIcon(item.device_type) }} {{ item.device_type }}</span>
-              <span v-if="item.screen_size">{{ item.screen_size }}</span>
-              <span v-if="parseImages(item.images).length">📷 {{ parseImages(item.images).length }}张</span>
-              <span v-if="item.contact">📧 {{ item.contact }}</span>
+            <!-- Content preview -->
+            <p class="text-sm text-gray-700 dark:text-gray-200 truncate mb-1.5">{{ item.content }}</p>
+            <!-- Meta row -->
+            <div class="flex items-center gap-1.5 text-xs text-muted flex-wrap">
+              <span class="inline-flex items-center gap-0.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                {{ item.page_url || '/' }}
+              </span>
+              <span class="opacity-40">·</span>
+              <span>{{ item.device_type || 'unknown' }}</span>
+              <template v-if="parseImages(item.images).length">
+                <span class="opacity-40">·</span>
+                <span>🖼 {{ parseImages(item.images).length }}张图</span>
+              </template>
+              <template v-if="item.contact">
+                <span class="opacity-40">·</span>
+                <span>{{ item.contact }}</span>
+              </template>
             </div>
           </div>
-          <span class="text-xs text-muted flex-shrink-0">{{ expandedId === item.id ? '▲' : '▼' }}</span>
         </div>
 
         <!-- Expanded Detail -->
         <Transition name="expand">
-          <div v-if="expandedId === item.id" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700" @click.stop>
+          <div v-if="expandedId === item.id" class="px-4 pb-4 pt-0 border-t border-gray-100 dark:border-gray-700/50 ml-1" @click.stop>
+            <div class="pt-4">
             <!-- Full content -->
             <div class="mb-4">
               <label class="text-xs text-muted mb-1 block">反馈内容</label>
@@ -157,6 +176,7 @@
                 </button>
               </div>
             </div>
+            </div>
           </div>
         </Transition>
       </div>
@@ -187,8 +207,10 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { useModal } from '@/composables/useModal'
+import { useTheme } from '@/composables/useTheme'
 
 const modal = useModal()
+const { isDark } = useTheme()
 
 // ============================================================
 // State
@@ -350,8 +372,24 @@ function previewImage(img) {
   previewVisible.value = true
 }
 
-function typeIcon(type) {
-  return { bug: '🐛', suggestion: '💡', other: '📝' }[type] || '📝'
+function typeLabel(type) {
+  return { bug: 'Bug', suggestion: '建议', other: '其他' }[type] || '其他'
+}
+
+function typeClass(type) {
+  return {
+    bug: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
+    suggestion: 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
+    other: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400',
+  }[type] || ''
+}
+
+function typeBarClass(type) {
+  return {
+    bug: 'bg-red-400',
+    suggestion: 'bg-purple-400',
+    other: 'bg-gray-300 dark:bg-gray-600',
+  }[type] || 'bg-gray-300'
 }
 
 function deviceIcon(type) {
