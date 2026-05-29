@@ -151,6 +151,7 @@ const cooldownRemaining = ref(0)
 const panelRef = ref(null)
 const dragStartY = ref(0)
 const dragDelta = ref(0)
+let justOpened = false // Prevent click-outside from immediately closing
 
 const types = [
   { value: 'bug', icon: '🐛', label: 'Bug' },
@@ -214,6 +215,9 @@ async function checkEnabled() {
 function openPanel() {
   panelOpen.value = true
   submitted.value = false
+  // Prevent onClickOutside from immediately closing the panel
+  justOpened = true
+  setTimeout(() => { justOpened = false }, 100)
   // Check cooldown
   updateCooldown()
 }
@@ -358,6 +362,7 @@ function onKeydown(e) {
 // Close on click outside (desktop)
 function onClickOutside(e) {
   if (!isDesktop.value) return
+  if (justOpened) return
   if (panelOpen.value && panelRef.value && !panelRef.value.contains(e.target)) {
     closePanel()
   }
