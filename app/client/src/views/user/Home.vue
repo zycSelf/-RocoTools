@@ -734,20 +734,26 @@ onMounted(async () => {
 
 /* Mobile optimization for announcement tables */
 @media (max-width: 639px) {
-  /* cols-2: shrink first column */
+  /* cols-2 (传说/通行证/赛季/异色): shrink first column */
   :deep(.prose-announcement table.cols-2 td:first-child),
   :deep(.prose-announcement table.cols-2 th:first-child) {
-    width: 90px;
-    min-width: 90px;
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
+    padding: 0.3rem;
+  }
+  :deep(.prose-announcement table.cols-2 th:first-child div[style]),
+  :deep(.prose-announcement table.cols-2 td:first-child div[style]) {
+    min-width: unset !important;
   }
   :deep(.prose-announcement table.cols-2 td:nth-child(2)),
   :deep(.prose-announcement table.cols-2 th:nth-child(2)) {
     min-width: unset;
-    padding-left: 0.5rem;
+    padding-left: 0.4rem;
   }
-  :deep(.prose-announcement .inline-img) {
-    width: 40px;
-    height: 40px;
+  :deep(.prose-announcement table.cols-2 .inline-img) {
+    width: 32px;
+    height: 32px;
   }
   :deep(.prose-announcement .ability-icon) {
     width: 1.4em;
@@ -758,13 +764,11 @@ onMounted(async () => {
     width: 22px;
     height: 22px;
   }
-  /* cols-6/cols-8/cols-3: narrow first column with ellipsis */
+  /* cols-6/cols-8: narrow first column with ellipsis */
   :deep(.prose-announcement table.cols-6 td:first-child),
   :deep(.prose-announcement table.cols-6 th:first-child),
   :deep(.prose-announcement table.cols-8 td:first-child),
-  :deep(.prose-announcement table.cols-8 th:first-child),
-  :deep(.prose-announcement table.cols-3 td:first-child),
-  :deep(.prose-announcement table.cols-3 th:first-child) {
+  :deep(.prose-announcement table.cols-8 th:first-child) {
     max-width: 120px;
     min-width: 70px;
     overflow: hidden;
