@@ -295,18 +295,29 @@
       <SkillTable :title="''" :skills="filteredSkills" :elem-map="elemMap" />
     </div>
 
-    <!-- 悬浮导航：上一只/下一只（仅平板和PC显示） -->
+    <!-- 悬浮导航：上一只/下一只（仅PC桌面显示） -->
     <Teleport to="body">
       <router-link v-if="neighbors.prev" :to="'/pets/' + neighbors.prev.uid" replace
-        class="hidden md:flex fixed left-4 lg:left-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-2.5 pr-3.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
+        class="hidden lg:flex fixed left-4 xl:left-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-2.5 pr-3.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
         <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.prev.name }}</span>
       </router-link>
       <router-link v-if="neighbors.next" :to="'/pets/' + neighbors.next.uid" replace
-        class="hidden md:flex fixed right-4 lg:right-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-3.5 pr-2.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
+        class="hidden lg:flex fixed right-4 xl:right-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-3.5 pr-2.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
         <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.next.name }}</span>
         <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </router-link>
+    </Teleport>
+
+    <!-- 滑动提示（仅触屏设备首次显示） -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showSwipeHint" class="lg:hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 dark:bg-white/15 backdrop-blur-sm text-white text-xs shadow-lg">
+          <svg class="w-4 h-4 animate-bounce-x-reverse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span>左右滑动切换精灵</span>
+          <svg class="w-4 h-4 animate-bounce-x" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -328,6 +339,7 @@ const route = useRoute()
 const router = useRouter()
 const pet = ref(null)
 const neighbors = ref({ prev: null, next: null })
+const showSwipeHint = ref(false)
 
 // Format range string "1.50-2.15" to display "1.50~2.15m" or "1.50m" if same
 function formatRange(str, unit) {
@@ -606,6 +618,20 @@ const statsBarList = computed(() => {
 
 onMounted(() => loadPet(route.params.uid))
 
+// Show swipe hint once for touch devices
+onMounted(() => {
+  const hintKey = 'pet-swipe-hint-shown'
+  if (!localStorage.getItem(hintKey) && 'ontouchstart' in window) {
+    // Delay slightly so page content loads first
+    setTimeout(() => {
+      showSwipeHint.value = true
+      localStorage.setItem(hintKey, '1')
+      // Auto-hide after 2.5s
+      setTimeout(() => { showSwipeHint.value = false }, 2500)
+    }, 800)
+  }
+})
+
 // Re-load when route param changes (same-route navigation, e.g. clicking evo chain links)
 watch(() => route.params.uid, (newUid, oldUid) => {
   if (newUid && newUid !== oldUid) {
@@ -705,3 +731,27 @@ onUnmounted(() => {
   document.removeEventListener('touchend', onTouchEnd)
 })
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.6s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes bounce-x {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+@keyframes bounce-x-reverse {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-3px); }
+}
+.animate-bounce-x {
+  animation: bounce-x 1s ease-in-out infinite;
+}
+.animate-bounce-x-reverse {
+  animation: bounce-x-reverse 1s ease-in-out infinite;
+}
+</style>
