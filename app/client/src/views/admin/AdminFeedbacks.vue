@@ -258,7 +258,8 @@ async function loadSettings() {
     feedbackEnabled.value = !enabledSetting || enabledSetting.value !== '0'
     const cooldownSetting = settings.find(s => s.key === 'feedback_cooldown')
     if (cooldownSetting) {
-      cooldownSeconds.value = parseInt(cooldownSetting.value) || 60
+      const parsed = parseInt(cooldownSetting.value)
+      cooldownSeconds.value = isNaN(parsed) ? 60 : parsed
       savedCooldown.value = cooldownSeconds.value
     }
   } catch {}
