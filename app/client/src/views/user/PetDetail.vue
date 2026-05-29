@@ -1,5 +1,5 @@
 <template>
-  <div v-if="pet">
+  <div v-if="pet" ref="pageEl" :style="swipeStyle" class="pet-detail-page">
     <!-- 返回 -->
     <button @click="goBack" class="text-sm sm:text-base text-muted hover:text-primary-500 mb-3 sm:mb-4 inline-block cursor-pointer">← 返回</button>
 
@@ -298,14 +298,14 @@
     <!-- 悬浮导航：上一只/下一只（仅平板和PC显示） -->
     <Teleport to="body">
       <router-link v-if="neighbors.prev" :to="'/pets/' + neighbors.prev.uid"
-        class="hidden md:flex fixed left-4 lg:left-6 top-1/2 -translate-y-1/2 z-40 items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 hover:scale-110 active:scale-95 transition-all duration-200 group"
-        :title="neighbors.prev.name">
-        <svg class="w-5 h-5 lg:w-[22px] lg:h-[22px] text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        class="hidden md:flex fixed left-4 lg:left-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-2.5 pr-3.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
+        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.prev.name }}</span>
       </router-link>
       <router-link v-if="neighbors.next" :to="'/pets/' + neighbors.next.uid"
-        class="hidden md:flex fixed right-4 lg:right-6 top-1/2 -translate-y-1/2 z-40 items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur border border-gray-200/60 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 hover:scale-110 active:scale-95 transition-all duration-200 group"
-        :title="neighbors.next.name">
-        <svg class="w-5 h-5 lg:w-[22px] lg:h-[22px] text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        class="hidden md:flex fixed right-4 lg:right-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-3.5 pr-2.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
+        <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.next.name }}</span>
+        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </router-link>
     </Teleport>
   </div>
@@ -615,30 +615,93 @@ watch(() => route.params.uid, (newUid, oldUid) => {
   }
 })
 
-// Mobile swipe gesture: left swipe → next, right swipe → prev
+// Mobile swipe gesture with visual feedback
+const pageEl = ref(null)
+const swipeOffset = ref(0)
+const isSwiping = ref(false)
+const isAnimating = ref(false)
 let touchStartX = 0
 let touchStartY = 0
+let isHorizontalSwipe = null // null = undecided, true/false = locked
+
+const swipeStyle = computed(() => {
+  if (swipeOffset.value === 0 && !isAnimating.value) return {}
+  return {
+    transform: `translateX(${swipeOffset.value}px)`,
+    transition: isSwiping.value ? 'none' : 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  }
+})
+
+const SWIPE_THRESHOLD = 100 // px to trigger navigation
+const MAX_OFFSET = 150 // max drag distance (with resistance)
+
 function onTouchStart(e) {
+  if (isAnimating.value) return
   touchStartX = e.touches[0].clientX
   touchStartY = e.touches[0].clientY
+  isHorizontalSwipe = null
+  isSwiping.value = false
 }
-function onTouchEnd(e) {
-  const dx = e.changedTouches[0].clientX - touchStartX
-  const dy = e.changedTouches[0].clientY - touchStartY
-  // Only trigger if horizontal swipe > 80px and more horizontal than vertical
-  if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-  if (dx < 0 && neighbors.value.next) {
-    router.push('/pets/' + neighbors.value.next.uid)
-  } else if (dx > 0 && neighbors.value.prev) {
-    router.push('/pets/' + neighbors.value.prev.uid)
+
+function onTouchMove(e) {
+  if (isAnimating.value) return
+  const dx = e.touches[0].clientX - touchStartX
+  const dy = e.touches[0].clientY - touchStartY
+
+  // Lock direction after 10px movement
+  if (isHorizontalSwipe === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+    isHorizontalSwipe = Math.abs(dx) > Math.abs(dy)
+  }
+  if (!isHorizontalSwipe) return
+
+  // Check if swipe direction has a valid neighbor
+  if (dx > 0 && !neighbors.value.prev) return
+  if (dx < 0 && !neighbors.value.next) return
+
+  isSwiping.value = true
+  // Apply resistance: the further you drag, the harder it gets
+  const resistance = 1 - Math.min(Math.abs(dx) / (MAX_OFFSET * 3), 0.6)
+  swipeOffset.value = dx * resistance
+}
+
+function onTouchEnd() {
+  if (!isSwiping.value) return
+  isSwiping.value = false
+
+  const offset = swipeOffset.value
+  if (Math.abs(offset) >= SWIPE_THRESHOLD) {
+    // Trigger navigation: animate out
+    isAnimating.value = true
+    const direction = offset > 0 ? 1 : -1
+    swipeOffset.value = direction * window.innerWidth
+    setTimeout(() => {
+      if (direction > 0 && neighbors.value.prev) {
+        router.push('/pets/' + neighbors.value.prev.uid)
+      } else if (direction < 0 && neighbors.value.next) {
+        router.push('/pets/' + neighbors.value.next.uid)
+      }
+      // Reset after navigation
+      setTimeout(() => {
+        swipeOffset.value = 0
+        isAnimating.value = false
+      }, 50)
+    }, 250)
+  } else {
+    // Snap back
+    isAnimating.value = true
+    swipeOffset.value = 0
+    setTimeout(() => { isAnimating.value = false }, 300)
   }
 }
+
 onMounted(() => {
   document.addEventListener('touchstart', onTouchStart, { passive: true })
+  document.addEventListener('touchmove', onTouchMove, { passive: true })
   document.addEventListener('touchend', onTouchEnd, { passive: true })
 })
 onUnmounted(() => {
   document.removeEventListener('touchstart', onTouchStart)
+  document.removeEventListener('touchmove', onTouchMove)
   document.removeEventListener('touchend', onTouchEnd)
 })
 </script>
