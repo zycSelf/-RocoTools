@@ -96,7 +96,10 @@ router.get('/enabled', (req, res) => {
   let cooldown = 60; // default 60 seconds
   try {
     const row = db.prepare("SELECT value FROM site_settings WHERE key = 'feedback_cooldown'").get();
-    if (row) cooldown = Math.max(0, parseInt(row.value) || 60);
+    if (row) {
+      const parsed = parseInt(row.value);
+      cooldown = isNaN(parsed) ? 60 : Math.max(0, parsed);
+    }
   } catch {}
   res.json({ enabled: isFeedbackEnabled(), cooldown });
 });
