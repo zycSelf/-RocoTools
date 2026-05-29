@@ -737,10 +737,11 @@ onMounted(async () => {
   /* cols-2 (传说/通行证/赛季/异色): shrink first column */
   :deep(.prose-announcement table.cols-2 td:first-child),
   :deep(.prose-announcement table.cols-2 th:first-child) {
-    width: 80px;
-    min-width: 80px;
-    max-width: 80px;
-    padding: 0.3rem;
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
+    padding: 0.3rem 0.4rem;
+    text-align: center;
   }
   :deep(.prose-announcement table.cols-2 th:first-child div[style]),
   :deep(.prose-announcement table.cols-2 td:first-child div[style]) {
