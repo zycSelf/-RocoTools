@@ -1042,18 +1042,24 @@
       <span v-if="msg" class="text-sm" :class="ok ? 'text-green-600' : 'text-red-500'">{{ msg }}</span>
     </div>
 
-    <!-- 悬浮导航：上一只/下一只（仅PC桌面显示） -->
+    <!-- 悬浮导航：上一只/下一只（仅PC桌面，鼠标靠近边缘时显示） -->
     <Teleport to="body">
-      <router-link v-if="!isNew && neighbors.prev" :to="'/admin/pets/' + neighbors.prev.uid" replace
-        class="hidden lg:flex fixed left-4 xl:left-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-2.5 pr-3.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
-        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.prev.name }}</span>
-      </router-link>
-      <router-link v-if="!isNew && neighbors.next" :to="'/admin/pets/' + neighbors.next.uid" replace
-        class="hidden lg:flex fixed right-4 xl:right-6 top-1/2 -translate-y-1/2 z-40 items-center gap-2 pl-3.5 pr-2.5 py-2 rounded-full bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-200 group">
-        <span class="text-xs text-gray-500 dark:text-gray-400 group-hover:text-primary-500 transition-colors max-w-20 truncate">{{ neighbors.next.name }}</span>
-        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 group-hover:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-      </router-link>
+      <!-- 左侧热区 + 按钮 -->
+      <div v-if="!isNew && neighbors.prev" class="hidden lg:block fixed left-0 top-1/3 bottom-1/3 w-16 z-40 group/nav">
+        <router-link :to="'/admin/pets/' + neighbors.prev.uid" replace
+          class="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-300 opacity-0 group-hover/nav:opacity-100">
+          <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover/nav:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          <span class="text-[11px] text-gray-500 dark:text-gray-400 group-hover/nav:text-primary-500 transition-colors max-w-16 truncate">{{ neighbors.prev.name }}</span>
+        </router-link>
+      </div>
+      <!-- 右侧热区 + 按钮 -->
+      <div v-if="!isNew && neighbors.next" class="hidden lg:block fixed right-0 top-1/3 bottom-1/3 w-16 z-40 group/nav">
+        <router-link :to="'/admin/pets/' + neighbors.next.uid" replace
+          class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-gray-200/80 dark:border-gray-700/60 shadow-sm hover:shadow-md hover:border-primary-300 dark:hover:border-primary-500/40 active:scale-95 transition-all duration-300 opacity-0 group-hover/nav:opacity-100">
+          <span class="text-[11px] text-gray-500 dark:text-gray-400 group-hover/nav:text-primary-500 transition-colors max-w-16 truncate">{{ neighbors.next.name }}</span>
+          <svg class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover/nav:text-primary-500 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </router-link>
+      </div>
     </Teleport>
   </div>
   <div v-else class="text-muted text-center mt-20">加载中...</div>
