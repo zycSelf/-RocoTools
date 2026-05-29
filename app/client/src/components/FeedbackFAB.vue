@@ -190,8 +190,31 @@ const panelPositionClass = computed(() => {
 
 const panelTransition = computed(() => isDesktop.value ? 'panel-desktop' : 'panel-mobile')
 
+const routeTitleMap = {
+  '/': '首页',
+  '/season': '赛季',
+  '/events': '活动日历',
+  '/pets': '精灵图鉴',
+  '/skills': '技能列表',
+  '/coverage': '打击面',
+  '/eggs': '蛋组',
+  '/natures': '性格',
+  '/elements': '属性',
+  '/pika': '皮卡月刊',
+  '/fate-flower': '命定花种',
+}
+
 const currentPageTitle = computed(() => {
-  return document.title?.replace(' - Roco Tools', '').replace(' - 洛克王国世界', '') || route.path
+  // Try document.title first
+  const title = document.title?.replace(' - Roco Tools', '').replace(' - 洛克王国世界', '')
+  if (title && title !== 'Roco Tools' && title !== '洛克王国世界') return title
+  // Fallback to route map
+  const mapped = routeTitleMap[route.path]
+  if (mapped) return mapped
+  // For dynamic routes like /pets/:uid
+  const basePath = '/' + (route.path.split('/')[1] || '')
+  if (routeTitleMap[basePath]) return routeTitleMap[basePath]
+  return route.path
 })
 
 const canSubmit = computed(() => {
