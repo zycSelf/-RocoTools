@@ -34,6 +34,7 @@ const routes = [
   { path: '/admin/nav-tabs', name: 'AdminNavTabs', component: () => import('@/views/admin/AdminNavTabs.vue'), meta: { hidden: true, requiresAdmin: true } },
   { path: '/admin/abilities', name: 'AdminAbilities', component: () => import('@/views/admin/AdminAbilities.vue'), meta: { hidden: true, requiresAdmin: true } },
   { path: '/admin/media', name: 'AdminMedia', component: () => import('@/views/admin/AdminMedia.vue'), meta: { hidden: true, requiresAdmin: true } },
+  { path: '/admin/feedbacks', name: 'AdminFeedbacks', component: () => import('@/views/admin/AdminFeedbacks.vue'), meta: { hidden: true, requiresAdmin: true } },
 ]
 
 const router = createRouter({

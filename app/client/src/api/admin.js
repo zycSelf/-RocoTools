@@ -73,6 +73,14 @@ async function adminRequest(path, options = {}) {
 }
 
 export const adminApi = {
+  // Generic request (for custom endpoints)
+  request: (path, options = {}) => {
+    if (options.body && typeof options.body === 'string') {
+      options.headers = { ...options.headers, 'Content-Type': 'application/json' }
+    }
+    return adminRequest(path, options)
+  },
+
   // 登录
   login: (password) => adminRequest('/login', {
     method: 'POST',
@@ -99,7 +107,7 @@ export const adminApi = {
   delete: (table, id) => adminRequest(`/data/${table}/${id}`, {
     method: 'DELETE',
   }),
-  
+
   // 皮卡月刊专用接口
   createPikaMonthly: (data) => adminRequest('/pika-monthlies', {
     method: 'POST',

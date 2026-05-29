@@ -56,6 +56,7 @@
           <router-link to="/admin/pika" class="nav-link">皮卡</router-link>
           <router-link to="/admin/media" class="nav-link">素材</router-link>
           <router-link to="/admin/nav-tabs" class="nav-link">标签</router-link>
+          <router-link to="/admin/feedbacks" class="nav-link">反馈</router-link>
           <router-link to="/admin/conflicts" class="nav-link">审查</router-link>
         </div>
 
@@ -122,6 +123,7 @@
           <router-link to="/admin/pika" class="mobile-nav-link" @click="mobileMenuOpen = false">皮卡月刊</router-link>
           <router-link to="/admin/media" class="mobile-nav-link" @click="mobileMenuOpen = false">素材管理</router-link>
           <router-link to="/admin/nav-tabs" class="mobile-nav-link" @click="mobileMenuOpen = false">导航标签</router-link>
+          <router-link to="/admin/feedbacks" class="mobile-nav-link" @click="mobileMenuOpen = false">反馈</router-link>
           <router-link to="/admin/conflicts" class="mobile-nav-link" @click="mobileMenuOpen = false">审查</router-link>
           <router-link to="/" class="mobile-nav-link" @click="mobileMenuOpen = false">回到用户端</router-link>
         </template>
@@ -163,6 +165,9 @@
     <!-- 全局图片预览 -->
     <ImagePreview v-model="showPreview" :src="previewSrc" @close="closePreview" />
 
+    <!-- 全局用户反馈 FAB（仅用户端） -->
+    <FeedbackFAB />
+
     <!-- 全局悬浮按钮：BWIKI爬取预览最小化时显示（仅管理端） -->
     <Transition name="fab">
       <button v-if="isAdminRoute && crawlHasData && crawlIsMinimized"
@@ -187,6 +192,7 @@ import { usePageVisibility } from '@/composables/usePageVisibility'
 import { useCrawlPreview } from '@/composables/useCrawlPreview'
 import ModalDialog from '@/components/shared/ModalDialog.vue'
 import ImagePreview from '@/components/shared/ImagePreview.vue'
+import FeedbackFAB from '@/components/FeedbackFAB.vue'
 
 const route = useRoute()
 const router = useRouter()

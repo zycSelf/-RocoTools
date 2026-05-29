@@ -35,6 +35,7 @@ const mediaRouter = require('./media');
 const exportRouter = require('./export');
 const petSkillsRouter = require('./petSkills');
 const crawlRouter = require('./crawl');
+const feedbacksRouter = require('./feedbacks');
 
 // ============================================================
 // 公开 API（不需要鉴权）
@@ -119,6 +120,9 @@ router.use(petSkillsRouter);
 // BWIKI 爬取（预览 + 应用）
 router.use(crawlRouter);
 
+// 用户反馈管理（独立入口）
+router.use(feedbacksRouter);
+
 // ============================================================
 // 站点设置管理
 // ============================================================
@@ -157,7 +161,7 @@ const { cleanupDuplicateDefaultAchievements } = require('./utils');
 router.post('/cleanup-duplicate-achievements', (req, res) => {
   const { pet_uid } = req.body;
   const db = require('../../db/connection').getWriteDb();
-  
+
   try {
     cleanupDuplicateDefaultAchievements(db, pet_uid);
     res.json({ success: true, message: '重复默认课题清理完成' });

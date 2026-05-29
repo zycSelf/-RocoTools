@@ -193,6 +193,7 @@ const navCards = [
   { path: '/admin/pika', title: '皮卡月刊', desc: '配置角色时装、绑定精灵' },
   { path: '/admin/media', title: '素材管理', desc: '统一管理所有上传图片和素材库' },
   { path: '/admin/nav-tabs', title: '导航标签', desc: '管理用户端顶部导航栏标签显示' },
+  { path: '/admin/feedbacks', title: '用户反馈', desc: '查看和管理用户提交的反馈建议' },
   { path: '/admin/conflicts', title: '数据审查', desc: '处理爬虫与手动编辑的数据冲突' },
 ]
 

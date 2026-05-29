@@ -22,6 +22,7 @@ const naturesRouter = require('./routes/natures');
 const seasonsRouter = require('./routes/seasons');
 const eventsRouter = require('./routes/events');
 const pikaRouter = require('./routes/pika');
+const feedbacksRouter = require('./routes/feedbacks');
 const adminRouter = require('./routes/admin');
 const { apiCache } = require('./middleware/apiCache');
 
@@ -46,6 +47,9 @@ app.use('/api/seasons', apiCache(600), seasonsRouter);
 app.use('/api/events', apiCache(300), eventsRouter);
 app.use('/api/pika-monthlies', apiCache(300), pikaRouter);
 app.use('/api/pets', apiCache(300), petsRouter);
+
+// 用户反馈（公开，不缓存）
+app.use('/api/feedbacks', feedbacksRouter);
 
 // 管理端 API（不缓存）
 app.use('/api/admin', adminRouter);
