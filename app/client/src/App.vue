@@ -142,6 +142,9 @@
       · <a href="https://www.taptap.cn/app/188212" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">TapTap</a>
       · 官方创作者素材库
       · 内容遵循 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">CC BY-NC-SA 4.0</a> 协议
+      <div class="mt-1">
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-primary-500 underline underline-offset-2">粤ICP备2026067950号</a>
+      </div>
     </footer>
     <!-- 全局弹窗 -->
     <ModalDialog
