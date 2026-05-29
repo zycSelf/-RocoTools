@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/postbuild-seo.js",
     "preview": "vite preview",
-    "deploy": "vite build && node scripts/deploy.js"
+    "deploy": "vite build && node scripts/postbuild-seo.js && node scripts/deploy.js"
   },
   "dependencies": {
     "vue": "^3.5.0",
