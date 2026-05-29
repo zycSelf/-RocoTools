@@ -737,9 +737,9 @@ onMounted(async () => {
   /* cols-2 (传说/通行证/赛季/异色): shrink first column */
   :deep(.prose-announcement table.cols-2 td:first-child),
   :deep(.prose-announcement table.cols-2 th:first-child) {
-    width: 70px;
-    min-width: 70px;
-    max-width: 70px;
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
     padding: 0.3rem;
   }
   :deep(.prose-announcement table.cols-2 th:first-child div[style]),
