@@ -131,10 +131,10 @@
         <div class="flex items-center justify-center gap-3 mt-1.5">
           <span v-if="skill.power" class="text-sm sm:text-base font-bold"
             :style="{ color: skill.element_color || '#D69F23' }">
-            {{ skill.power }}
+            威力 {{ skill.power }}
           </span>
-          <span v-if="skill.cost" class="text-[11px] sm:text-xs text-muted">
-            ⚡{{ skill.cost }}
+          <span class="text-[11px] sm:text-xs text-muted">
+            能耗 {{ skill.cost ?? 0 }}
           </span>
         </div>
         <!-- Edit hint -->
