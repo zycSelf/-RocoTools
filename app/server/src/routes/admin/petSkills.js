@@ -538,4 +538,45 @@ router.patch('/pet-achievements/:id/toggle-hidden', authAdmin, (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/pet-siblings/:uid
+ * Get sibling forms (same pet_id) with their custom achievements
+ */
+router.get('/pet-siblings/:uid', authAdmin, (req, res) => {
+  const { uid } = req.params;
+  try {
+    const db = getDb();
+    // Get the pet_id for this uid
+    const pet = db.prepare('SELECT pet_id, name FROM pets WHERE uid = ?').get(uid);
+    if (!pet) return res.status(404).json({ error: '精灵不存在' });
+
+    // Get all forms with the same pet_id (excluding current)
+    const siblings = db.prepare(`
+      SELECT p.uid, p.name, p.thumb_url, p.is_final_form, p.is_boss_form,
+             e.icon as element_icon
+      FROM pets p
+      LEFT JOIN elements e ON p.element_id = e.id
+      WHERE p.pet_id = ? AND p.uid != ?
+      ORDER BY p.uid
+    `).all(pet.pet_id, uid);
+
+    // Get achievements for each sibling
+    for (const s of siblings) {
+      s.achievements = db.prepare(`
+        SELECT pa.type, pa.title, pa.skill_ref_uid, pa.skill_name, pa.use_count, pa.reward_desc, pa.is_default,
+               sk.icon_url as skill_icon
+        FROM pet_achievements pa
+        LEFT JOIN skills sk ON pa.skill_ref_uid = sk.uid
+        WHERE pa.pet_uid = ? AND (pa.is_default = 0 OR pa.is_default IS NULL)
+        ORDER BY pa.sort_order, pa.id
+      `).all(s.uid);
+    }
+
+    res.json({ siblings });
+  } catch (err) {
+    console.error('[PetSiblings GET]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

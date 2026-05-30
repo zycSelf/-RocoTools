@@ -315,6 +315,9 @@ export const adminApi = {
     return adminRequest('/achievements-list' + (query ? '?' + query : ''))
   },
 
+  // 获取同pet_id的其他形态（含课题）
+  getPetSiblings: (uid) => adminRequest(`/pet-siblings/${uid}`),
+
   // 素材库目录管理
   libraryDirectories: () => adminRequest('/library/directories'),
   createLibraryDirectory: (dirPath) => adminRequest('/library/directories', {

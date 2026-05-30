@@ -146,9 +146,40 @@
             </div>
 
             <!-- Add buttons -->
-            <div class="flex gap-2 mb-3">
+            <div class="flex gap-2 mb-3 flex-wrap">
               <button @click="addSkillAchievement" class="text-xs text-primary-500 hover:underline">+ 添加技能课题</button>
               <button @click="addTextAchievement" class="text-xs text-primary-500 hover:underline">+ 添加文本课题</button>
+              <button @click="loadSiblings(pet)" class="text-xs text-blue-500 hover:underline" :disabled="loadingSiblings">
+                {{ loadingSiblings ? '加载中...' : '📋 从其他形态复制' }}
+              </button>
+            </div>
+
+            <!-- Sibling copy panel -->
+            <div v-if="showSiblingPanel && siblings.length > 0" class="p-3 rounded-lg bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 mb-3">
+              <div class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2">选择要复制课题的形态：</div>
+              <div class="space-y-2">
+                <div v-for="sib in siblings" :key="sib.uid"
+                  class="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-white/5">
+                  <img :src="sib.thumb_url" class="w-8 h-8 rounded-full object-cover flex-shrink-0" @error="e => e.target.style.display='none'" />
+                  <div class="flex-1 min-w-0">
+                    <div class="text-xs font-medium">{{ sib.name }} <span class="text-muted">({{ sib.uid }})</span></div>
+                    <div class="text-[10px] text-muted">
+                      {{ sib.achievements.length > 0 ? sib.achievements.map(a => a.type === 'skill' ? `🎯${a.skill_name}` : `📝${a.title}`).join(' | ') : '暂无自定义课题' }}
+                    </div>
+                  </div>
+                  <button v-if="sib.achievements.length > 0" @click="copySiblingAchievements(sib)"
+                    class="text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 flex-shrink-0">
+                    复制({{ sib.achievements.length }})
+                  </button>
+                  <span v-else class="text-[10px] text-muted flex-shrink-0">无课题</span>
+                </div>
+              </div>
+              <div class="flex justify-end mt-2">
+                <button @click="showSiblingPanel = false" class="text-xs text-muted hover:underline">关闭</button>
+              </div>
+            </div>
+            <div v-if="showSiblingPanel && siblings.length === 0 && !loadingSiblings" class="p-3 rounded-lg bg-gray-50 dark:bg-white/5 mb-3 text-xs text-muted text-center">
+              该精灵没有其他形态
             </div>
 
             <!-- Add text form -->
@@ -282,6 +313,11 @@ const skillResults = ref([])
 const selectedSkill = ref(null)
 const newSkill = reactive({ use_count: 2, reward_desc: '' })
 
+// Sibling copy
+const showSiblingPanel = ref(false)
+const siblings = ref([])
+const loadingSiblings = ref(false)
+
 async function loadList(p = 1) {
   loading.value = true
   page.value = p
@@ -308,6 +344,8 @@ function startEdit(pet) {
   editCustoms.value = achievements.filter(a => !a.is_default).map(a => ({ ...a }))
   showAddText.value = false
   showAddSkill.value = false
+  showSiblingPanel.value = false
+  siblings.value = []
 }
 
 function cancelEdit() {
@@ -316,6 +354,8 @@ function cancelEdit() {
   editCustoms.value = []
   showAddText.value = false
   showAddSkill.value = false
+  showSiblingPanel.value = false
+  siblings.value = []
 }
 
 async function toggleHidden(achievement) {
@@ -396,6 +436,41 @@ function confirmAddSkill() {
   })
   showAddSkill.value = false
   selectedSkill.value = null
+}
+
+async function loadSiblings(pet) {
+  if (showSiblingPanel.value) { showSiblingPanel.value = false; return }
+  loadingSiblings.value = true
+  try {
+    const res = await adminApi.getPetSiblings(pet.uid)
+    siblings.value = res.siblings || []
+    showSiblingPanel.value = true
+  } catch (err) {
+    await modal.alert('加载失败', err.message)
+  } finally {
+    loadingSiblings.value = false
+  }
+}
+
+function copySiblingAchievements(sib) {
+  const copied = sib.achievements.map(a => ({
+    type: a.type,
+    title: a.title || null,
+    skill_ref_uid: a.skill_ref_uid || null,
+    skill_name: a.skill_name || null,
+    use_count: a.use_count || 0,
+    reward_desc: a.reward_desc || null,
+    skill_icon: a.skill_icon || null,
+  }))
+  // Append to existing customs (avoid duplicates by skill_ref_uid)
+  for (const c of copied) {
+    if (c.type === 'skill' && c.skill_ref_uid) {
+      const exists = editCustoms.value.some(e => e.type === 'skill' && e.skill_ref_uid === c.skill_ref_uid)
+      if (exists) continue
+    }
+    editCustoms.value.push(c)
+  }
+  showSiblingPanel.value = false
 }
 
 async function saveEdit(uid) {
