@@ -22,6 +22,7 @@ export default defineConfig({
     outDir: path.resolve(__dirname, '..', 'server', 'public'),
     emptyOutDir: true,
     cssCodeSplit: true,
+    sourcemap: false,
     chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
@@ -30,5 +31,8 @@ export default defineConfig({
         },
       },
     },
+  },
+  esbuild: {
+    drop: ['console', 'debugger'],
   },
 })

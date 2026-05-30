@@ -24,6 +24,9 @@ function apiCache(ttlSeconds = 300) {
     const cached = cache.get(key);
 
     if (cached && Date.now() - cached.time < cached.ttl) {
+      // LRU: move to end on hit (delete + re-insert keeps Map insertion order)
+      cache.delete(key);
+      cache.set(key, cached);
       res.set('X-Cache', 'HIT');
       return res.json(cached.data);
     }

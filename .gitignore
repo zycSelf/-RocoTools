@@ -64,6 +64,8 @@ desktop.ini
 # 日志 / 临时文件
 # ============================================================
 *.log
+app/server/logs/*
+!app/server/logs/.gitkeep
 data/**/*_log.txt
 data/**/_update_filter.json
 

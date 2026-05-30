@@ -123,7 +123,7 @@ npm run dev          # http://localhost:5173
 
 ```bash
 cd app/client && npm run build
-pm2 start app/server/src/index.js --name roco -i 2
+cd app/server && pm2 start ecosystem.config.js
 ```
 
 ## API 接口

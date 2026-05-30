@@ -124,13 +124,41 @@ function list({ page = 1, limit = 50, element_id, egg_group, search, sort_by = '
     LIMIT ? OFFSET ?
   `).all(...params, safeLimit, offset);
 
-  // 查询每个精灵的形态数量
-  const variantCountStmt = db.prepare('SELECT COUNT(*) as c FROM pets WHERE pet_id = ?');
+  // Batch query: egg groups for all pets in this page
+  const uids = rows.map(r => r.uid);
+  const petIds = [...new Set(rows.map(r => r.pet_id))];
+
+  // Batch egg groups: one query for all uids
+  const eggGroupMap = {};
+  if (uids.length > 0) {
+    const ph = uids.map(() => '?').join(',');
+    const eggRows = db.prepare(`
+      SELECT peg.pet_uid, eg.id, eg.name FROM pet_egg_groups peg
+      JOIN egg_groups eg ON peg.egg_group_id = eg.id
+      WHERE peg.pet_uid IN (${ph})
+    `).all(...uids);
+    for (const row of eggRows) {
+      if (!eggGroupMap[row.pet_uid]) eggGroupMap[row.pet_uid] = [];
+      eggGroupMap[row.pet_uid].push({ id: row.id, name: row.name });
+    }
+  }
+
+  // Batch variant counts: one query for all pet_ids
+  const variantCountMap = {};
+  if (petIds.length > 0) {
+    const ph = petIds.map(() => '?').join(',');
+    const vcRows = db.prepare(`
+      SELECT pet_id, COUNT(*) as c FROM pets WHERE pet_id IN (${ph}) GROUP BY pet_id
+    `).all(...petIds);
+    for (const row of vcRows) {
+      variantCountMap[row.pet_id] = row.c;
+    }
+  }
 
   const pets = rows.map(r => ({
     ...r,
-    egg_groups: eggStmt.all(r.uid),
-    variant_count: variantCountStmt.get(r.pet_id).c,
+    egg_groups: eggGroupMap[r.uid] || [],
+    variant_count: variantCountMap[r.pet_id] || 1,
   }));
 
   return { total, page: +page, limit: safeLimit, pets };

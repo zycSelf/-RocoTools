@@ -24,6 +24,9 @@ function getDb() {
   if (!_db) {
     _db = new Database(DB_PATH, { readonly: true });
     _db.pragma('journal_mode = WAL');
+    _db.pragma('synchronous = NORMAL');
+    _db.pragma('cache_size = -8000');   // 8MB page cache
+    _db.pragma('temp_store = MEMORY');
   }
   return _db;
 }
@@ -34,7 +37,10 @@ function getDb() {
 function getWriteDb() {
   const db = new Database(DB_PATH);
   db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
   db.pragma('foreign_keys = ON');
+  db.pragma('cache_size = -4000');    // 4MB page cache
+  db.pragma('temp_store = MEMORY');
   return db;
 }
 

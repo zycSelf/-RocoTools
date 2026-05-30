@@ -117,9 +117,10 @@ npm run dev              # http://localhost:5173
 # 构建前端
 cd app/client && npm run build
 
-# PM2 启动（零停机）
-pm2 start app/server/src/index.js --name roco -i 2
+# PM2 启动（零停机，含日志管理）
+cd app/server && pm2 start ecosystem.config.js
 pm2 save && pm2 startup
+pm2 install pm2-logrotate   # 日志轮转插件（首次部署执行一次）
 
 # 一键更新
 ./deploy.sh

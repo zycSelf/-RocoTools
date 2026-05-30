@@ -33,7 +33,7 @@ const PORT = process.env.PORT || 3000;
 
 // === Core middleware (must be first) ===
 app.use(cors());
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -54,8 +54,8 @@ app.use('/api/feedbacks', feedbacksRouter);
 // 管理端 API（不缓存）
 app.use('/api/admin', adminRouter);
 
-// 统计数据（首页概览）
-app.get('/api/stats', (req, res) => {
+// 统计数据（首页概览，缓存10分钟）
+app.get('/api/stats', apiCache(600), (req, res) => {
   const db = getDb();
   try {
     const pets = db.prepare('SELECT COUNT(DISTINCT pet_id) as c FROM pets').get().c;
