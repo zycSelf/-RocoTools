@@ -50,15 +50,15 @@
             <div v-else class="w-12 h-12 rounded-lg bg-gray-200 dark:bg-white/10"></div>
           </div>
           <!-- Name -->
-          <div class="flex-1 min-w-[120px]">
+          <div class="flex-1 min-w-[120px] flex items-center">
             <span class="text-base font-medium" :style="{ color: skill.element_color || '' }">{{ skill.name }}</span>
           </div>
           <!-- UID -->
-          <div class="flex-shrink-0 w-[100px]">
+          <div class="flex-shrink-0 w-[100px] flex items-center">
             <span class="text-xs text-muted font-mono">{{ skill.uid }}</span>
           </div>
           <!-- Element badge -->
-          <div class="flex-shrink-0 w-[90px]">
+          <div class="flex-shrink-0 w-[90px] flex items-center">
             <span v-if="skill.element_name" class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
               :style="{ backgroundColor: (skill.element_color || '#888') + '18', color: skill.element_color || '#888' }">
               <img v-if="skill.element_icon" :src="skill.element_icon" class="w-4 h-4" />
@@ -66,7 +66,7 @@
             </span>
           </div>
           <!-- Category badge -->
-          <div class="flex-shrink-0 w-[64px]">
+          <div class="flex-shrink-0 w-[64px] flex items-center">
             <span v-if="skill.category" class="text-xs px-2 py-0.5 rounded-full font-medium"
               :class="skill.category === '物攻' ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400' :
                       skill.category === '魔攻' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' :
@@ -75,7 +75,7 @@
             </span>
           </div>
           <!-- Power -->
-          <div class="flex-shrink-0 w-[56px] text-right">
+          <div class="flex-shrink-0 w-[56px] flex items-center justify-end">
             <span v-if="skill.power" class="text-sm font-bold"
               :style="{ color: skill.element_color || '#D69F23' }">
               {{ skill.power }}
@@ -83,7 +83,7 @@
             <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
           </div>
           <!-- Cost -->
-          <div class="flex-shrink-0 w-[48px] text-right">
+          <div class="flex-shrink-0 w-[48px] flex items-center justify-end">
             <span v-if="skill.cost" class="text-sm text-muted">{{ skill.cost }}</span>
             <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
           </div>
