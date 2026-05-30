@@ -34,7 +34,7 @@
     <div v-else class="space-y-3">
       <div v-for="pet in pets" :key="pet.uid" class="card">
         <!-- Pet header -->
-        <div class="flex items-center gap-3 mb-2">
+        <div class="flex items-center gap-3">
           <img :src="pet.thumb_url" :alt="pet.name"
             class="w-10 h-10 rounded-full object-cover bg-gray-100 dark:bg-white/5 flex-shrink-0"
             @error="e => e.target.style.display='none'" />
@@ -49,120 +49,169 @@
               <span v-if="pet.has_boss_form && !pet.is_boss_form" class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">有首领形态</span>
             </div>
           </div>
-        </div>
-
-        <!-- Boss form notice -->
-        <div v-if="pet.is_boss_form" class="text-sm text-muted italic pl-13">
-          ⚠️ 首领形态，不展示图鉴课题
-        </div>
-
-        <!-- Achievement summary -->
-        <template v-else>
-          <div class="pl-13 text-xs space-y-1" v-if="editingUid !== pet.uid">
-            <div class="text-muted">
-              <span class="font-medium">默认({{ pet.default_count }})：</span>
-              <span v-if="pet.default_count > 0">
-                {{ getDefaultTitles(pet) }}
-              </span>
-              <span v-else class="italic">无</span>
-              <span v-if="pet.hidden_count > 0" class="ml-1 text-orange-500">（{{ pet.hidden_count }}项已隐藏）</span>
-            </div>
-            <div class="text-muted">
-              <span class="font-medium">自定义({{ pet.custom_count }})：</span>
-              <span v-if="pet.custom_count > 0">
-                {{ getCustomTitles(pet) }}
-              </span>
-              <span v-else class="italic">暂无</span>
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div class="pl-13 mt-2 flex gap-2" v-if="editingUid !== pet.uid">
+          <!-- Quick actions (non-editing) -->
+          <div v-if="!pet.is_boss_form && editingUid !== pet.uid" class="flex gap-2 flex-shrink-0">
             <button @click="startEdit(pet)" class="text-xs text-primary-500 hover:underline">编辑课题</button>
             <router-link :to="`/admin/pets/${pet.uid}`" class="text-xs text-muted hover:text-primary-500">跳转详情</router-link>
           </div>
+        </div>
 
-          <!-- Inline editor -->
-          <div v-if="editingUid === pet.uid" class="pl-13 mt-3 border-t pt-3 dark:border-white/10">
-            <!-- Default achievements -->
-            <div class="mb-3">
-              <div class="text-xs font-medium text-muted mb-2">📋 默认课题：</div>
-              <div class="space-y-1.5">
-                <div v-for="a in editDefaults" :key="a.id"
-                  class="flex items-center justify-between text-sm"
-                  :class="a.hidden ? 'line-through opacity-50' : ''">
-                  <span>{{ a.title || '(无标题)' }}</span>
-                  <button @click="toggleHidden(a)" class="text-xs px-2 py-0.5 rounded"
-                    :class="a.hidden ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-green-100 text-green-600 dark:bg-green-500/10 dark:text-green-400'">
-                    {{ a.hidden ? '已隐藏' : '显示中' }}
-                  </button>
-                </div>
-                <div v-if="editDefaults.length === 0" class="text-xs text-muted italic">无默认课题</div>
+        <!-- Boss form notice -->
+        <div v-if="pet.is_boss_form" class="text-sm text-muted italic mt-2 pl-13">
+          ⚠️ 首领形态，不展示图鉴课题
+        </div>
+
+        <!-- Achievement cards (summary mode) -->
+        <template v-else-if="editingUid !== pet.uid">
+          <div class="mt-3 space-y-1.5 pl-13">
+            <div v-for="a in pet.achievements" :key="a.id"
+              class="flex items-center gap-2 p-2 rounded-lg text-xs"
+              :class="[a.hidden ? 'bg-gray-100/50 dark:bg-white/[0.02] opacity-50' : 'bg-gray-50 dark:bg-white/5']">
+              <!-- Type badge -->
+              <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                :class="a.is_default ? 'bg-green-100 dark:bg-green-500/15 text-green-600 dark:text-green-400' : (a.type === 'skill' ? 'bg-primary-500/15 text-primary-500' : 'bg-gray-200 dark:bg-white/10 text-muted')">
+                {{ a.is_default ? '默认' : (a.type === 'skill' ? '技能' : '文本') }}
+              </span>
+              <!-- Content -->
+              <div class="flex-1 min-w-0">
+                <template v-if="a.type === 'skill' && !a.is_default">
+                  <div class="flex items-center gap-2">
+                    <img v-if="a.skill_icon" :src="a.skill_icon" class="w-5 h-5 rounded object-contain flex-shrink-0" />
+                    <span class="font-medium" :class="a.hidden ? 'line-through' : ''">使用{{ a.use_count }}次{{ a.skill_name }}</span>
+                    <span v-if="a.reward_desc" class="text-muted ml-1">[{{ a.reward_desc }}]</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <span :class="a.hidden ? 'line-through text-muted' : ''">{{ a.title }}</span>
+                  <span v-if="!a.is_default && a.reward_desc" class="text-muted ml-1">[{{ a.reward_desc }}]</span>
+                </template>
               </div>
+              <!-- Hidden indicator -->
+              <span v-if="a.hidden" class="text-[10px] text-red-400 flex-shrink-0">已隐藏</span>
             </div>
+            <!-- Empty state -->
+            <div v-if="!pet.achievements || pet.achievements.length === 0" class="text-xs text-muted italic py-2">
+              暂无课题配置
+            </div>
+          </div>
+        </template>
 
-            <!-- Custom achievements -->
-            <div class="mb-3">
-              <div class="text-xs font-medium text-muted mb-2">✏️ 自定义课题：</div>
-              <div class="space-y-2">
-                <div v-for="(a, idx) in editCustoms" :key="idx"
-                  class="flex items-center gap-2 text-sm">
-                  <span v-if="a.type === 'skill'" class="text-xs">🎯</span>
-                  <span v-else class="text-xs">📝</span>
-                  <span class="flex-1">
-                    <template v-if="a.type === 'skill'">
-                      使用{{ a.use_count }}次{{ a.skill_name }}
-                      <span v-if="a.reward_desc" class="text-muted text-xs ml-1">[{{ a.reward_desc }}]</span>
-                    </template>
-                    <template v-else>{{ a.title }}</template>
-                  </span>
-                  <button @click="editCustoms.splice(idx, 1)" class="text-xs text-red-500 hover:underline">删除</button>
+        <!-- ========== Inline Editor ========== -->
+        <template v-else>
+          <div class="mt-3 pl-13 border-t pt-3 dark:border-white/10">
+            <!-- All achievements in card style -->
+            <div class="space-y-2 mb-3">
+              <!-- Default achievements -->
+              <div v-for="a in editDefaults" :key="'d-' + a.id"
+                class="flex items-center gap-2 p-3 rounded-lg"
+                :class="[a.hidden ? 'bg-gray-100/50 dark:bg-white/[0.02] opacity-60' : 'bg-gray-50 dark:bg-white/5']">
+                <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 bg-green-100 dark:bg-green-500/15 text-green-600 dark:text-green-400">默认</span>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs" :class="a.hidden ? 'line-through text-muted' : ''">{{ a.title }}</div>
                 </div>
-                <div v-if="editCustoms.length === 0" class="text-xs text-muted italic">暂无自定义课题</div>
+                <button @click="toggleHidden(a)" class="text-sm flex-shrink-0" :title="a.hidden ? '点击显示' : '点击隐藏'">
+                  {{ a.hidden ? '👁️‍🗨️' : '👁️' }}
+                </button>
               </div>
+
+              <!-- Custom achievements -->
+              <div v-for="(a, idx) in editCustoms" :key="'c-' + idx"
+                class="flex items-center gap-2 p-3 rounded-lg bg-gray-50 dark:bg-white/5">
+                <!-- Type badge -->
+                <span class="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                  :class="a.type === 'skill' ? 'bg-primary-500/15 text-primary-500' : 'bg-gray-200 dark:bg-white/10 text-muted'">
+                  {{ a.type === 'skill' ? '技能' : '文本' }}
+                </span>
+                <!-- Content -->
+                <div class="flex-1 min-w-0">
+                  <template v-if="a.type === 'skill'">
+                    <div class="flex items-center gap-2">
+                      <img v-if="a.skill_icon" :src="a.skill_icon" class="w-6 h-6 rounded object-contain flex-shrink-0" />
+                      <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium">使用{{ a.use_count }}次{{ a.skill_name }}</div>
+                        <div v-if="a.reward_desc" class="text-[10px] text-muted">奖励：{{ a.reward_desc }}</div>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="text-xs font-medium">{{ a.title }}</div>
+                    <div v-if="a.reward_desc" class="text-[10px] text-muted">奖励：{{ a.reward_desc }}</div>
+                  </template>
+                </div>
+                <!-- Actions -->
+                <button @click="editCustoms.splice(idx, 1)" class="text-red-400 hover:text-red-600 text-xs flex-shrink-0" title="删除">✕</button>
+              </div>
+
+              <div v-if="editDefaults.length === 0 && editCustoms.length === 0" class="text-center text-xs text-muted py-4">暂无课题</div>
             </div>
 
             <!-- Add buttons -->
-            <div class="flex flex-wrap gap-2 mb-3">
-              <button @click="addTextAchievement" class="text-xs btn-outline">+ 添加文本课题</button>
-              <button @click="addSkillAchievement" class="text-xs btn-outline">+ 添加技能课题</button>
+            <div class="flex gap-2 mb-3">
+              <button @click="addSkillAchievement" class="text-xs text-primary-500 hover:underline">+ 添加技能课题</button>
+              <button @click="addTextAchievement" class="text-xs text-primary-500 hover:underline">+ 添加文本课题</button>
             </div>
 
-            <!-- Add form (text) -->
+            <!-- Add text form -->
             <div v-if="showAddText" class="p-3 rounded-lg bg-gray-50 dark:bg-white/5 mb-3 space-y-2">
-              <input v-model="newText.title" placeholder="课题标题" class="input w-full text-sm" />
-              <input v-model="newText.reward_desc" placeholder="奖励描述（可选）" class="input w-full text-sm" />
-              <div class="flex gap-2">
+              <div class="text-xs font-medium text-muted mb-1">添加文本课题</div>
+              <input v-model="newText.title" placeholder="课题描述（如：累计登录7天）" class="input w-full text-xs" />
+              <input v-model="newText.reward_desc" placeholder="奖励描述（可选）" class="input w-full text-xs" />
+              <div class="flex gap-2 pt-1">
                 <button @click="confirmAddText" class="btn text-xs">确认添加</button>
                 <button @click="showAddText = false" class="text-xs text-muted hover:underline">取消</button>
               </div>
             </div>
 
-            <!-- Add form (skill) -->
-            <div v-if="showAddSkill" class="p-3 rounded-lg bg-gray-50 dark:bg-white/5 mb-3 space-y-2">
-              <input v-model="skillSearchQuery" @input="searchSkills" placeholder="搜索技能名称..." class="input w-full text-sm" />
-              <div v-if="skillResults.length > 0" class="max-h-32 overflow-y-auto space-y-1">
-                <button v-for="sk in skillResults" :key="sk.uid" @click="selectSkill(sk)"
-                  class="block w-full text-left text-sm px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-500/10">
-                  {{ sk.name }} <span class="text-xs text-muted">({{ sk.element_name }})</span>
-                </button>
-              </div>
-              <div v-if="selectedSkill" class="text-sm">
-                已选：<span class="font-medium">{{ selectedSkill.name }}</span>
-                <div class="flex items-center gap-2 mt-1">
-                  <label class="text-xs text-muted">使用次数：</label>
-                  <input v-model.number="newSkill.use_count" type="number" min="1" max="99" class="input w-16 text-sm" />
+            <!-- Add skill form -->
+            <div v-if="showAddSkill" class="p-3 rounded-lg bg-gray-50 dark:bg-white/5 mb-3">
+              <div class="text-xs font-medium text-muted mb-2">添加技能课题</div>
+              <!-- Skill search -->
+              <div class="relative mb-2">
+                <input v-model="skillSearchQuery" @input="searchSkills" placeholder="搜索技能名称..."
+                  class="input w-full text-xs" />
+                <!-- Skill dropdown results -->
+                <div v-if="skillResults.length > 0"
+                  class="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto rounded-lg border shadow-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                  <div v-for="sk in skillResults" :key="sk.uid"
+                    @click="selectSkill(sk)"
+                    class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                    <img v-if="sk.element_icon" :src="sk.element_icon" class="w-5 h-5 object-contain flex-shrink-0 rounded" />
+                    <div v-else class="w-5 h-5 rounded bg-gray-200 dark:bg-white/10 flex-shrink-0"></div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs font-medium truncate">{{ sk.name }}</div>
+                      <div class="text-[10px] text-muted">{{ sk.element_name || '无属性' }} · {{ sk.category || '-' }} · 威力 {{ sk.power || '-' }}</div>
+                    </div>
+                  </div>
                 </div>
-                <input v-model="newSkill.reward_desc" placeholder="奖励描述（可选，如：「技能名」技能石）" class="input w-full text-sm mt-1" />
               </div>
-              <div class="flex gap-2">
+              <!-- Selected skill display -->
+              <div v-if="selectedSkill" class="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-700 mb-2">
+                <img v-if="selectedSkill.element_icon" :src="selectedSkill.element_icon" class="w-6 h-6 object-contain flex-shrink-0 rounded" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-medium truncate">{{ selectedSkill.name }}</div>
+                  <div class="text-[10px] text-muted">{{ selectedSkill.element_name || '无属性' }} · {{ selectedSkill.category || '-' }} · 威力 {{ selectedSkill.power || '-' }}</div>
+                </div>
+                <button @click="selectedSkill = null" class="text-[10px] text-muted hover:text-red-500 flex-shrink-0">✕</button>
+              </div>
+              <!-- Use count & reward -->
+              <div v-if="selectedSkill" class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-muted">使用次数</span>
+                  <input v-model.number="newSkill.use_count" type="number" min="1" max="99" class="input text-xs w-16 text-center" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-muted">奖励描述</span>
+                  <input v-model="newSkill.reward_desc" class="input text-xs flex-1" placeholder="如：「技能名」技能石" />
+                </div>
+              </div>
+              <div class="flex gap-2 pt-2">
                 <button @click="confirmAddSkill" :disabled="!selectedSkill" class="btn text-xs">确认添加</button>
                 <button @click="showAddSkill = false" class="text-xs text-muted hover:underline">取消</button>
               </div>
             </div>
 
             <!-- Save/Cancel -->
-            <div class="flex justify-end gap-2 pt-2 border-t dark:border-white/10">
+            <div class="flex justify-end gap-3 pt-2 border-t dark:border-white/10">
               <button @click="cancelEdit" class="text-xs text-muted hover:underline">取消</button>
               <button @click="saveEdit(pet.uid)" :disabled="saving" class="btn text-xs">
                 {{ saving ? '保存中...' : '💾 保存课题' }}
@@ -252,21 +301,6 @@ async function loadList(p = 1) {
   }
 }
 
-function getDefaultTitles(pet) {
-  const defaults = (pet.achievements || []).filter(a => a.is_default)
-  if (defaults.length === 0) return ''
-  if (defaults.length <= 3) return defaults.map(a => a.title).join(' | ')
-  return defaults.slice(0, 2).map(a => a.title).join(' | ') + ` | ...共${defaults.length}项`
-}
-
-function getCustomTitles(pet) {
-  const customs = (pet.achievements || []).filter(a => !a.is_default)
-  return customs.map(a => {
-    if (a.type === 'skill') return `🎯 使用${a.use_count}次${a.skill_name}`
-    return `📝 ${a.title}`
-  }).join(' | ')
-}
-
 function startEdit(pet) {
   editingUid.value = pet.uid
   const achievements = pet.achievements || []
@@ -316,6 +350,7 @@ function confirmAddText() {
     skill_ref_uid: null,
     skill_name: null,
     use_count: 0,
+    skill_icon: null,
   })
   showAddText.value = false
 }
@@ -357,6 +392,7 @@ function confirmAddSkill() {
     skill_name: selectedSkill.value.name,
     use_count: newSkill.use_count || 2,
     reward_desc: newSkill.reward_desc.trim() || null,
+    skill_icon: selectedSkill.value.element_icon || null,
   })
   showAddSkill.value = false
   selectedSkill.value = null
@@ -388,14 +424,5 @@ onMounted(async () => {
 <style scoped>
 .pl-13 {
   padding-left: 3.25rem;
-}
-
-.btn-outline {
-  @apply px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors;
-  @apply border-primary-300 text-primary-600 hover:bg-primary-50;
-}
-
-.dark .btn-outline {
-  @apply border-primary-500/30 text-primary-400 hover:bg-primary-500/10;
 }
 </style>
